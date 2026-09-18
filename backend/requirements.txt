@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+python-dotenv
+SQLAlchemy>=2.0,<2.1
+psycopg[binary]>=3.2,<4
+alembic>=1.13,<2
+pydantic>=2,<3
+httpx>=0.27,<1
+pgvector

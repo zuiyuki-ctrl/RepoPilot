@@ -1,0 +1,17 @@
+# 本地 Python 环境
+.venv/
+
+# Python 和测试缓存
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# 本地真实配置
+.env
+
+# IDE 个人配置
+.idea/
+.vscode/
+
+# 本地测试仓库及工作副本
+/test-data/

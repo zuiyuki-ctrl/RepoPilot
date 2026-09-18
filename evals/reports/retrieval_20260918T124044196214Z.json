@@ -1,0 +1,277 @@
+{
+  "dataset_version": "retrieval-v1",
+  "repository_id": "3032e1ed-3a93-4980-9b86-eadc69f20084",
+  "repository_commit": "6e5522e91370770c476f8177a2b834de9b339b22",
+  "embedding_model": "text-embedding-v4",
+  "embedding_dimensions": 1024,
+  "strategy": "vector_cosine_top5",
+  "evaluated_at": "2026-09-18T12:40:44.195672+00:00",
+  "case_count": 3,
+  "error_count": 0,
+  "macro_recall_at_1": 1.0,
+  "macro_recall_at_3": 1.0,
+  "macro_recall_at_5": 1.0,
+  "cases": [
+    {
+      "id": "sum-function",
+      "query": "哪个函数计算两个数的和？",
+      "expected_targets": [
+        {
+          "file_path": "app.py",
+          "symbol_name": "add"
+        }
+      ],
+      "status": "ok",
+      "recall_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "recall_at_5": 1.0,
+      "hits": [
+        {
+          "chunk": {
+            "id": "812ada29-53f8-48f3-b956-99e16e4dd408",
+            "repository_id": "3032e1ed-3a93-4980-9b86-eadc69f20084",
+            "file_id": "c3d3cb62-0b17-47f3-b035-4cfd5e6656a6",
+            "file_path": "app.py",
+            "symbol_name": "add",
+            "symbol_type": "function",
+            "content": "def add(a, b):\n    return a + b\n",
+            "start_line": 1,
+            "end_line": 2
+          },
+          "distance": 0.37680199007999726
+        },
+        {
+          "chunk": {
+            "id": "962b3e33-cec4-4dbb-9a94-84a2ce851063",
+            "repository_id": "3032e1ed-3a93-4980-9b86-eadc69f20084",
+            "file_id": "03aadc18-fccd-495e-9acc-ed34ff93cdff",
+            "file_path": "nested.py",
+            "symbol_name": "outer",
+            "symbol_type": "function",
+            "content": "def outer():\n    def inner():\n        return 1\n    return inner()",
+            "start_line": 1,
+            "end_line": 4
+          },
+          "distance": 0.6607201397418951
+        },
+        {
+          "chunk": {
+            "id": "f084ccaf-9611-46a6-816b-cfef0415e5f6",
+            "repository_id": "3032e1ed-3a93-4980-9b86-eadc69f20084",
+            "file_id": "c3d3cb62-0b17-47f3-b035-4cfd5e6656a6",
+            "file_path": "app.py",
+            "symbol_name": "Greeter",
+            "symbol_type": "class",
+            "content": "class Greeter:\n    def greet(self):\n        return \"hello\"",
+            "start_line": 7,
+            "end_line": 9
+          },
+          "distance": 0.669796676003338
+        },
+        {
+          "chunk": {
+            "id": "ff6f250f-86c8-4967-bf4b-b8f01013f127",
+            "repository_id": "3032e1ed-3a93-4980-9b86-eadc69f20084",
+            "file_id": "7429e53a-cbee-4100-a003-2599961787b4",
+            "file_path": "pkg/helpers.py",
+            "symbol_name": "decorated",
+            "symbol_type": "function",
+            "content": "@decorate\ndef decorated():\n    return 42",
+            "start_line": 1,
+            "end_line": 3
+          },
+          "distance": 0.6730221017016227
+        },
+        {
+          "chunk": {
+            "id": "0943e88e-d0c2-47f4-b93b-faa76630d3fd",
+            "repository_id": "3032e1ed-3a93-4980-9b86-eadc69f20084",
+            "file_id": "c3d3cb62-0b17-47f3-b035-4cfd5e6656a6",
+            "file_path": "app.py",
+            "symbol_name": "ping",
+            "symbol_type": "function",
+            "content": "async def ping():\n    return \"pong\"\n",
+            "start_line": 4,
+            "end_line": 5
+          },
+          "distance": 0.681899479854045
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "async-ping",
+      "query": "哪个异步函数返回 pong？",
+      "expected_targets": [
+        {
+          "file_path": "app.py",
+          "symbol_name": "ping"
+        }
+      ],
+      "status": "ok",
+      "recall_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "recall_at_5": 1.0,
+      "hits": [
+        {
+          "chunk": {
+            "id": "0943e88e-d0c2-47f4-b93b-faa76630d3fd",
+            "repository_id": "3032e1ed-3a93-4980-9b86-eadc69f20084",
+            "file_id": "c3d3cb62-0b17-47f3-b035-4cfd5e6656a6",
+            "file_path": "app.py",
+            "symbol_name": "ping",
+            "symbol_type": "function",
+            "content": "async def ping():\n    return \"pong\"\n",
+            "start_line": 4,
+            "end_line": 5
+          },
+          "distance": 0.37345101675099124
+        },
+        {
+          "chunk": {
+            "id": "962b3e33-cec4-4dbb-9a94-84a2ce851063",
+            "repository_id": "3032e1ed-3a93-4980-9b86-eadc69f20084",
+            "file_id": "03aadc18-fccd-495e-9acc-ed34ff93cdff",
+            "file_path": "nested.py",
+            "symbol_name": "outer",
+            "symbol_type": "function",
+            "content": "def outer():\n    def inner():\n        return 1\n    return inner()",
+            "start_line": 1,
+            "end_line": 4
+          },
+          "distance": 0.5890180713523576
+        },
+        {
+          "chunk": {
+            "id": "812ada29-53f8-48f3-b956-99e16e4dd408",
+            "repository_id": "3032e1ed-3a93-4980-9b86-eadc69f20084",
+            "file_id": "c3d3cb62-0b17-47f3-b035-4cfd5e6656a6",
+            "file_path": "app.py",
+            "symbol_name": "add",
+            "symbol_type": "function",
+            "content": "def add(a, b):\n    return a + b\n",
+            "start_line": 1,
+            "end_line": 2
+          },
+          "distance": 0.64247265458107
+        },
+        {
+          "chunk": {
+            "id": "f084ccaf-9611-46a6-816b-cfef0415e5f6",
+            "repository_id": "3032e1ed-3a93-4980-9b86-eadc69f20084",
+            "file_id": "c3d3cb62-0b17-47f3-b035-4cfd5e6656a6",
+            "file_path": "app.py",
+            "symbol_name": "Greeter",
+            "symbol_type": "class",
+            "content": "class Greeter:\n    def greet(self):\n        return \"hello\"",
+            "start_line": 7,
+            "end_line": 9
+          },
+          "distance": 0.6659943361275573
+        },
+        {
+          "chunk": {
+            "id": "ff6f250f-86c8-4967-bf4b-b8f01013f127",
+            "repository_id": "3032e1ed-3a93-4980-9b86-eadc69f20084",
+            "file_id": "7429e53a-cbee-4100-a003-2599961787b4",
+            "file_path": "pkg/helpers.py",
+            "symbol_name": "decorated",
+            "symbol_type": "function",
+            "content": "@decorate\ndef decorated():\n    return 42",
+            "start_line": 1,
+            "end_line": 3
+          },
+          "distance": 0.6679418087005615
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "greeting-class",
+      "query": "哪个类提供返回 hello 的问候方法？",
+      "expected_targets": [
+        {
+          "file_path": "app.py",
+          "symbol_name": "Greeter"
+        }
+      ],
+      "status": "ok",
+      "recall_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "recall_at_5": 1.0,
+      "hits": [
+        {
+          "chunk": {
+            "id": "f084ccaf-9611-46a6-816b-cfef0415e5f6",
+            "repository_id": "3032e1ed-3a93-4980-9b86-eadc69f20084",
+            "file_id": "c3d3cb62-0b17-47f3-b035-4cfd5e6656a6",
+            "file_path": "app.py",
+            "symbol_name": "Greeter",
+            "symbol_type": "class",
+            "content": "class Greeter:\n    def greet(self):\n        return \"hello\"",
+            "start_line": 7,
+            "end_line": 9
+          },
+          "distance": 0.3737269898842235
+        },
+        {
+          "chunk": {
+            "id": "0943e88e-d0c2-47f4-b93b-faa76630d3fd",
+            "repository_id": "3032e1ed-3a93-4980-9b86-eadc69f20084",
+            "file_id": "c3d3cb62-0b17-47f3-b035-4cfd5e6656a6",
+            "file_path": "app.py",
+            "symbol_name": "ping",
+            "symbol_type": "function",
+            "content": "async def ping():\n    return \"pong\"\n",
+            "start_line": 4,
+            "end_line": 5
+          },
+          "distance": 0.6013010979862001
+        },
+        {
+          "chunk": {
+            "id": "ff6f250f-86c8-4967-bf4b-b8f01013f127",
+            "repository_id": "3032e1ed-3a93-4980-9b86-eadc69f20084",
+            "file_id": "7429e53a-cbee-4100-a003-2599961787b4",
+            "file_path": "pkg/helpers.py",
+            "symbol_name": "decorated",
+            "symbol_type": "function",
+            "content": "@decorate\ndef decorated():\n    return 42",
+            "start_line": 1,
+            "end_line": 3
+          },
+          "distance": 0.6242125518385335
+        },
+        {
+          "chunk": {
+            "id": "962b3e33-cec4-4dbb-9a94-84a2ce851063",
+            "repository_id": "3032e1ed-3a93-4980-9b86-eadc69f20084",
+            "file_id": "03aadc18-fccd-495e-9acc-ed34ff93cdff",
+            "file_path": "nested.py",
+            "symbol_name": "outer",
+            "symbol_type": "function",
+            "content": "def outer():\n    def inner():\n        return 1\n    return inner()",
+            "start_line": 1,
+            "end_line": 4
+          },
+          "distance": 0.6813922917427917
+        },
+        {
+          "chunk": {
+            "id": "812ada29-53f8-48f3-b956-99e16e4dd408",
+            "repository_id": "3032e1ed-3a93-4980-9b86-eadc69f20084",
+            "file_id": "c3d3cb62-0b17-47f3-b035-4cfd5e6656a6",
+            "file_path": "app.py",
+            "symbol_name": "add",
+            "symbol_type": "function",
+            "content": "def add(a, b):\n    return a + b\n",
+            "start_line": 1,
+            "end_line": 2
+          },
+          "distance": 0.6916081217410599
+        }
+      ],
+      "error": null
+    }
+  ]
+}

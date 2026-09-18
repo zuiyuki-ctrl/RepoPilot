@@ -1,0 +1,28 @@
+{
+  "dataset_version": "retrieval-v1",
+  "repository_id": "3032e1ed-3a93-4980-9b86-eadc69f20084",
+  "repository_commit": "6e5522e91370770c476f8177a2b834de9b339b22",
+  "cases": [
+    {
+      "id": "sum-function",
+      "query": "哪个函数计算两个数的和？",
+      "expected_targets": [
+        {"file_path": "app.py", "symbol_name": "add"}
+      ]
+    },
+    {
+      "id": "async-ping",
+      "query": "哪个异步函数返回 pong？",
+      "expected_targets": [
+        {"file_path": "app.py", "symbol_name": "ping"}
+      ]
+    },
+    {
+      "id": "greeting-class",
+      "query": "哪个类提供返回 hello 的问候方法？",
+      "expected_targets": [
+        {"file_path": "app.py", "symbol_name": "Greeter"}
+      ]
+    }
+  ]
+}
