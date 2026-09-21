@@ -15,3 +15,15 @@ class FileSkippedError(Exception):
 
 class RepositoryBusyError(RuntimeError):
     """仓库当前被其他操作占用。"""
+
+class InvalidAnswerCitationError(RuntimeError):
+    """生成回答缺少引用，或引用了不存在的证据编号。"""
+
+class InvalidTaskInputError(ValueError):
+    """任务输入不符合业务要求。"""
+
+class TaskStateConflictError(RuntimeError):
+    """任务当前状态不允许执行。"""
+
+class TaskExecutionError(RuntimeError):
+    """任务执行无法完成。"""

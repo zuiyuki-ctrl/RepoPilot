@@ -1,0 +1,890 @@
+{
+  "dataset_version": "repopilot-retrieval-v2",
+  "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+  "repository_commit": "ce3414aca658d45819a93c8ecb2b6a46a347298a",
+  "embedding_model": "text-embedding-v4",
+  "embedding_dimensions": 1024,
+  "strategy": "vector_cosine_top5",
+  "evaluated_at": "2026-09-18T14:25:30.153237+00:00",
+  "case_count": 10,
+  "error_count": 0,
+  "macro_recall_at_1": 0.75,
+  "macro_recall_at_3": 1.0,
+  "macro_recall_at_5": 1.0,
+  "cases": [
+    {
+      "id": "source-path",
+      "query": "哪里检查输入的源码路径必须是存在的绝对目录？",
+      "expected_targets": [
+        {
+          "file_path": "backend/app/services/repository_source.py",
+          "symbol_name": "validate_source_path"
+        }
+      ],
+      "status": "ok",
+      "recall_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "recall_at_5": 1.0,
+      "hits": [
+        {
+          "chunk": {
+            "id": "9b660656-5754-4043-858c-aba9d3b9ff47",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "11547580-ae19-4bd5-bd2b-0cd02d322220",
+            "file_path": "backend/app/services/repository_source.py",
+            "symbol_name": "validate_source_path",
+            "symbol_type": "function",
+            "content": "def validate_source_path(source_path: str) -> Path:\r\n    path = Path(source_path)\r\n\r\n    # 1. 要求绝对路径，否则抛出 InvalidRepositoryInputError\r\n    if not path.is_absolute():\r\n        raise InvalidRepositoryInputError(\"Source path must be absolute\")\r\n\r\n    # 2. 解析真实路径，并要求路径存在\r\n    # 将 FileNotFoundError 转换成 InvalidRepositoryInputError\r\n    try:\r\n        resolve_path = path.resolve(strict=True)\r\n    except FileNotFoundError:\r\n        raise InvalidRepositoryInputError(\"Source path does not exist\")\r\n\r\n    # 3. 确认解析后的路径是目录\r\n    if not resolve_path.is_dir():\r\n        raise InvalidRepositoryInputError(\"Source path must be a directory\")\r\n\r\n    # 4. 返回解析后的 Path\r\n    return resolve_path\r\n",
+            "start_line": 77,
+            "end_line": 96
+          },
+          "distance": 0.3306355082231106
+        },
+        {
+          "chunk": {
+            "id": "cb06297b-6dde-4484-8909-af4373dc4b20",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "11547580-ae19-4bd5-bd2b-0cd02d322220",
+            "file_path": "backend/app/services/repository_source.py",
+            "symbol_name": "validate_git_root",
+            "symbol_type": "function",
+            "content": "def validate_git_root(source_path: Path) -> None:\r\n    result = _run_git(source_path, \"rev-parse\", \"--show-toplevel\")\r\n\r\n    # 1. returncode 不为 0：\r\n    #    抛 InvalidRepositoryInputError，\r\n    #    提示 \"Cannot inspect the supplied Git working tree\"\r\n    if result.returncode != 0:\r\n        raise InvalidRepositoryInputError(\"Cannot inspect the supplied Git working tree\")\r\n\r\n    # 2. 将 stdout 中的根目录转换为 Path：\r\n    #    Path(result.stdout.strip()).resolve(strict=True)\r\n    resolved = Path(result.stdout.strip()).resolve(strict=True)\r\n\r\n    # 3. 与已经规范化的 source_path 比较：\r\n    #    不相同时抛 InvalidRepositoryInputError，\r\n    #    提示 \"Source path must be the Git working tree root\"\r\n    if resolved != source_path:\r\n        raise InvalidRepositoryInputError(\"Source path must be the Git working tree root\")\r\n",
+            "start_line": 101,
+            "end_line": 118
+          },
+          "distance": 0.39343572933247506
+        },
+        {
+          "chunk": {
+            "id": "a1976807-609a-452a-b3ef-83c99a514a48",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "84a2f929-2c55-45db-86c6-1649c7125b40",
+            "file_path": "backend/app/services/repository_scanner.py",
+            "symbol_name": "_is_link_or_reparse_point",
+            "symbol_type": "function",
+            "content": "def _is_link_or_reparse_point(path: Path) -> bool:\r\n    file_stat = path.lstat()\r\n    attributes = getattr(file_stat, \"st_file_attributes\", 0)\r\n\r\n    # 1. 判断是否为符号链接\r\n    if stat.S_ISLNK(file_stat.st_mode):\r\n        return True\r\n\r\n    # 2. Windows 下，还需要判断是否为重解析点\r\n    if os.name == \"nt\" and (attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT):\r\n        return True\r\n\r\n    # 3. 任一条件成立返回 True，否则返回 False\r\n    return False\r\n",
+            "start_line": 20,
+            "end_line": 33
+          },
+          "distance": 0.4416511391609218
+        },
+        {
+          "chunk": {
+            "id": "1d115160-fe96-45fa-b4f3-399e881d1156",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "8741ca4b-9a20-4cfe-8380-f340e75e1186",
+            "file_path": "backend/app/services/workspace_service.py",
+            "symbol_name": "allocate_workspace",
+            "symbol_type": "function",
+            "content": "def allocate_workspace(\r\n    workspace_root: Path,\r\n    source_path: Path,\r\n) -> Path:\r\n    try:\r\n        root = workspace_root.resolve()\r\n        source = source_path.resolve(strict=True)\r\n\r\n        # 1. 如果 root 等于 source，或者位于 source 内部，拒绝\r\n        if root == source or root.is_relative_to(source):\r\n            raise WorkspaceCreationError(\"Workspace root must be outside the source repository\")\r\n\r\n        # 2. 创建 root，允许它已经存在\r\n        root.mkdir(parents=True, exist_ok=True)\r\n\r\n        # 3. 使用 uuid4().hex 生成子目录名\r\n        workspace_path = root / uuid4().hex\r\n\r\n        # 4. 创建子目录，不允许复用已有目录\r\n        # 提示：workspace_path.mkdir(exist_ok=False)\r\n        workspace_path.mkdir(exist_ok=False)\r\n    except OSError as exc:\r\n        raise WorkspaceCreationError(\"Cannot allocate workspace directory\") from exc\r\n\r\n    # 5. 返回新目录的 Path\r\n    return workspace_path\r\n",
+            "start_line": 16,
+            "end_line": 41
+          },
+          "distance": 0.4639938473701477
+        },
+        {
+          "chunk": {
+            "id": "56bfd220-41db-421c-80c0-c0aaf0dc8bc1",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "60b61f3e-436d-4eb4-92de-eca87866b838",
+            "file_path": "backend/app/core/exceptions.py",
+            "symbol_name": "RepositoryScanError",
+            "symbol_type": "class",
+            "content": "class RepositoryScanError(RuntimeError):\r\n    \"\"\"无法扫描工作目录\"\"\"\r\n",
+            "start_line": 10,
+            "end_line": 11
+          },
+          "distance": 0.4787373257435953
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "git-root",
+      "query": "哪里确认用户提供的目录就是 Git 工作区根目录？",
+      "expected_targets": [
+        {
+          "file_path": "backend/app/services/repository_source.py",
+          "symbol_name": "validate_git_root"
+        }
+      ],
+      "status": "ok",
+      "recall_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "recall_at_5": 1.0,
+      "hits": [
+        {
+          "chunk": {
+            "id": "cb06297b-6dde-4484-8909-af4373dc4b20",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "11547580-ae19-4bd5-bd2b-0cd02d322220",
+            "file_path": "backend/app/services/repository_source.py",
+            "symbol_name": "validate_git_root",
+            "symbol_type": "function",
+            "content": "def validate_git_root(source_path: Path) -> None:\r\n    result = _run_git(source_path, \"rev-parse\", \"--show-toplevel\")\r\n\r\n    # 1. returncode 不为 0：\r\n    #    抛 InvalidRepositoryInputError，\r\n    #    提示 \"Cannot inspect the supplied Git working tree\"\r\n    if result.returncode != 0:\r\n        raise InvalidRepositoryInputError(\"Cannot inspect the supplied Git working tree\")\r\n\r\n    # 2. 将 stdout 中的根目录转换为 Path：\r\n    #    Path(result.stdout.strip()).resolve(strict=True)\r\n    resolved = Path(result.stdout.strip()).resolve(strict=True)\r\n\r\n    # 3. 与已经规范化的 source_path 比较：\r\n    #    不相同时抛 InvalidRepositoryInputError，\r\n    #    提示 \"Source path must be the Git working tree root\"\r\n    if resolved != source_path:\r\n        raise InvalidRepositoryInputError(\"Source path must be the Git working tree root\")\r\n",
+            "start_line": 101,
+            "end_line": 118
+          },
+          "distance": 0.33155902247916913
+        },
+        {
+          "chunk": {
+            "id": "4be23625-e004-42c4-81f8-5784c593180e",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "8741ca4b-9a20-4cfe-8380-f340e75e1186",
+            "file_path": "backend/app/services/workspace_service.py",
+            "symbol_name": "populate_workspace",
+            "symbol_type": "function",
+            "content": "def populate_workspace(\r\n    source_path: Path,\r\n    workspace_path: Path,\r\n    commit_hash: str,\r\n) -> None:\r\n    _run_workspace_git(\r\n        \"clone\",\r\n        \"--no-local\",\r\n        \"--no-checkout\",\r\n        \"--template=\",\r\n        \"--\",\r\n        str(source_path),\r\n        str(workspace_path),\r\n    )\r\n\r\n    # 1. 在 workspace_path 中执行 checkout --detach commit_hash\r\n    _run_workspace_git(\r\n        \"-C\",\r\n        str(workspace_path),\r\n        \"-c\",\r\n        \"core.hooksPath=/dev/null\",\r\n        \"checkout\",\r\n        \"--detach\",\r\n        commit_hash\r\n    )\r\n\r\n    # 2. 读取副本 HEAD 对应的完整 commit ID\r\n    commit = _run_workspace_git(\r\n        \"-C\",\r\n        str(workspace_path),\r\n        \"rev-parse\",\r\n        \"--verify\",\r\n        \"HEAD^{commit}\"\r\n    )\r\n\r\n    # 3. 如果与 commit_hash 不一致，抛 WorkspaceCreationError\r\n    if commit != commit_hash:\r\n        raise WorkspaceCreationError(\"Workspace HEAD does not match the requested commit\")\r\n",
+            "start_line": 76,
+            "end_line": 113
+          },
+          "distance": 0.3783992077828354
+        },
+        {
+          "chunk": {
+            "id": "1d115160-fe96-45fa-b4f3-399e881d1156",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "8741ca4b-9a20-4cfe-8380-f340e75e1186",
+            "file_path": "backend/app/services/workspace_service.py",
+            "symbol_name": "allocate_workspace",
+            "symbol_type": "function",
+            "content": "def allocate_workspace(\r\n    workspace_root: Path,\r\n    source_path: Path,\r\n) -> Path:\r\n    try:\r\n        root = workspace_root.resolve()\r\n        source = source_path.resolve(strict=True)\r\n\r\n        # 1. 如果 root 等于 source，或者位于 source 内部，拒绝\r\n        if root == source or root.is_relative_to(source):\r\n            raise WorkspaceCreationError(\"Workspace root must be outside the source repository\")\r\n\r\n        # 2. 创建 root，允许它已经存在\r\n        root.mkdir(parents=True, exist_ok=True)\r\n\r\n        # 3. 使用 uuid4().hex 生成子目录名\r\n        workspace_path = root / uuid4().hex\r\n\r\n        # 4. 创建子目录，不允许复用已有目录\r\n        # 提示：workspace_path.mkdir(exist_ok=False)\r\n        workspace_path.mkdir(exist_ok=False)\r\n    except OSError as exc:\r\n        raise WorkspaceCreationError(\"Cannot allocate workspace directory\") from exc\r\n\r\n    # 5. 返回新目录的 Path\r\n    return workspace_path\r\n",
+            "start_line": 16,
+            "end_line": 41
+          },
+          "distance": 0.38456404209136963
+        },
+        {
+          "chunk": {
+            "id": "867633d3-e9c7-4cca-9583-30cedfed19ac",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "8741ca4b-9a20-4cfe-8380-f340e75e1186",
+            "file_path": "backend/app/services/workspace_service.py",
+            "symbol_name": "create_workspace",
+            "symbol_type": "function",
+            "content": "def create_workspace(\r\n    workspace_root: Path,\r\n    source_path: Path,\r\n    commit_hash: str,\r\n) -> Path:\r\n    workspace_path = allocate_workspace(\r\n        workspace_root,\r\n        source_path,\r\n    )\r\n\r\n    try:\r\n        populate_workspace(\r\n            source_path,\r\n            workspace_path,\r\n            commit_hash,\r\n        )\r\n    except Exception:\r\n        try:\r\n            cleanup_workspace(\r\n                workspace_root,\r\n                workspace_path,\r\n                source_path,\r\n            )\r\n        except Exception:\r\n            # checkout 失败后，删除又因权限失败，记录清理异常，再用最后的裸 raise 重新抛出原来的创建异常\r\n            logger.exception(\r\n                \"Workspace cleanup failed; residual directory: %s\",\r\n                workspace_path,\r\n            )\r\n\r\n        raise\r\n\r\n    return workspace_path\r\n",
+            "start_line": 192,
+            "end_line": 224
+          },
+          "distance": 0.399918591981017
+        },
+        {
+          "chunk": {
+            "id": "9c3ff43b-a423-40a8-aea0-7fad389dbb60",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "8741ca4b-9a20-4cfe-8380-f340e75e1186",
+            "file_path": "backend/app/services/workspace_service.py",
+            "symbol_name": "cleanup_workspace",
+            "symbol_type": "function",
+            "content": "def cleanup_workspace(\r\n    workspace_root: Path,\r\n    workspace_path: Path,\r\n    source_path: Path,\r\n) -> None:\r\n    try:\r\n        # 工作根目录\r\n        root = workspace_root.resolve()\r\n        target = workspace_path.resolve()\r\n        source = source_path.resolve()\r\n\r\n        # 1. target 必须是 root 的直接子目录\r\n        # 提示：target.parent != root 时拒绝\r\n        if target.parent != root:\r\n            raise WorkspaceCreationError(\"Workspace must be a direct child of the workspace root\")\r\n\r\n        # 2. target 不能等于源仓库、位于源仓库内，\r\n        #    也不能是源仓库的祖先目录\r\n        # 不能删除源仓库，也不能删除源仓库里的目录，\r\n        # 更不能删除包含源仓库的祖先目录。\r\n        if target == source or target.is_relative_to(source) or source.is_relative_to(target):\r\n            raise WorkspaceCreationError(\"Refusing to remove the source repository or overlapping paths\")\r\n\r\n        # 3. 目录已经不存在，直接返回\r\n        if not target.exists():\r\n            return\r\n\r\n        # 4. 通过以上检查后：\r\n        # rmtree 的失败回调：只为目标副本内的 Windows 普通只读文件解除只读并重试。\r\n        def handle_remove_error(func, path, exc_info):\r\n            error = exc_info[1]\r\n\r\n            # 只处理 Windows 上删除文件时的权限错误。\r\n            if (\r\n                    os.name != \"nt\"\r\n                    or not isinstance(error, PermissionError)\r\n                    or func not in (os.unlink, os.remove)\r\n            ):\r\n                raise error\r\n\r\n            file_path = Path(path)\r\n\r\n            # 不修改符号链接或 Windows 重解析点的属性。\r\n            file_stat = file_path.lstat()\r\n            attributes = getattr(file_stat, \"st_file_attributes\", 0)\r\n\r\n            if (\r\n                    stat.S_ISLNK(file_stat.st_mode)\r\n                    or attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT\r\n            ):\r\n                raise error\r\n\r\n            resolved_file = file_path.resolve(strict=True)\r\n\r\n            # 只允许修改目标副本内部的普通只读文件。\r\n            if (\r\n                    not resolved_file.is_relative_to(target)\r\n                    or not stat.S_ISREG(file_stat.st_mode)\r\n                    or not attributes & stat.FILE_ATTRIBUTE_READONLY\r\n            ):\r\n                raise error\r\n\r\n            os.chmod(file_path, stat.S_IWRITE)\r\n            func(path)\r\n\r\n        shutil.rmtree(target, onerror=handle_remove_error)\r\n\r\n    except OSError as exc:\r\n        raise WorkspaceCreationError(\r\n            \"Cannot clean up workspace directory\"\r\n        ) from exc\r\n",
+            "start_line": 118,
+            "end_line": 188
+          },
+          "distance": 0.4025452136993408
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "git-metadata",
+      "query": "哪里读取当前提交和分支，并拒绝有未提交修改的仓库？",
+      "expected_targets": [
+        {
+          "file_path": "backend/app/services/repository_source.py",
+          "symbol_name": "read_git_metadata"
+        }
+      ],
+      "status": "ok",
+      "recall_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "recall_at_5": 1.0,
+      "hits": [
+        {
+          "chunk": {
+            "id": "1b84365a-5df6-4e32-a2f5-fd6ee368322f",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "11547580-ae19-4bd5-bd2b-0cd02d322220",
+            "file_path": "backend/app/services/repository_source.py",
+            "symbol_name": "read_git_metadata",
+            "symbol_type": "function",
+            "content": "def read_git_metadata(source_path: Path) -> GitMetadata:\r\n    commit_result = _run_git(\r\n        source_path,\r\n        \"rev-parse\",\r\n        \"--verify\",\r\n        \"HEAD^{commit}\",\r\n    )\r\n\r\n    # 非零：抛 InvalidRepositoryInputError\r\n    # 提示 \"Cannot resolve a committed HEAD\"\r\n    # 成功：从 stdout.strip() 取得 commit_hash\r\n    if commit_result.returncode != 0:\r\n        raise InvalidRepositoryInputError(\"Cannot resolve a committed HEAD\")\r\n    commit_hash = commit_result.stdout.strip()\r\n\r\n    # symbolic-ref --quiet --short HEAD：取得当前分支\r\n    branch_result = _run_git(\r\n        source_path,\r\n        \"symbolic-ref\",\r\n        \"--quiet\",\r\n        \"--short\",\r\n        \"HEAD\",\r\n    )\r\n\r\n    # 退出码 0：stdout.strip() 是分支名\r\n    # 退出码 1：detached HEAD，git_branch = None\r\n    # 其他：抛 RepositoryInspectionError\r\n    if branch_result.returncode == 0:\r\n        branch = branch_result.stdout.strip()\r\n    elif branch_result.returncode == 1:\r\n        branch = None\r\n    else:\r\n        raise RepositoryInspectionError(\"Cannot read git branch\")\r\n\r\n    # status --porcelain=v1 --untracked-files=all --ignore-submodules=none：检查未提交内容\r\n    status_result = _run_git(\r\n        source_path,\r\n        \"status\",\r\n        \"--porcelain=v1\",\r\n        \"--untracked-files=all\",\r\n        \"--ignore-submodules=none\",\r\n    )\r\n\r\n    # 非零：抛 RepositoryInspectionError\r\n    # stdout 非空：抛 InvalidRepositoryInputError\r\n    # 提示 \"Repository must have a clean working tree\"\r\n    if status_result.returncode != 0:\r\n        raise RepositoryInspectionError(\"Cannot inspect Git working tree status\")\r\n    elif status_result.stdout != \"\":\r\n        raise InvalidRepositoryInputError(\"Repository must have a clean working tree\")\r\n\r\n    # 返回 GitMetadata\r\n    return GitMetadata(\r\n        commit_hash=commit_hash,\r\n        git_branch=branch\r\n    )\r\n",
+            "start_line": 18,
+            "end_line": 73
+          },
+          "distance": 0.37691716093318584
+        },
+        {
+          "chunk": {
+            "id": "cb06297b-6dde-4484-8909-af4373dc4b20",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "11547580-ae19-4bd5-bd2b-0cd02d322220",
+            "file_path": "backend/app/services/repository_source.py",
+            "symbol_name": "validate_git_root",
+            "symbol_type": "function",
+            "content": "def validate_git_root(source_path: Path) -> None:\r\n    result = _run_git(source_path, \"rev-parse\", \"--show-toplevel\")\r\n\r\n    # 1. returncode 不为 0：\r\n    #    抛 InvalidRepositoryInputError，\r\n    #    提示 \"Cannot inspect the supplied Git working tree\"\r\n    if result.returncode != 0:\r\n        raise InvalidRepositoryInputError(\"Cannot inspect the supplied Git working tree\")\r\n\r\n    # 2. 将 stdout 中的根目录转换为 Path：\r\n    #    Path(result.stdout.strip()).resolve(strict=True)\r\n    resolved = Path(result.stdout.strip()).resolve(strict=True)\r\n\r\n    # 3. 与已经规范化的 source_path 比较：\r\n    #    不相同时抛 InvalidRepositoryInputError，\r\n    #    提示 \"Source path must be the Git working tree root\"\r\n    if resolved != source_path:\r\n        raise InvalidRepositoryInputError(\"Source path must be the Git working tree root\")\r\n",
+            "start_line": 101,
+            "end_line": 118
+          },
+          "distance": 0.3779763499540646
+        },
+        {
+          "chunk": {
+            "id": "4be23625-e004-42c4-81f8-5784c593180e",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "8741ca4b-9a20-4cfe-8380-f340e75e1186",
+            "file_path": "backend/app/services/workspace_service.py",
+            "symbol_name": "populate_workspace",
+            "symbol_type": "function",
+            "content": "def populate_workspace(\r\n    source_path: Path,\r\n    workspace_path: Path,\r\n    commit_hash: str,\r\n) -> None:\r\n    _run_workspace_git(\r\n        \"clone\",\r\n        \"--no-local\",\r\n        \"--no-checkout\",\r\n        \"--template=\",\r\n        \"--\",\r\n        str(source_path),\r\n        str(workspace_path),\r\n    )\r\n\r\n    # 1. 在 workspace_path 中执行 checkout --detach commit_hash\r\n    _run_workspace_git(\r\n        \"-C\",\r\n        str(workspace_path),\r\n        \"-c\",\r\n        \"core.hooksPath=/dev/null\",\r\n        \"checkout\",\r\n        \"--detach\",\r\n        commit_hash\r\n    )\r\n\r\n    # 2. 读取副本 HEAD 对应的完整 commit ID\r\n    commit = _run_workspace_git(\r\n        \"-C\",\r\n        str(workspace_path),\r\n        \"rev-parse\",\r\n        \"--verify\",\r\n        \"HEAD^{commit}\"\r\n    )\r\n\r\n    # 3. 如果与 commit_hash 不一致，抛 WorkspaceCreationError\r\n    if commit != commit_hash:\r\n        raise WorkspaceCreationError(\"Workspace HEAD does not match the requested commit\")\r\n",
+            "start_line": 76,
+            "end_line": 113
+          },
+          "distance": 0.4264708590857629
+        },
+        {
+          "chunk": {
+            "id": "50bde8bc-4283-4bac-8b6b-3aa77ab23190",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "11547580-ae19-4bd5-bd2b-0cd02d322220",
+            "file_path": "backend/app/services/repository_source.py",
+            "symbol_name": "GitMetadata",
+            "symbol_type": "class",
+            "content": "@dataclass(frozen=True)\r\nclass GitMetadata:\r\n    # 注册时的提交和分支信息；detached HEAD 没有所属分支，git_branch 为 None。\r\n    commit_hash: str\r\n    git_branch: str | None\r\n",
+            "start_line": 8,
+            "end_line": 12
+          },
+          "distance": 0.4299297076505587
+        },
+        {
+          "chunk": {
+            "id": "2a346b04-11d5-4019-a68b-8ed029b28e2f",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "60b61f3e-436d-4eb4-92de-eca87866b838",
+            "file_path": "backend/app/core/exceptions.py",
+            "symbol_name": "RepositoryBusyError",
+            "symbol_type": "class",
+            "content": "class RepositoryBusyError(RuntimeError):\r\n    \"\"\"仓库当前被其他操作占用。\"\"\"",
+            "start_line": 16,
+            "end_line": 17
+          },
+          "distance": 0.4492641151828629
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "discover-python",
+      "query": "哪里遍历 Python 文件并排除虚拟环境等目录？",
+      "expected_targets": [
+        {
+          "file_path": "backend/app/services/repository_scanner.py",
+          "symbol_name": "discover_python_files"
+        }
+      ],
+      "status": "ok",
+      "recall_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "recall_at_5": 1.0,
+      "hits": [
+        {
+          "chunk": {
+            "id": "375b8a0c-459a-4d12-beca-184591e20f22",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "84a2f929-2c55-45db-86c6-1649c7125b40",
+            "file_path": "backend/app/services/repository_scanner.py",
+            "symbol_name": "discover_python_files",
+            "symbol_type": "function",
+            "content": "def discover_python_files(workspace_path: Path) -> list[Path]:\r\n    try:\r\n        # 1. 检查传入的根路径本身是否为链接或重解析点\r\n        # 如果是，抛 RepositoryScanError\r\n        if _is_link_or_reparse_point(workspace_path):\r\n            raise RepositoryScanError()\r\n\r\n        root = workspace_path.resolve(strict=True)\r\n\r\n        # 2. 确认 root 是目录，否则抛 RepositoryScanError\r\n        if not root.is_dir():\r\n            raise RepositoryScanError()\r\n\r\n        files: list[Path] = []\r\n\r\n        for current_dir, dirnames, filenames in os.walk(\r\n            root,\r\n            topdown=True,\r\n            followlinks=False,\r\n            onerror=_raise_walk_error,\r\n        ):\r\n            current_path = Path(current_dir)\r\n\r\n            # 3. 筛选可以进入的子目录\r\n            # - 名称不在 EXCLUDED_DIRS 中\r\n            # - 不是链接或重解析点\r\n            allowed_dirs = []\r\n\r\n            for dirname in dirnames:\r\n                directory_path = current_path / dirname\r\n\r\n                if dirname in EXCLUDED_DIRS:\r\n                    continue\r\n\r\n                if _is_link_or_reparse_point(directory_path):\r\n                    continue\r\n\r\n                allowed_dirs.append(dirname)\r\n\r\n            dirnames[:] = allowed_dirs\r\n\r\n            for filename in filenames:\r\n                file_path = current_path / filename\r\n\r\n                # 4. 跳过链接或重解析点\r\n                # 提示：continue\r\n                if _is_link_or_reparse_point(file_path):\r\n                    continue\r\n\r\n                # 5. 只保留扩展名为 .py 的普通文件\r\n                if file_path.suffix == \".py\" and file_path.is_file():\r\n                    # 6. 将符合要求的路径加入 files\r\n                    files.append(file_path)\r\n\r\n        # 7. 按仓库相对路径排序后返回\r\n        # 提示：sorted(files, key=...)\r\n        # 排序依据：path.relative_to(root).as_posix()\r\n        def relative_path_key(path: Path) -> str:\r\n            return path.relative_to(root).as_posix()\r\n\r\n        return sorted(files, key=relative_path_key)\r\n\r\n    except OSError as exc:\r\n        raise RepositoryScanError(\r\n            \"Cannot scan workspace files\"\r\n        ) from exc\r\n",
+            "start_line": 45,
+            "end_line": 110
+          },
+          "distance": 0.26820835254092257
+        },
+        {
+          "chunk": {
+            "id": "a1976807-609a-452a-b3ef-83c99a514a48",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "84a2f929-2c55-45db-86c6-1649c7125b40",
+            "file_path": "backend/app/services/repository_scanner.py",
+            "symbol_name": "_is_link_or_reparse_point",
+            "symbol_type": "function",
+            "content": "def _is_link_or_reparse_point(path: Path) -> bool:\r\n    file_stat = path.lstat()\r\n    attributes = getattr(file_stat, \"st_file_attributes\", 0)\r\n\r\n    # 1. 判断是否为符号链接\r\n    if stat.S_ISLNK(file_stat.st_mode):\r\n        return True\r\n\r\n    # 2. Windows 下，还需要判断是否为重解析点\r\n    if os.name == \"nt\" and (attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT):\r\n        return True\r\n\r\n    # 3. 任一条件成立返回 True，否则返回 False\r\n    return False\r\n",
+            "start_line": 20,
+            "end_line": 33
+          },
+          "distance": 0.35048923787538666
+        },
+        {
+          "chunk": {
+            "id": "ea1dcc9b-26fe-42a0-9b17-d2dcf85842ee",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "84a2f929-2c55-45db-86c6-1649c7125b40",
+            "file_path": "backend/app/services/repository_scanner.py",
+            "symbol_name": "scan_repository",
+            "symbol_type": "function",
+            "content": "def scan_repository(\r\n    workspace_path: Path,\r\n    *,\r\n    max_bytes: int = 1024 * 1024,\r\n) -> ScanResult:\r\n    # 1. 先校验 max_bytes > 0，否则抛 ValueError。\r\n    if max_bytes <= 0:\r\n        raise ValueError(\"max_bytes must be a positive integer\")\r\n\r\n    # 2. 调用 discover_python_files，取得有序候选文件列表。\r\n    # 根路径的有效性检查继续由它负责\r\n    candidate_paths = discover_python_files(workspace_path)\r\n\r\n    root = workspace_path.resolve(strict=True)\r\n\r\n    files: list[FileMetadata] = []\r\n    skipped_files: list[SkippedFile] = []\r\n\r\n    # 3. 遍历候选文件。\r\n    for file_path in candidate_paths:\r\n        try:\r\n            # 调用 read_file_metadata，传入 max_bytes\r\n            # 将返回结果加入 files\r\n            files.append(read_file_metadata(root, file_path, max_bytes=max_bytes))\r\n        except FileSkippedError as exc:\r\n            # 创建 SkippedFile 并加入 skipped_files\r\n            # path 使用仓库相对路径，分隔符为 /\r\n            # reason 使用 str(exc)\r\n            path = file_path.relative_to(root).as_posix()\r\n            skipped_files.append(\r\n                SkippedFile(\r\n                    path=path,\r\n                    reason=str(exc)\r\n                )\r\n            )\r\n\r\n    # 4. 返回 ScanResult，传入两个列表。\r\n    return ScanResult(files=files, skipped_files=skipped_files)\r\n",
+            "start_line": 223,
+            "end_line": 260
+          },
+          "distance": 0.3579404354095459
+        },
+        {
+          "chunk": {
+            "id": "e6fef10c-3270-4b99-9c28-7066dc8e270a",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "bee353cd-0a79-4e83-9eab-54658a856c21",
+            "file_path": "backend/app/schemas/repository_file.py",
+            "symbol_name": "SkippedFileRead",
+            "symbol_type": "class",
+            "content": "class SkippedFileRead(BaseModel):\r\n    # 本次处理跳过的文件及原因；排除目录、非 .py 文件等静默过滤项不出现在这里。\r\n    model_config = ConfigDict(from_attributes=True)\r\n\r\n    # 1. 文件的仓库相对路径：str\r\n    path: str\r\n\r\n    # 2. 跳过原因：str\r\n    reason: str\r\n",
+            "start_line": 21,
+            "end_line": 29
+          },
+          "distance": 0.38560990180910115
+        },
+        {
+          "chunk": {
+            "id": "56bfd220-41db-421c-80c0-c0aaf0dc8bc1",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "60b61f3e-436d-4eb4-92de-eca87866b838",
+            "file_path": "backend/app/core/exceptions.py",
+            "symbol_name": "RepositoryScanError",
+            "symbol_type": "class",
+            "content": "class RepositoryScanError(RuntimeError):\r\n    \"\"\"无法扫描工作目录\"\"\"\r\n",
+            "start_line": 10,
+            "end_line": 11
+          },
+          "distance": 0.38984326184730056
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "file-snapshot",
+      "query": "哪里读取文件字节并计算大小和 SHA-256？",
+      "expected_targets": [
+        {
+          "file_path": "backend/app/services/repository_scanner.py",
+          "symbol_name": "read_file_snapshot"
+        }
+      ],
+      "status": "ok",
+      "recall_at_1": 0.0,
+      "recall_at_3": 1.0,
+      "recall_at_5": 1.0,
+      "hits": [
+        {
+          "chunk": {
+            "id": "27d7bce1-c4c1-4ed6-9890-1d6ab4a91e64",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "84a2f929-2c55-45db-86c6-1649c7125b40",
+            "file_path": "backend/app/services/repository_scanner.py",
+            "symbol_name": "FileMetadata",
+            "symbol_type": "class",
+            "content": "@dataclass(frozen=True)\r\nclass FileMetadata:\r\n    # 文件描述信息：相对路径、语言、字节指纹和字节数，不含源码正文。\r\n    path: str\r\n    language: str\r\n    file_hash: str\r\n    size: int\r\n",
+            "start_line": 112,
+            "end_line": 118
+          },
+          "distance": 0.3452253731950884
+        },
+        {
+          "chunk": {
+            "id": "64d0e30b-45cc-4ec8-ad06-43f8cb1ecde9",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "84a2f929-2c55-45db-86c6-1649c7125b40",
+            "file_path": "backend/app/services/repository_scanner.py",
+            "symbol_name": "read_file_snapshot",
+            "symbol_type": "function",
+            "content": "def read_file_snapshot(\r\n    workspace_path: Path,\r\n    file_path: Path,\r\n    *,\r\n    max_bytes: int = 1024 * 1024,\r\n) -> FileSnapshot:\r\n    if max_bytes <= 0:\r\n        raise ValueError(\"max_bytes must be a positive integer\")\r\n\r\n    try:\r\n        root = workspace_path.resolve(strict=True)\r\n\r\n        # 1. 跳过扫描后，文件仍有可能发生变化。\r\n        # 再检查 file_path 是否是链接或重解析点，\r\n        # 如果是，抛 RepositoryScanError。\r\n        if _is_link_or_reparse_point(file_path):\r\n            raise RepositoryScanError(\"Linked files cannot be indexed\")\r\n\r\n        target = file_path.resolve(strict=True)\r\n\r\n        # 2. 确认 target 位于 root 内，并且是普通 .py 文件。\r\n        # 不符合要求时抛 RepositoryScanError。\r\n        if not (target.is_relative_to(root) and target.is_file() and target.suffix == \".py\"):\r\n            raise RepositoryScanError(\"Expected a Python file inside the workspace\")\r\n\r\n        # 3. 读取原始字节\r\n        # 3.1. 以二进制模式打开文件。\r\n        with target.open(\"rb\") as file:\r\n            # 最多读取 max_bytes + 1 个字节。\r\n            content = file.read(max_bytes + 1)\r\n\r\n\r\n        # 3.2. 如果读到的字节数超过 max_bytes，\r\n        #    抛 FileSkippedError，并说明文件超过大小限制。\r\n        content_size = len(content)\r\n\r\n        if content_size > max_bytes:\r\n            raise FileSkippedError(\"file_too_large\")\r\n\r\n        # 4. 判断是否存在空字节\r\n        if b\"\\x00\" in content:\r\n            raise FileSkippedError(\"contains_null_byte\")\r\n\r\n        # 5. 计算 SHA-256 十六进制摘要\r\n        # 根据文件内容计算出的“摘要”\r\n        content_hash = hashlib.sha256(content).hexdigest()\r\n\r\n        # 6. 得到仓库内相对路径，统一使用 /\r\n        path = target.relative_to(root).as_posix()\r\n\r\n        return FileSnapshot(\r\n            metadata=FileMetadata(\r\n                path=path,\r\n                language=\"python\",\r\n                file_hash=content_hash,\r\n                size=content_size,\r\n            ),\r\n            content=content,\r\n        )\r\n\r\n    except OSError as exc:\r\n        raise RepositoryScanError(\r\n            \"Cannot read workspace file metadata\"\r\n        ) from exc\r\n",
+            "start_line": 130,
+            "end_line": 193
+          },
+          "distance": 0.3709620237350464
+        },
+        {
+          "chunk": {
+            "id": "2882516f-414a-4227-bfad-14f702dfbfd2",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "84a2f929-2c55-45db-86c6-1649c7125b40",
+            "file_path": "backend/app/services/repository_scanner.py",
+            "symbol_name": "FileSnapshot",
+            "symbol_type": "class",
+            "content": "@dataclass(frozen=True)\r\nclass FileSnapshot:\r\n    # 同一次读取的原始字节和元数据；让 hash/size 与用于分块的内容保持一致。\r\n    # 这是内存快照，不是磁盘备份，也不是一张数据库表。\r\n    metadata: FileMetadata\r\n    content: bytes\r\n",
+            "start_line": 120,
+            "end_line": 125
+          },
+          "distance": 0.3883269429206848
+        },
+        {
+          "chunk": {
+            "id": "71819577-70bf-4901-b921-85975ddcae93",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "84a2f929-2c55-45db-86c6-1649c7125b40",
+            "file_path": "backend/app/services/repository_scanner.py",
+            "symbol_name": "read_file_metadata",
+            "symbol_type": "function",
+            "content": "def read_file_metadata(\r\n    workspace_path: Path,\r\n    file_path: Path,\r\n    *,\r\n    max_bytes: int = 1024 * 1024,\r\n) -> FileMetadata:\r\n    # 1. 调用 read_file_snapshot\r\n    result = read_file_snapshot(workspace_path, file_path, max_bytes=max_bytes)\r\n\r\n    # 2. 返回读取结果中的 metadata 属性\r\n    return result.metadata\r\n",
+            "start_line": 196,
+            "end_line": 206
+          },
+          "distance": 0.41034233570098877
+        },
+        {
+          "chunk": {
+            "id": "aaee93b4-3f6c-41c4-b4a3-c68ca87fc16f",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "bee353cd-0a79-4e83-9eab-54658a856c21",
+            "file_path": "backend/app/schemas/repository_file.py",
+            "symbol_name": "RepositoryFileRead",
+            "symbol_type": "class",
+            "content": "class RepositoryFileRead(BaseModel):\r\n    model_config = ConfigDict(from_attributes=True)\r\n\r\n    id: UUID\r\n    repository_id: UUID\r\n\r\n    # path 是工作区相对路径；size 是字节数；file_hash 是原始字节的 SHA-256。\r\n    path: str\r\n    language: str\r\n    file_hash: str\r\n    size: int\r\n    created_at: datetime\r\n    updated_at: datetime\r\n",
+            "start_line": 7,
+            "end_line": 19
+          },
+          "distance": 0.43133645431237466
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "parse-symbols",
+      "query": "哪里从 AST 中提取顶层函数和类的位置？",
+      "expected_targets": [
+        {
+          "file_path": "backend/app/rag/parse.py",
+          "symbol_name": "parse_top_level_symbols"
+        }
+      ],
+      "status": "ok",
+      "recall_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "recall_at_5": 1.0,
+      "hits": [
+        {
+          "chunk": {
+            "id": "a29d349d-1ade-4397-a1e7-33059606e658",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "b0c529f5-b77b-4902-8585-70996d181cdd",
+            "file_path": "backend/app/rag/parse.py",
+            "symbol_name": "parse_top_level_symbols",
+            "symbol_type": "function",
+            "content": "def parse_top_level_symbols(\r\n    source: str,\r\n    file_path: str,\r\n) -> list[ParsedSymbol]:\r\n    # 1. 将源码解析为 AST。\r\n    # 提示：tree = ast.parse(source, filename=file_path)\r\n    # 本次让 SyntaxError 原样向上传播，不返回空列表。\r\n    tree = ast.parse(source, filename=file_path)\r\n\r\n    symbols: list[ParsedSymbol] = []\r\n\r\n    # 2. 遍历 tree.body。\r\n    # 它是模块最外层语句的列表\r\n    for node in tree.body:\r\n        # 3.1. 如果是普通函数或异步函数：\r\n        # 将 symbol_type 设置为 \"function\"。\r\n        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):\r\n            symbol_type = \"function\"\r\n\r\n        # 3.2. 如果是类：\r\n        # 提示：类节点的类型是 ast.ClassDef。\r\n        # 将 symbol_type 设置为 \"class\"。\r\n        elif isinstance(node, ast.ClassDef):\r\n            symbol_type = \"class\"\r\n\r\n        # 3.3. 其他语句跳过。\r\n        else:\r\n            continue\r\n\r\n        # 4. 从函数节点取得：\r\n        # 名称：node.name\r\n        # 开始行：node.lineno\r\n        # 结束行：node.end_lineno\r\n        name = node.name\r\n\r\n        # 默认从 def / async def 所在行开始。\r\n        lineno = node.lineno\r\n\r\n        # 4.1. 遍历 node.decorator_list。\r\n        for decorator in node.decorator_list:\r\n            # 4.2. 比较 decorator.lineno 和当前 lineno\r\n            # 将较小的那个保存回 lineno\r\n            lineno = min(decorator.lineno, lineno)\r\n\r\n        end_lineno = node.end_lineno\r\n        if end_lineno is None:\r\n            raise ValueError(\"end_lineno is None\")\r\n\r\n        # 5. 创建 ParsedSymbol，追加到 symbols\r\n        symbols.append(ParsedSymbol(\r\n            symbol_name=name,\r\n            symbol_type=symbol_type,\r\n            start_line=lineno,\r\n            end_line=end_lineno,\r\n        ))\r\n\r\n    # 6. 循环结束后返回 symbols\r\n    return symbols\r\n",
+            "start_line": 18,
+            "end_line": 75
+          },
+          "distance": 0.3699335864166491
+        },
+        {
+          "chunk": {
+            "id": "e6f56bf0-58ff-431d-8158-e542e9e661de",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "b0c529f5-b77b-4902-8585-70996d181cdd",
+            "file_path": "backend/app/rag/parse.py",
+            "symbol_name": "ParsedSymbol",
+            "symbol_type": "class",
+            "content": "@dataclass(frozen=True)\r\nclass ParsedSymbol:\r\n    # AST 解析出的符号位置，尚不包含源码正文，也不是数据库模型。\r\n    symbol_name: str\r\n    symbol_type: str\r\n    start_line: int\r\n    end_line: int\r\n",
+            "start_line": 7,
+            "end_line": 13
+          },
+          "distance": 0.4158710937653627
+        },
+        {
+          "chunk": {
+            "id": "ba49cce7-865c-46db-91ed-635be23eb5fb",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "fc8ff38f-09aa-4ec2-9b8c-eb0783ceb132",
+            "file_path": "backend/app/rag/chunker.py",
+            "symbol_name": "build_code_chunks",
+            "symbol_type": "function",
+            "content": "def build_code_chunks(\r\n    source: str,\r\n    file_path: str,\r\n) -> list[CodeChunkDraft]:\r\n    # 1. 调用 parse_top_level_symbols，取得符号列表。\r\n    symbol_list = parse_top_level_symbols(source, file_path)\r\n\r\n    chunks: list[CodeChunkDraft] = []\r\n\r\n    # 2. 遍历符号列表。\r\n    # 对每个 symbol：\r\n    #   a. 调用 extract_symbol_source(source, symbol)。\r\n    #   b. 创建 CodeChunkDraft：\r\n    #      file_path 使用本函数参数；\r\n    #      名称、类型和行号来自 symbol；\r\n    #      content 使用刚提取的源码。\r\n    #   c. 追加到 chunks。\r\n    for symbol in symbol_list:\r\n        content = extract_symbol_source(source, symbol)\r\n        chunks.append(CodeChunkDraft(\r\n            file_path=file_path,\r\n            symbol_name=symbol.symbol_name,\r\n            symbol_type=symbol.symbol_type,\r\n            start_line=symbol.start_line,\r\n            end_line=symbol.end_line,\r\n            content=content,\r\n        ))\r\n\r\n    # 3. 循环结束后返回 chunks。\r\n    return chunks\r\n",
+            "start_line": 20,
+            "end_line": 49
+          },
+          "distance": 0.46311024051247496
+        },
+        {
+          "chunk": {
+            "id": "0c35b65e-2b1e-4cc7-a38d-e599e68ec7d6",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "b0c529f5-b77b-4902-8585-70996d181cdd",
+            "file_path": "backend/app/rag/parse.py",
+            "symbol_name": "extract_symbol_source",
+            "symbol_type": "function",
+            "content": "def extract_symbol_source(\r\n    source: str,\r\n    symbol: ParsedSymbol,\r\n) -> str:\r\n    # 1. 将源码拆成行，同时保留每行原有的换行符\r\n    source_lines = source.splitlines(keepends=True)\r\n\r\n    # 2. 检查行号是否合法：\r\n    # 1 <= symbol.start_line <= symbol.end_line <= len(lines)\r\n    # 不合法时抛出 ValueError，并提供明确的错误信息。\r\n    if not (1 <= symbol.start_line <= symbol.end_line <= len(source_lines)):\r\n        raise ValueError(\"Invalid symbol line range\")\r\n\r\n    # 3. 根据开始行和结束行，切出对应的行列表\r\n    line_list = source_lines[symbol.start_line - 1:symbol.end_line]\r\n\r\n    # 4. 使用 \"\".join(...) 将这些行拼回字符串并返回。\r\n    return \"\".join(line_list)\r\n",
+            "start_line": 78,
+            "end_line": 95
+          },
+          "distance": 0.538483945221665
+        },
+        {
+          "chunk": {
+            "id": "16efb912-0d35-4862-8e49-62c86d0f9235",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "8345c8c4-5f67-4b61-bb4b-5876aac0e377",
+            "file_path": "backend/app/schemas/code_chunk.py",
+            "symbol_name": "CodeChunkRead",
+            "symbol_type": "class",
+            "content": "class CodeChunkRead(BaseModel):\r\n    # GET /chunks 的单条响应：源码正文、函数/类名称及文件位置，便于查看和引用来源。\r\n    # 这是接口数据格式，不负责读文件、解析源码或执行数据库查询。\r\n    model_config = ConfigDict(from_attributes=True)\r\n\r\n    id: UUID\r\n    repository_id: UUID\r\n    file_id: UUID\r\n\r\n    file_path: str\r\n    symbol_name: str\r\n    symbol_type: str\r\n    content: str\r\n\r\n    start_line: int\r\n    end_line: int\r\n",
+            "start_line": 22,
+            "end_line": 37
+          },
+          "distance": 0.5488364042238676
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "decode-source",
+      "query": "哪里根据 Python 编码声明将字节解码为源码？",
+      "expected_targets": [
+        {
+          "file_path": "backend/app/rag/parse.py",
+          "symbol_name": "decode_python_source"
+        }
+      ],
+      "status": "ok",
+      "recall_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "recall_at_5": 1.0,
+      "hits": [
+        {
+          "chunk": {
+            "id": "60af79ac-67a8-412d-9d6a-3a5ca2a8864f",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "b0c529f5-b77b-4902-8585-70996d181cdd",
+            "file_path": "backend/app/rag/parse.py",
+            "symbol_name": "decode_python_source",
+            "symbol_type": "function",
+            "content": "def decode_python_source(content: bytes) -> str:\r\n    # 1. 把 content 包装成内存中的二进制流\r\n    # 让内存中的字节拥有类似文件的读取接口\r\n    stream = io.BytesIO(content)\r\n\r\n    # 2. 检测 Python 源码编码\r\n    encoding, _ = tokenize.detect_encoding(stream.readline)\r\n\r\n    # 3. 使用检测出的 encoding，解码完整的 content 并返回\r\n    return content.decode(encoding)\r\n",
+            "start_line": 98,
+            "end_line": 107
+          },
+          "distance": 0.21260249614715576
+        },
+        {
+          "chunk": {
+            "id": "0c35b65e-2b1e-4cc7-a38d-e599e68ec7d6",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "b0c529f5-b77b-4902-8585-70996d181cdd",
+            "file_path": "backend/app/rag/parse.py",
+            "symbol_name": "extract_symbol_source",
+            "symbol_type": "function",
+            "content": "def extract_symbol_source(\r\n    source: str,\r\n    symbol: ParsedSymbol,\r\n) -> str:\r\n    # 1. 将源码拆成行，同时保留每行原有的换行符\r\n    source_lines = source.splitlines(keepends=True)\r\n\r\n    # 2. 检查行号是否合法：\r\n    # 1 <= symbol.start_line <= symbol.end_line <= len(lines)\r\n    # 不合法时抛出 ValueError，并提供明确的错误信息。\r\n    if not (1 <= symbol.start_line <= symbol.end_line <= len(source_lines)):\r\n        raise ValueError(\"Invalid symbol line range\")\r\n\r\n    # 3. 根据开始行和结束行，切出对应的行列表\r\n    line_list = source_lines[symbol.start_line - 1:symbol.end_line]\r\n\r\n    # 4. 使用 \"\".join(...) 将这些行拼回字符串并返回。\r\n    return \"\".join(line_list)\r\n",
+            "start_line": 78,
+            "end_line": 95
+          },
+          "distance": 0.41202995705425893
+        },
+        {
+          "chunk": {
+            "id": "a29d349d-1ade-4397-a1e7-33059606e658",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "b0c529f5-b77b-4902-8585-70996d181cdd",
+            "file_path": "backend/app/rag/parse.py",
+            "symbol_name": "parse_top_level_symbols",
+            "symbol_type": "function",
+            "content": "def parse_top_level_symbols(\r\n    source: str,\r\n    file_path: str,\r\n) -> list[ParsedSymbol]:\r\n    # 1. 将源码解析为 AST。\r\n    # 提示：tree = ast.parse(source, filename=file_path)\r\n    # 本次让 SyntaxError 原样向上传播，不返回空列表。\r\n    tree = ast.parse(source, filename=file_path)\r\n\r\n    symbols: list[ParsedSymbol] = []\r\n\r\n    # 2. 遍历 tree.body。\r\n    # 它是模块最外层语句的列表\r\n    for node in tree.body:\r\n        # 3.1. 如果是普通函数或异步函数：\r\n        # 将 symbol_type 设置为 \"function\"。\r\n        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):\r\n            symbol_type = \"function\"\r\n\r\n        # 3.2. 如果是类：\r\n        # 提示：类节点的类型是 ast.ClassDef。\r\n        # 将 symbol_type 设置为 \"class\"。\r\n        elif isinstance(node, ast.ClassDef):\r\n            symbol_type = \"class\"\r\n\r\n        # 3.3. 其他语句跳过。\r\n        else:\r\n            continue\r\n\r\n        # 4. 从函数节点取得：\r\n        # 名称：node.name\r\n        # 开始行：node.lineno\r\n        # 结束行：node.end_lineno\r\n        name = node.name\r\n\r\n        # 默认从 def / async def 所在行开始。\r\n        lineno = node.lineno\r\n\r\n        # 4.1. 遍历 node.decorator_list。\r\n        for decorator in node.decorator_list:\r\n            # 4.2. 比较 decorator.lineno 和当前 lineno\r\n            # 将较小的那个保存回 lineno\r\n            lineno = min(decorator.lineno, lineno)\r\n\r\n        end_lineno = node.end_lineno\r\n        if end_lineno is None:\r\n            raise ValueError(\"end_lineno is None\")\r\n\r\n        # 5. 创建 ParsedSymbol，追加到 symbols\r\n        symbols.append(ParsedSymbol(\r\n            symbol_name=name,\r\n            symbol_type=symbol_type,\r\n            start_line=lineno,\r\n            end_line=end_lineno,\r\n        ))\r\n\r\n    # 6. 循环结束后返回 symbols\r\n    return symbols\r\n",
+            "start_line": 18,
+            "end_line": 75
+          },
+          "distance": 0.4591355162601325
+        },
+        {
+          "chunk": {
+            "id": "27d7bce1-c4c1-4ed6-9890-1d6ab4a91e64",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "84a2f929-2c55-45db-86c6-1649c7125b40",
+            "file_path": "backend/app/services/repository_scanner.py",
+            "symbol_name": "FileMetadata",
+            "symbol_type": "class",
+            "content": "@dataclass(frozen=True)\r\nclass FileMetadata:\r\n    # 文件描述信息：相对路径、语言、字节指纹和字节数，不含源码正文。\r\n    path: str\r\n    language: str\r\n    file_hash: str\r\n    size: int\r\n",
+            "start_line": 112,
+            "end_line": 118
+          },
+          "distance": 0.4699666219969608
+        },
+        {
+          "chunk": {
+            "id": "e6f56bf0-58ff-431d-8158-e542e9e661de",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "b0c529f5-b77b-4902-8585-70996d181cdd",
+            "file_path": "backend/app/rag/parse.py",
+            "symbol_name": "ParsedSymbol",
+            "symbol_type": "class",
+            "content": "@dataclass(frozen=True)\r\nclass ParsedSymbol:\r\n    # AST 解析出的符号位置，尚不包含源码正文，也不是数据库模型。\r\n    symbol_name: str\r\n    symbol_type: str\r\n    start_line: int\r\n    end_line: int\r\n",
+            "start_line": 7,
+            "end_line": 13
+          },
+          "distance": 0.47421527216252046
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "replace-chunks",
+      "query": "哪里保存文件信息并用新代码块替换该文件的旧代码块？",
+      "expected_targets": [
+        {
+          "file_path": "backend/app/services/code_chunk_service.py",
+          "symbol_name": "save_chunked_file"
+        }
+      ],
+      "status": "ok",
+      "recall_at_1": 0.0,
+      "recall_at_3": 1.0,
+      "recall_at_5": 1.0,
+      "hits": [
+        {
+          "chunk": {
+            "id": "e7bdb12a-80c8-4b0a-92a5-444cb7f46374",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "dd1bf6c0-944d-4b11-bc00-7bacc54c64ab",
+            "file_path": "backend/app/services/repository_chunking_service.py",
+            "symbol_name": "ChunkedFile",
+            "symbol_type": "class",
+            "content": "@dataclass(frozen=True)\r\nclass ChunkedFile:\r\n    # 一个有效文件的元数据和待入库块；空文件/只有常量的文件也有效，chunks 可为空。\r\n    metadata: FileMetadata\r\n    chunks: list[CodeChunkDraft]\r\n",
+            "start_line": 11,
+            "end_line": 15
+          },
+          "distance": 0.3347549836264543
+        },
+        {
+          "chunk": {
+            "id": "6059bbb4-322b-42c4-83bd-d2e241658f85",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "77b2a8c1-efe1-4d40-82f9-77c49dafccf9",
+            "file_path": "backend/app/services/code_chunk_service.py",
+            "symbol_name": "save_chunked_file",
+            "symbol_type": "function",
+            "content": "def save_chunked_file(\r\n    session: Session,\r\n    *,\r\n    repository_id: UUID,\r\n    chunked_file: ChunkedFile,\r\n) -> int:\r\n    metadata = chunked_file.metadata\r\n\r\n    # 1. 调用 save_repository_file，保存文件元数据\r\n    repository_file = save_repository_file(\r\n        session,\r\n        repository_id=repository_id,\r\n        path=metadata.path,\r\n        language=metadata.language,\r\n        file_hash=metadata.file_hash,\r\n        size=metadata.size,\r\n    )\r\n\r\n    # 2. 删除该文件已有的代码块。\r\n    # 调用 delete_code_chunks_for_file。\r\n    # file_id 使用 repository_file.id。\r\n    delete_code_chunks_for_file(session, repository_id=repository_id, file_id=repository_file.id)\r\n\r\n    # 3. 遍历 chunked_file.chunks。\r\n    for chunk in chunked_file.chunks:\r\n        # 调用 create_code_chunk：\r\n        create_code_chunk(\r\n            session,\r\n            repository_id=repository_id,\r\n            file_id=repository_file.id,\r\n            file_path=repository_file.path,\r\n            symbol_name=chunk.symbol_name,\r\n            symbol_type=chunk.symbol_type,\r\n            start_line=chunk.start_line,\r\n            end_line=chunk.end_line,\r\n            content=chunk.content,\r\n        )\r\n\r\n    # 4. 返回本次保存的代码块数量\r\n    return len(chunked_file.chunks)\r\n",
+            "start_line": 20,
+            "end_line": 59
+          },
+          "distance": 0.33697265354042627
+        },
+        {
+          "chunk": {
+            "id": "a1c472af-9f43-44e8-ac45-d9b128849404",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "fc8ff38f-09aa-4ec2-9b8c-eb0783ceb132",
+            "file_path": "backend/app/rag/chunker.py",
+            "symbol_name": "CodeChunkDraft",
+            "symbol_type": "class",
+            "content": "@dataclass(frozen=True)\r\nclass CodeChunkDraft:\r\n    # 内存中的待入库块：位置 + 名称 + 正文，没有数据库 ID、外键或向量。\r\n    # 后续 save_chunked_file 会给它补上仓库/文件归属，写入 CodeChunk 表。\r\n    file_path: str\r\n    symbol_name: str\r\n    symbol_type: str\r\n    start_line: int\r\n    end_line: int\r\n    content: str\r\n",
+            "start_line": 6,
+            "end_line": 15
+          },
+          "distance": 0.36325035581738785
+        },
+        {
+          "chunk": {
+            "id": "452af71e-64a4-4e6a-a7f8-f65275e951bf",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "dd1bf6c0-944d-4b11-bc00-7bacc54c64ab",
+            "file_path": "backend/app/services/repository_chunking_service.py",
+            "symbol_name": "chunk_repository_file",
+            "symbol_type": "function",
+            "content": "def chunk_repository_file(\r\n    workspace_path: Path,\r\n    file_path: Path,\r\n    *,\r\n    max_bytes: int = 1024 * 1024,\r\n) -> ChunkedFile:\r\n    # 1. 调用 read_file_snapshot，得到 snapshot\r\n    snapshot = read_file_snapshot(workspace_path, file_path, max_bytes=max_bytes)\r\n\r\n    # 2. 对 snapshot.content 解码，得到 source。\r\n    source = decode_python_source(snapshot.content)\r\n\r\n    # 3. 调用 build_code_chunks，得到 chunks\r\n    chunks = build_code_chunks(source, snapshot.metadata.path)\r\n\r\n    # 4. 创建并返回 ChunkedFile\r\n    return ChunkedFile(\r\n        metadata=snapshot.metadata,\r\n        chunks=chunks,\r\n    )\r\n",
+            "start_line": 29,
+            "end_line": 48
+          },
+          "distance": 0.4150854523454448
+        },
+        {
+          "chunk": {
+            "id": "c80a0b34-7472-4e97-a6d3-e768bca991fe",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "d4e4a6df-f17a-4223-9288-efafab4c82d1",
+            "file_path": "backend/app/db/repositories/repository_file_repo.py",
+            "symbol_name": "save_repository_file",
+            "symbol_type": "function",
+            "content": "def save_repository_file(\r\n    session: Session,\r\n    *,\r\n    repository_id: UUID,\r\n    path: str,\r\n    language: str,\r\n    file_hash: str,\r\n    size: int,\r\n) -> RepositoryFile:\r\n    # 1. 调用 get_repository_file_by_path，取得已有记录\r\n    result = get_repository_file_by_path(session=session, repository_id=repository_id, path=path)\r\n\r\n    # 2. 如果不存在：\r\n    # 调用已有的 create_repository_file，传入全部参数，\r\n    # 返回创建结果。\r\n    if result is None:\r\n        return create_repository_file(\r\n            session=session,\r\n            repository_id=repository_id,\r\n            path=path,\r\n            language=language,\r\n            file_hash=file_hash,\r\n            size=size,\r\n        )\r\n\r\n    # 3. 如果存在：\r\n    # 比较 language、file_hash、size。\r\n    # 全部相同，直接返回已有对象，不修改。\r\n    if result.language == language and result.file_hash == file_hash and result.size == size:\r\n        return result\r\n\r\n    # 4. 有变化时：\r\n    # 更新已有对象的 language、file_hash、size。\r\n    # 不改变 id、repository_id、path、created_at\r\n    result.language = language\r\n    result.file_hash = file_hash\r\n    result.size = size\r\n\r\n    # 5. flush 后返回对象，不 commit。\r\n    session.flush()\r\n    return result\r\n",
+            "start_line": 64,
+            "end_line": 104
+          },
+          "distance": 0.4309961112443046
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "embed-batches",
+      "query": "哪里循环分批生成向量，并把向量和模型名称写回数据库？",
+      "expected_targets": [
+        {
+          "file_path": "backend/app/services/repository_embedding_service.py",
+          "symbol_name": "embed_repository_chunks"
+        }
+      ],
+      "status": "ok",
+      "recall_at_1": 1.0,
+      "recall_at_3": 1.0,
+      "recall_at_5": 1.0,
+      "hits": [
+        {
+          "chunk": {
+            "id": "61cdbe15-5a9b-4670-9f29-faaf99a938f3",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "c8260573-f66a-4552-8a3a-693733603fc8",
+            "file_path": "backend/app/services/repository_embedding_service.py",
+            "symbol_name": "embed_repository_chunks",
+            "symbol_type": "function",
+            "content": "def embed_repository_chunks(repository_id: UUID) -> int | None:\r\n    model = config.EMBEDDING_MODEL\r\n    embedded_count = 0\r\n\r\n    with SessionLocal.begin() as session:\r\n        # 1. 沿用已有仓库加锁逻辑。\r\n        # SQLSTATE 55P03 转换为 RepositoryBusyError；\r\n        # 其他数据库异常继续抛出。\r\n        try:\r\n            repository = get_repository_for_update(session, repository_id)\r\n        except DBAPIError as exc:\r\n            result = getattr(exc.orig, \"sqlstate\", None)\r\n\r\n            if result == \"55P03\":\r\n                raise RepositoryBusyError(\"Repository is busy\") from exc\r\n\r\n            raise\r\n\r\n        # 2. 仓库不存在，返回 None。\r\n        if repository is None:\r\n            return None\r\n\r\n        while True:\r\n            # 3. 查询当前仓库、当前 model 的一批待处理代码块。\r\n            chunks = list_chunks_needing_embedding(\r\n                session,\r\n                repository_id=repository_id,\r\n                model=model,\r\n            )\r\n\r\n            # 4. 没有待处理记录，break。\r\n            if not chunks:\r\n                break\r\n\r\n            # 5. 按查询结果顺序，收集每个 chunk.content。\r\n            # 调用 embed_texts，得到 vectors。\r\n            texts : list[str] = []\r\n            for chunk in chunks:\r\n                texts.append(chunk.content)\r\n\r\n            vectors = embed_texts(texts)\r\n\r\n            # 6. 将代码块和向量逐个配对：\r\n            for chunk, vector in zip(chunks, vectors, strict=True):\r\n                # 设置 chunk.embedding 和 chunk.embedding_model。\r\n                chunk.embedding = vector\r\n                chunk.embedding_model = model\r\n\r\n            # 7. flush，让本批修改发送到数据库。\r\n            # 累加本批处理数量。\r\n            session.flush()\r\n            embedded_count += len(chunks)\r\n\r\n    # 8. 提交成功后返回 embedded_count。\r\n    return embedded_count",
+            "start_line": 13,
+            "end_line": 67
+          },
+          "distance": 0.37770350245195594
+        },
+        {
+          "chunk": {
+            "id": "169ce772-55c8-40ea-b85f-af9bd42d134d",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "d2cc23f2-b7e9-4d96-a754-9e4419573f83",
+            "file_path": "backend/app/db/repositories/code_chunk_repo.py",
+            "symbol_name": "list_chunks_needing_embedding",
+            "symbol_type": "function",
+            "content": "def list_chunks_needing_embedding(\r\n    session: Session,\r\n    *,\r\n    repository_id: UUID,\r\n    model: str,\r\n) -> list[CodeChunk]:\r\n    # 1. select(CodeChunk)，限定 repository_id。\r\n    statement = select(CodeChunk).where(CodeChunk.repository_id == repository_id)\r\n\r\n    # 2. 再增加以下三个条件的“或”组合：\r\n    # embedding 为空\r\n    # embedding_model 为空\r\n    # embedding_model 与 model 不同\r\n    statement = statement.where(\r\n        or_(\r\n            CodeChunk.embedding.is_(None),\r\n            CodeChunk.embedding_model.is_(None),\r\n            CodeChunk.embedding_model != model,\r\n        )\r\n    )\r\n\r\n    # 3. 按 file_path、start_line、id 排序，limit(10)。\r\n    statement = statement.order_by(CodeChunk.file_path, CodeChunk.start_line, CodeChunk.id).limit(10)\r\n\r\n    # 4. 返回 ORM 对象列表。\r\n    return list(session.scalars(statement).all())\r\n",
+            "start_line": 130,
+            "end_line": 155
+          },
+          "distance": 0.41024227020236614
+        },
+        {
+          "chunk": {
+            "id": "68a4403c-5d3e-4e88-881b-88f1d67a5d40",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "db39f9ad-c996-4135-895f-03cb367b369d",
+            "file_path": "backend/app/rag/embedding.py",
+            "symbol_name": "embed_texts",
+            "symbol_type": "function",
+            "content": "def embed_texts(texts: list[str]) -> list[list[float]]:\r\n    # 1. 空列表直接返回 []，不发送请求。\r\n    if not texts:\r\n        return []\r\n\r\n    if len(texts) > 10:\r\n        raise ValueError(\"At most 10 texts are allowed per batch\")\r\n\r\n    # 2. 校验本批最多 10 条，每条文本不能是空白。\r\n    # 不满足时抛 ValueError。\r\n    # 用 text.strip() 判断，但不要修改实际提交的源码。\r\n    for text in texts:\r\n        if text.strip() == \"\":\r\n            raise ValueError(\"Text cannot be an empty string\")\r\n\r\n    # 3. 检查 API Key、endpoint 非空，\r\n    # 并确认本阶段 dimensions 固定为 1024。\r\n    # 配置无效时抛 ValueError，不在错误信息中包含密钥。\r\n    if not (config.DASHSCOPE_API_KEY and config.EMBEDDING_ENDPOINT and config.EMBEDDING_DIMENSIONS == 1024):\r\n        raise ValueError(\"Invalid configuration\")\r\n\r\n    # 4. 组装 headers\r\n    headers = {\r\n        \"Authorization\": f\"Bearer {config.DASHSCOPE_API_KEY}\",\r\n        \"Content-Type\": \"application/json\"\r\n    }\r\n\r\n    # 5. 组装请求体\r\n    request_body = {\r\n        \"model\": config.EMBEDDING_MODEL,\r\n        \"input\": texts,\r\n        \"encoding_format\": \"float\",\r\n        \"dimensions\": config.EMBEDDING_DIMENSIONS,\r\n    }\r\n\r\n    with httpx.Client(timeout=30.0) as client:\r\n        # 6. POST 到配置的完整 endpoint\r\n        response = client.post(config.EMBEDDING_ENDPOINT, headers=headers, json=request_body)\r\n\r\n        # 7. 检查 HTTP 状态，再解析 JSON\r\n        response.raise_for_status()\r\n        payload = response.json()\r\n\r\n    # 8. 从响应的 data 字段取得向量条目。\r\n    # 按每条的 index 升序排序\r\n    items = payload[\"data\"]\r\n    sorted_items  = sorted(items, key=lambda item: item[\"index\"])\r\n\r\n    # 9. 检查排序后的 index 列表，\r\n    # 必须恰好等于 list(range(len(texts)))。\r\n    # 否则抛 ValueError，不能将缺失或错位的结果继续使用。\r\n    actual_indexes: list[int] = []\r\n\r\n    for item in sorted_items:\r\n        actual_indexes.append(item[\"index\"])\r\n\r\n    if actual_indexes != list(range(len(texts))):\r\n        raise ValueError(\"Embedding response indexes do not match input\")\r\n\r\n    # 10. 逐条取出 embedding\r\n    embeddings: list[list[float]] = []\r\n    for item in sorted_items:\r\n        vector = item[\"embedding\"]\r\n\r\n        # 1. 检查 vector 是否为 list\r\n        if not isinstance(vector, list):\r\n            raise ValueError(\"Vector format is incorrect\")\r\n\r\n        # 2. 检查 len(vector) 是否等于 config.EMBEDDING_DIMENSIONS\r\n        if len(vector) != config.EMBEDDING_DIMENSIONS:\r\n            raise ValueError(\"Vector dimension mismatch\")\r\n\r\n        # 3. 校验通过后，追加 vector。\r\n        embeddings.append(vector)\r\n\r\n    return embeddings",
+            "start_line": 6,
+            "end_line": 81
+          },
+          "distance": 0.42288387741042643
+        },
+        {
+          "chunk": {
+            "id": "10806961-2971-41ab-948c-ddad16d121bd",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "d2cc23f2-b7e9-4d96-a754-9e4419573f83",
+            "file_path": "backend/app/db/repositories/code_chunk_repo.py",
+            "symbol_name": "search_code_chunks",
+            "symbol_type": "function",
+            "content": "def search_code_chunks(\r\n    session: Session,\r\n    *,\r\n    repository_id: UUID,\r\n    query_vector: list[float],\r\n    model: str,\r\n    top_k: int = 5,\r\n) -> list[tuple[CodeChunk, float]]:\r\n    # 1. 校验 1 <= top_k <= 20。\r\n    # 校验 query_vector 长度为 1024\r\n    if not (1 <= top_k <= 20 and len(query_vector) == 1024):\r\n        raise ValueError(\"top_k must be between 1 and 20, query_vector must be 1024\")\r\n\r\n    # 2. 构造距离表达式。这一步只是描述 SQL，不会立即执行。\r\n    distance = CodeChunk.embedding.cosine_distance(\r\n        query_vector\r\n    ).label(\"distance\")\r\n\r\n    # 3. 同时查询 CodeChunk 和 distance。\r\n    # 提示：select(CodeChunk, distance)\r\n    statement = select(CodeChunk, distance)\r\n\r\n    # 4. 添加三个 AND 条件：\r\n    # 仓库 ID 匹配；\r\n    # embedding 不为空，使用 .is_not(None)；\r\n    # embedding_model 与 model 相同。\r\n    statement = statement.where(\r\n        CodeChunk.repository_id == repository_id,\r\n        CodeChunk.embedding.is_not(None),\r\n        CodeChunk.embedding_model == model\r\n    )\r\n\r\n    # 5. 按 distance 升序排列，CodeChunk.id 作为同距离时的排序依据。\r\n    # 限制最多 top_k 条。\r\n    statement = statement.order_by(distance, CodeChunk.id).limit(top_k)\r\n\r\n    # 6. 使用 session.execute(statement).all()。\r\n    # 遍历返回行，将 (chunk, float(distance_value)) 加入结果列表\r\n    rows = session.execute(statement).all()\r\n    result: list[tuple[CodeChunk, float]] = []\r\n\r\n    for chunk, distance_value in rows:\r\n        result.append((chunk, float(distance_value)))\r\n\r\n    return result",
+            "start_line": 158,
+            "end_line": 202
+          },
+          "distance": 0.4367686677942054
+        },
+        {
+          "chunk": {
+            "id": "d509b82f-0cfb-4723-98f5-331117d7b1e8",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "0cdf71ae-a0e6-42f6-8229-dd767471cb84",
+            "file_path": "scripts/eval_retrieval.py",
+            "symbol_name": "run_evaluation",
+            "symbol_type": "function",
+            "content": "def run_evaluation(dataset: dict) -> dict:\r\n    repository_id = UUID(dataset[\"repository_id\"])\r\n\r\n    # 1. 调用 get_repository(repository_id)。\r\n    # 仓库不存在，或 commit_hash 与 repository_commit 不一致，\r\n    # 抛 ValueError，阻止运行。\r\n    repository = get_repository(repository_id)\r\n    if repository is None:\r\n        raise ValueError(\"Evaluation repository does not exist\")\r\n\r\n    if dataset[\"repository_commit\"] != repository.commit_hash:\r\n        raise ValueError(\"Repository commit does not match evaluation dataset\")\r\n\r\n    case_results = []\r\n\r\n    for case in dataset[\"cases\"]:\r\n        # 2. 将 expected_targets 转成 set[Target]。\r\n        # 每项是 (file_path, symbol_name)。\r\n        expected_targets = set()\r\n        for target in case[\"expected_targets\"]:\r\n            expected_targets.add((target[\"file_path\"], target[\"symbol_name\"]))\r\n\r\n        try:\r\n            # 3. 调用一次 semantic_search，top_k=5。\r\n            # 只传 case[\"query\"]，不要传预期答案。\r\n            # 返回 None 时抛 RuntimeError，表示仓库已不存在。\r\n            search_result = semantic_search(repository_id, query=case[\"query\"], top_k=5)\r\n            if search_result is None:\r\n                raise RuntimeError(\"repository is not exist\")\r\n\r\n            # 4. 对同一份 hits 分别计算 Recall@1、@3、@5。\r\n            # 组装本例结果：\r\n            # id、query、expected_targets、status=\"ok\"、\r\n            #    recall_at_1、recall_at_3、recall_at_5、\r\n            # hits、error=None。\r\n            #\r\n            # hits 可使用：\r\n            # [hit.model_dump(mode=\"json\") for hit in hits]\r\n            recall_1 = recall_at_k(search_result, expected_targets, 1)\r\n            recall_3 = recall_at_k(search_result, expected_targets, 3)\r\n            recall_5 = recall_at_k(search_result, expected_targets, 5)\r\n\r\n            case_result = {\r\n                \"id\": case[\"id\"],\r\n                \"query\": case[\"query\"],\r\n                \"expected_targets\": case[\"expected_targets\"],\r\n                \"status\": \"ok\",\r\n                \"recall_at_1\": recall_1,\r\n                \"recall_at_3\": recall_3,\r\n                \"recall_at_5\": recall_5,\r\n                \"hits\": [],\r\n                \"error\": None,\r\n            }\r\n\r\n            for hit in search_result:\r\n                case_result[\"hits\"].append(hit.model_dump(mode=\"json\"))\r\n\r\n        except Exception as exc:\r\n            # 5. 本例执行失败仍加入 case_results：\r\n            # status=\"error\"，三个 recall 都为 0，hits=[]。\r\n            # error 暂时保存 type(exc).__name__。\r\n            # 不把请求头或密钥写进报告。\r\n            case_result = {\r\n                \"id\": case[\"id\"],\r\n                \"query\": case[\"query\"],\r\n                \"expected_targets\": case[\"expected_targets\"],\r\n                \"status\": \"error\",\r\n                \"recall_at_1\": 0,\r\n                \"recall_at_3\": 0,\r\n                \"recall_at_5\": 0,\r\n                \"hits\": [],\r\n                \"error\": type(exc).__name__,\r\n            }\r\n        case_results.append(case_result)\r\n\r\n\r\n    # 6. 分别计算三个指标的算术平均值。\r\n    # 例如：\r\n    # sum(item[\"recall_at_1\"] for item in case_results) / len(case_results)\r\n    # 分母包含失败用例\r\n    macro_recall_1 = sum(item[\"recall_at_1\"] for item in case_results) / len(case_results)\r\n    macro_recall_3 = sum(item[\"recall_at_3\"] for item in case_results) / len(case_results)\r\n    macro_recall_5 = sum(item[\"recall_at_5\"] for item in case_results) / len(case_results)\r\n    error_num = sum(item[\"status\"] == \"error\" for item in case_results)\r\n\r\n\r\n    # 7. 返回报告字典，包含：\r\n    # dataset_version、repository_id（字符串）、repository_commit、\r\n    # embedding_model、embedding_dimensions、\r\n    # strategy=\"vector_cosine_top5\"、\r\n    # evaluated_at（UTC ISO 字符串）、\r\n    # case_count、error_count、\r\n    # macro_recall_at_1、macro_recall_at_3、macro_recall_at_5、\r\n    # cases=case_results。\r\n    return {\r\n        \"dataset_version\": dataset[\"dataset_version\"],\r\n        \"repository_id\": str(repository_id),\r\n        \"repository_commit\": dataset[\"repository_commit\"],\r\n        \"embedding_model\": config.EMBEDDING_MODEL,\r\n        \"embedding_dimensions\": config.EMBEDDING_DIMENSIONS,\r\n        \"strategy\": \"vector_cosine_top5\",\r\n        \"evaluated_at\": datetime.now(timezone.utc).isoformat(),\r\n        \"case_count\": len(case_results),\r\n        \"error_count\": error_num,\r\n        \"macro_recall_at_1\": macro_recall_1,\r\n        \"macro_recall_at_3\": macro_recall_3,\r\n        \"macro_recall_at_5\": macro_recall_5,\r\n        \"cases\": case_results,\r\n    }\r\n",
+            "start_line": 122,
+            "end_line": 230
+          },
+          "distance": 0.440458722059879
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "search-flow",
+      "query": "自然语言检索中，哪里负责把问题向量化，哪里负责按余弦距离查询数据库？",
+      "expected_targets": [
+        {
+          "file_path": "backend/app/services/retrieval_service.py",
+          "symbol_name": "semantic_search"
+        },
+        {
+          "file_path": "backend/app/db/repositories/code_chunk_repo.py",
+          "symbol_name": "search_code_chunks"
+        }
+      ],
+      "status": "ok",
+      "recall_at_1": 0.5,
+      "recall_at_3": 1.0,
+      "recall_at_5": 1.0,
+      "hits": [
+        {
+          "chunk": {
+            "id": "10806961-2971-41ab-948c-ddad16d121bd",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "d2cc23f2-b7e9-4d96-a754-9e4419573f83",
+            "file_path": "backend/app/db/repositories/code_chunk_repo.py",
+            "symbol_name": "search_code_chunks",
+            "symbol_type": "function",
+            "content": "def search_code_chunks(\r\n    session: Session,\r\n    *,\r\n    repository_id: UUID,\r\n    query_vector: list[float],\r\n    model: str,\r\n    top_k: int = 5,\r\n) -> list[tuple[CodeChunk, float]]:\r\n    # 1. 校验 1 <= top_k <= 20。\r\n    # 校验 query_vector 长度为 1024\r\n    if not (1 <= top_k <= 20 and len(query_vector) == 1024):\r\n        raise ValueError(\"top_k must be between 1 and 20, query_vector must be 1024\")\r\n\r\n    # 2. 构造距离表达式。这一步只是描述 SQL，不会立即执行。\r\n    distance = CodeChunk.embedding.cosine_distance(\r\n        query_vector\r\n    ).label(\"distance\")\r\n\r\n    # 3. 同时查询 CodeChunk 和 distance。\r\n    # 提示：select(CodeChunk, distance)\r\n    statement = select(CodeChunk, distance)\r\n\r\n    # 4. 添加三个 AND 条件：\r\n    # 仓库 ID 匹配；\r\n    # embedding 不为空，使用 .is_not(None)；\r\n    # embedding_model 与 model 相同。\r\n    statement = statement.where(\r\n        CodeChunk.repository_id == repository_id,\r\n        CodeChunk.embedding.is_not(None),\r\n        CodeChunk.embedding_model == model\r\n    )\r\n\r\n    # 5. 按 distance 升序排列，CodeChunk.id 作为同距离时的排序依据。\r\n    # 限制最多 top_k 条。\r\n    statement = statement.order_by(distance, CodeChunk.id).limit(top_k)\r\n\r\n    # 6. 使用 session.execute(statement).all()。\r\n    # 遍历返回行，将 (chunk, float(distance_value)) 加入结果列表\r\n    rows = session.execute(statement).all()\r\n    result: list[tuple[CodeChunk, float]] = []\r\n\r\n    for chunk, distance_value in rows:\r\n        result.append((chunk, float(distance_value)))\r\n\r\n    return result",
+            "start_line": 158,
+            "end_line": 202
+          },
+          "distance": 0.40977146000350895
+        },
+        {
+          "chunk": {
+            "id": "d509b82f-0cfb-4723-98f5-331117d7b1e8",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "0cdf71ae-a0e6-42f6-8229-dd767471cb84",
+            "file_path": "scripts/eval_retrieval.py",
+            "symbol_name": "run_evaluation",
+            "symbol_type": "function",
+            "content": "def run_evaluation(dataset: dict) -> dict:\r\n    repository_id = UUID(dataset[\"repository_id\"])\r\n\r\n    # 1. 调用 get_repository(repository_id)。\r\n    # 仓库不存在，或 commit_hash 与 repository_commit 不一致，\r\n    # 抛 ValueError，阻止运行。\r\n    repository = get_repository(repository_id)\r\n    if repository is None:\r\n        raise ValueError(\"Evaluation repository does not exist\")\r\n\r\n    if dataset[\"repository_commit\"] != repository.commit_hash:\r\n        raise ValueError(\"Repository commit does not match evaluation dataset\")\r\n\r\n    case_results = []\r\n\r\n    for case in dataset[\"cases\"]:\r\n        # 2. 将 expected_targets 转成 set[Target]。\r\n        # 每项是 (file_path, symbol_name)。\r\n        expected_targets = set()\r\n        for target in case[\"expected_targets\"]:\r\n            expected_targets.add((target[\"file_path\"], target[\"symbol_name\"]))\r\n\r\n        try:\r\n            # 3. 调用一次 semantic_search，top_k=5。\r\n            # 只传 case[\"query\"]，不要传预期答案。\r\n            # 返回 None 时抛 RuntimeError，表示仓库已不存在。\r\n            search_result = semantic_search(repository_id, query=case[\"query\"], top_k=5)\r\n            if search_result is None:\r\n                raise RuntimeError(\"repository is not exist\")\r\n\r\n            # 4. 对同一份 hits 分别计算 Recall@1、@3、@5。\r\n            # 组装本例结果：\r\n            # id、query、expected_targets、status=\"ok\"、\r\n            #    recall_at_1、recall_at_3、recall_at_5、\r\n            # hits、error=None。\r\n            #\r\n            # hits 可使用：\r\n            # [hit.model_dump(mode=\"json\") for hit in hits]\r\n            recall_1 = recall_at_k(search_result, expected_targets, 1)\r\n            recall_3 = recall_at_k(search_result, expected_targets, 3)\r\n            recall_5 = recall_at_k(search_result, expected_targets, 5)\r\n\r\n            case_result = {\r\n                \"id\": case[\"id\"],\r\n                \"query\": case[\"query\"],\r\n                \"expected_targets\": case[\"expected_targets\"],\r\n                \"status\": \"ok\",\r\n                \"recall_at_1\": recall_1,\r\n                \"recall_at_3\": recall_3,\r\n                \"recall_at_5\": recall_5,\r\n                \"hits\": [],\r\n                \"error\": None,\r\n            }\r\n\r\n            for hit in search_result:\r\n                case_result[\"hits\"].append(hit.model_dump(mode=\"json\"))\r\n\r\n        except Exception as exc:\r\n            # 5. 本例执行失败仍加入 case_results：\r\n            # status=\"error\"，三个 recall 都为 0，hits=[]。\r\n            # error 暂时保存 type(exc).__name__。\r\n            # 不把请求头或密钥写进报告。\r\n            case_result = {\r\n                \"id\": case[\"id\"],\r\n                \"query\": case[\"query\"],\r\n                \"expected_targets\": case[\"expected_targets\"],\r\n                \"status\": \"error\",\r\n                \"recall_at_1\": 0,\r\n                \"recall_at_3\": 0,\r\n                \"recall_at_5\": 0,\r\n                \"hits\": [],\r\n                \"error\": type(exc).__name__,\r\n            }\r\n        case_results.append(case_result)\r\n\r\n\r\n    # 6. 分别计算三个指标的算术平均值。\r\n    # 例如：\r\n    # sum(item[\"recall_at_1\"] for item in case_results) / len(case_results)\r\n    # 分母包含失败用例\r\n    macro_recall_1 = sum(item[\"recall_at_1\"] for item in case_results) / len(case_results)\r\n    macro_recall_3 = sum(item[\"recall_at_3\"] for item in case_results) / len(case_results)\r\n    macro_recall_5 = sum(item[\"recall_at_5\"] for item in case_results) / len(case_results)\r\n    error_num = sum(item[\"status\"] == \"error\" for item in case_results)\r\n\r\n\r\n    # 7. 返回报告字典，包含：\r\n    # dataset_version、repository_id（字符串）、repository_commit、\r\n    # embedding_model、embedding_dimensions、\r\n    # strategy=\"vector_cosine_top5\"、\r\n    # evaluated_at（UTC ISO 字符串）、\r\n    # case_count、error_count、\r\n    # macro_recall_at_1、macro_recall_at_3、macro_recall_at_5、\r\n    # cases=case_results。\r\n    return {\r\n        \"dataset_version\": dataset[\"dataset_version\"],\r\n        \"repository_id\": str(repository_id),\r\n        \"repository_commit\": dataset[\"repository_commit\"],\r\n        \"embedding_model\": config.EMBEDDING_MODEL,\r\n        \"embedding_dimensions\": config.EMBEDDING_DIMENSIONS,\r\n        \"strategy\": \"vector_cosine_top5\",\r\n        \"evaluated_at\": datetime.now(timezone.utc).isoformat(),\r\n        \"case_count\": len(case_results),\r\n        \"error_count\": error_num,\r\n        \"macro_recall_at_1\": macro_recall_1,\r\n        \"macro_recall_at_3\": macro_recall_3,\r\n        \"macro_recall_at_5\": macro_recall_5,\r\n        \"cases\": case_results,\r\n    }\r\n",
+            "start_line": 122,
+            "end_line": 230
+          },
+          "distance": 0.43559647374195176
+        },
+        {
+          "chunk": {
+            "id": "d3da5e56-7e99-4939-95cc-a772a563d7fd",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "a30745f9-40e5-4af2-9f34-7f72e3bd736c",
+            "file_path": "backend/app/services/retrieval_service.py",
+            "symbol_name": "semantic_search",
+            "symbol_type": "function",
+            "content": "def semantic_search(\r\n    repository_id: UUID,\r\n    *,\r\n    query: str,\r\n    top_k: int = 5,\r\n) -> list[CodeChunkSearchHit] | None:\r\n    # 1. query.strip() 后不能为空，top_k 必须在 1～20。\r\n    # 不合法时抛 ValueError。\r\n    if not (query.strip() and 1 <= top_k <= 20):\r\n        raise ValueError(\"query must be not empty, top_k must be between 1 and 20\")\r\n\r\n    # 2. 用一个短会话检查仓库是否存在。\r\n    # 不存在返回 None，避免为无效仓库调用百炼。\r\n    with SessionLocal() as session:\r\n        if get_repository(session, repository_id=repository_id) is None:\r\n            return None\r\n\r\n    # 3. 此时上面的会话已关闭。\r\n    # 调用 embed_texts([query])，取返回列表的第一个向量\r\n    vector = embed_texts([query])\r\n\r\n    # 4. 开启查询会话。\r\n    with SessionLocal() as session:\r\n        # 再检查仓库是否存在，处理网络等待期间仓库被删除的情况。\r\n        if get_repository(session, repository_id=repository_id) is None:\r\n            return None\r\n\r\n        # 5. 调用 search_code_chunks\r\n        chunks = search_code_chunks(\r\n            session,\r\n            repository_id=repository_id,\r\n            query_vector=vector[0],\r\n            model=config.EMBEDDING_MODEL,\r\n            top_k=top_k,\r\n        )\r\n\r\n        # 6. 遍历 (chunk, distance)：\r\n        # 用 CodeChunkRead.model_validate(chunk) 转换代码块，\r\n        # 创建 CodeChunkSearchHit，收集并返回。\r\n        code_chunks : list[CodeChunkSearchHit] = []\r\n        for chunk, distance in chunks:\r\n            code_chunks.append(\r\n                CodeChunkSearchHit(\r\n                    chunk=CodeChunkRead.model_validate(chunk),\r\n                    distance=distance,\r\n                )\r\n            )\r\n\r\n    return code_chunks",
+            "start_line": 11,
+            "end_line": 59
+          },
+          "distance": 0.45544514856723173
+        },
+        {
+          "chunk": {
+            "id": "713fe9e5-f3fc-4984-96eb-98088d52960e",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "e081bd78-1841-46e9-ad0c-68d3ad1c026e",
+            "file_path": "backend/app/api/routes/repositories.py",
+            "symbol_name": "search_repository",
+            "symbol_type": "function",
+            "content": "@router.get(\r\n    \"/{repository_id}/search\",\r\n    response_model=list[CodeChunkSearchHit],\r\n)\r\ndef search_repository(\r\n    repository_id: UUID,\r\n    query: str = Query(min_length=1, max_length=1000),\r\n    top_k: int = Query(default=5, ge=1, le=20),\r\n):\r\n    # 1. query.strip() 为空时，抛 HTTP 422\r\n    if query.strip() == \"\":\r\n        raise HTTPException(status_code=422, detail=\"Query cannot be blank\")\r\n\r\n    try:\r\n        # 2. 调用 retrieval_service.semantic_search。\r\n        # 传入 repository_id、query、top_k。\r\n        result = retrieval_service.semantic_search(repository_id, query=query, top_k=top_k)\r\n    except httpx.HTTPError as exc:\r\n        # 3. 记录失败日志及 repository_id\r\n        # 不向客户端返回完整上游响应。\r\n        logger.exception(repository_id)\r\n        raise HTTPException(status_code=503, detail=\"Embedding service unavailable\")\r\n\r\n    # 4. result 为 None，返回 HTTP 404。\r\n    if result is None:\r\n        raise HTTPException(status_code=404, detail=\"Repository not found\")\r\n\r\n    # 5. 返回结果，包括合法的空列表。\r\n    return result",
+            "start_line": 196,
+            "end_line": 224
+          },
+          "distance": 0.5002740919426616
+        },
+        {
+          "chunk": {
+            "id": "172b3af8-7803-4201-b8d7-35e092926b28",
+            "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+            "file_id": "0cdf71ae-a0e6-42f6-8229-dd767471cb84",
+            "file_path": "scripts/eval_retrieval.py",
+            "symbol_name": "main",
+            "symbol_type": "function",
+            "content": "def main() -> None:\r\n    project_root = Path(__file__).resolve().parents[1]\r\n\r\n    # 1. 创建命令行参数解析器。\r\n    # 提示：parser = argparse.ArgumentParser(...)\r\n    parser = argparse.ArgumentParser()\r\n\r\n    # 2. 添加 --dataset 参数。\r\n    # type=Path\r\n    # 默认值为 project_root / \"evals\" / \"retrieval_v1.json\"\r\n    parser.add_argument(\"--dataset\", type=Path, default=project_root / \"evals\" / \"retrieval_v1.json\")\r\n\r\n    # 3. 解析参数。\r\n    # 提示：args = parser.parse_args()\r\n    args = parser.parse_args()\r\n\r\n    # 4. 使用 args.dataset 调用 load_dataset\r\n    load_dataset(args.dataset)\r\n\r\n    project_root = Path(__file__).resolve().parents[1]\r\n    dataset_path = project_root / \"evals\" / \"retrieval_v1.json\"\r\n\r\n    # 5. load_dataset，再调用 run_evaluation。\r\n    dataset = load_dataset(dataset_path)\r\n    result = run_evaluation(dataset)\r\n\r\n    # 6. 在 evals/reports 下写报告。\r\n    # mkdir(parents=True, exist_ok=True) 创建目录。\r\n    # 文件名加入 UTC 时间，避免覆盖之前的报告。\r\n    target_dir = project_root / \"evals\" / \"reports\"\r\n    target_dir.mkdir(parents=True, exist_ok=True)\r\n\r\n    timestamp = datetime.now(timezone.utc).strftime(\"%Y%m%dT%H%M%S%fZ\")\r\n    report_path = target_dir / f\"retrieval_{timestamp}.json\"\r\n\r\n    # 7. json.dumps(report, ensure_ascii=False, indent=2)\r\n    # 配合 write_text(..., encoding=\"utf-8\") 保存。\r\n    report_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding=\"utf-8\")\r\n\r\n    # 8. 打印报告路径、三个汇总指标和错误数量。\r\n    print(f\"Recall@1: {result['macro_recall_at_1']:.3f}\\n\"\r\n          f\"Recall@3: {result['macro_recall_at_3']:.3f}\\n\"\r\n          f\"Recall@5: {result['macro_recall_at_5']:.3f}\\n\"\r\n          f\"Error: {result['error_count']}\")\r\n",
+            "start_line": 232,
+            "end_line": 275
+          },
+          "distance": 0.5199958384036985
+        }
+      ],
+      "error": null
+    }
+  ]
+}

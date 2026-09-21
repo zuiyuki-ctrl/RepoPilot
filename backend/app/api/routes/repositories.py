@@ -5,7 +5,8 @@ from uuid import UUID
 import httpx
 from fastapi import APIRouter, HTTPException, Query
 
-from ...services import retrieval_service
+from ...schemas.source import SourceRead
+from ...schemas.qa import QuestionResponse, QuestionRequest
 from ...schemas.code_chunk import RepositoryChunkIndexRead, CodeChunkRead, CodeChunkSearchHit
 from ...schemas.repository_file import RepositoryFileRead, RepositoryScanRead, SkippedFileRead
 from ...core.exceptions import (
@@ -13,10 +14,22 @@ from ...core.exceptions import (
     RepositoryInspectionError,
     WorkspaceCreationError,
     RepositoryBusyError,
-    RepositoryScanError
+    RepositoryScanError,
+    InvalidAnswerCitationError,
+    FileSkippedError,
 )
 from ...schemas.repository import RepositoryCreate, RepositoryRead
-from ...services import repository_service, repository_indexing_service, code_chunk_service
+from ...services import (
+    repository_service,
+    repository_indexing_service,
+    code_chunk_service,
+    qa_service,
+    source_service,
+    retrieval_service,
+    agent_service
+)
+from sqlalchemy.exc import SQLAlchemyError
+from ...schemas.agent import AgentQuestionRequest, AgentQuestionResponse
 
 import logging
 
@@ -222,3 +235,145 @@ def search_repository(
 
     # 5. 返回结果，包括合法的空列表。
     return result
+
+@router.post(
+    "/{repository_id}/ask",
+    response_model=QuestionResponse,
+)
+def ask_repository(repository_id: UUID, data: QuestionRequest):
+    # 1. data.question 为空白时，返回 HTTP 422。
+    if data.question.strip() == "":
+        raise HTTPException(status_code=422, detail="Question cannot be blank")
+
+    try:
+        # 2. 调用 qa_service.answer_repository_question
+        answer = qa_service.answer_repository_question(repository_id, data)
+    except httpx.HTTPError as exc:
+        # 3. 记录日志，返回 HTTP 503：
+        logger.exception("Model service unavailable")
+        raise HTTPException(status_code=503, detail="Model service unavailable") from exc
+    except InvalidAnswerCitationError as exc:
+        # 4. 记录日志，返回 HTTP 502：
+        logger.exception("Generated answer contains invalid citations")
+        raise HTTPException(status_code=502, detail="Generated answer contains invalid citations") from exc
+
+    # 5. result 为 None 时返回 404，否则返回 result。
+    if answer is None:
+        raise HTTPException(status_code=404, detail="Repository not found")
+    return answer
+
+@router.get(
+    "/{repository_id}/source",
+    response_model=SourceRead,
+)
+def read_repository_source(
+    repository_id: UUID,
+    file_path: str = Query(min_length=1),
+    start_line: int = Query(default=1, ge=1),
+    end_line: int = Query(default=100, ge=1),
+):
+    try:
+        # 1. 调用 source_service.read_repository_source。
+        # 完整传递路径和两个行号参数。
+        result = source_service.read_repository_source(
+            repository_id,
+            file_path=file_path,
+            start_line=start_line,
+            end_line=end_line
+        )
+
+    except (UnicodeError, SyntaxError) as exc:
+        # 2. 源码编码或编码声明无法处理
+        raise HTTPException(status_code=422, detail="Cannot decode Python source") from exc
+
+    except FileSkippedError as exc:
+        # 3. 文件超过读取限制或包含空字节
+        raise HTTPException(status_code=422, detail="Source file cannot be read under current limits") from exc
+
+    except ValueError as exc:
+        # 4. 本服务主动拒绝的路径、行号等请求
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    except RepositoryScanError as exc:
+        # 5. 文件读取或路径检查失败：
+        # logger.exception 记录 repository_id；
+        # 返回 503，提示 "Source reading unavailable"。
+        logger.exception(repository_id)
+        raise HTTPException(status_code=503, detail="Source reading unavailable") from exc
+
+    # 6. result 为 None 表示仓库不存在，返回 404。
+    if result is None:
+        raise HTTPException(status_code=404, detail="Repository not found")
+
+    # 7. 返回 SourceRead。
+    return result
+
+@router.post(
+    "/{repository_id}/agent/ask",
+    response_model=AgentQuestionResponse,
+)
+def ask_repository_agent(
+    repository_id: UUID,
+    data: AgentQuestionRequest,
+):
+    # 1：data.question.strip() 为空时抛 HTTP 422。
+    # 放在服务调用之前，不通过捕获服务 ValueError 来判断用户输入。
+    if data.question.strip() == "":
+        raise HTTPException(status_code=422, detail="Question cannot be blank")
+
+    # 2：try 内调用 agent_service.run_readonly_agent
+    try:
+        result = agent_service.run_readonly_agent(
+            repository_id,
+            question=data.question,
+            max_tool_calls=data.max_tool_calls
+        )
+    except httpx.HTTPError as exc:
+        logger.exception(
+            "Model service unavailable; repository_id=%s",
+            repository_id,
+        )
+        raise HTTPException(
+            status_code=503, detail="Model service unavailable"
+        ) from exc
+
+    except SQLAlchemyError as exc:
+        logger.exception(
+            "Database unavailable; repository_id=%s",
+            repository_id,
+        )
+        raise HTTPException(
+            status_code=503, detail="Database unavailable"
+        ) from exc
+
+    except InvalidAnswerCitationError as exc:
+        logger.exception(
+            "Generated answer contains invalid citations; repository_id=%s",
+            repository_id,
+        )
+        raise HTTPException(
+            status_code=502, detail="Generated answer contains invalid citations"
+        ) from exc
+
+    except ValueError as exc:
+        # 处理尚未细分的内部错误
+        logger.exception(
+            "Agent execution failed; repository_id=%s",
+            repository_id,
+        )
+        raise HTTPException(status_code=500, detail="Agent execution failed") from exc
+
+    # 4：result is None 时抛 HTTP 404
+    if result is None:
+        raise HTTPException(status_code=404, detail="Repository not found")
+
+    # 5：构造 AgentQuestionResponse：
+    # repository_id 来自路径参数；
+    # answer、tool_trace、sources 来自 result。
+    # 响应构造放在服务调用的 try/except 之后。
+    return AgentQuestionResponse(
+        repository_id=repository_id,
+        answer=result["answer"],
+        tool_trace=result["tool_trace"],
+        sources=result["sources"],
+    )

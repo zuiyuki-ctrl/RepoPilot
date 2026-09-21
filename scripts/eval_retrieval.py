@@ -246,13 +246,8 @@ def main() -> None:
     args = parser.parse_args()
 
     # 4. 使用 args.dataset 调用 load_dataset
-    load_dataset(args.dataset)
-
-    project_root = Path(__file__).resolve().parents[1]
-    dataset_path = project_root / "evals" / "retrieval_v1.json"
-
     # 5. load_dataset，再调用 run_evaluation。
-    dataset = load_dataset(dataset_path)
+    dataset = load_dataset(args.dataset)
     result = run_evaluation(dataset)
 
     # 6. 在 evals/reports 下写报告。
@@ -273,6 +268,8 @@ def main() -> None:
           f"Recall@3: {result['macro_recall_at_3']:.3f}\n"
           f"Recall@5: {result['macro_recall_at_5']:.3f}\n"
           f"Error: {result['error_count']}")
+
+    print(f"Report: {report_path}")
 
 if __name__ == "__main__":
     main()

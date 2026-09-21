@@ -24,4 +24,7 @@ EMBEDDING_ENDPOINT = os.getenv("EMBEDDING_ENDPOINT", "")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-v4")
 EMBEDDING_DIMENSIONS = int(os.getenv("EMBEDDING_DIMENSIONS", "1024"))
 
+CHAT_BASE_URL = os.getenv("CHAT_BASE_URL", "")
+CHAT_MODEL = os.getenv("CHAT_MODEL", "")
+
 

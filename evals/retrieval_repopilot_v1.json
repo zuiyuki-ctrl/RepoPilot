@@ -1,0 +1,111 @@
+{
+  "dataset_version": "repopilot-retrieval-v1",
+  "repository_id": "81c498bc-19bb-4cee-91fa-144bb89247b2",
+  "repository_commit": "ce3414aca658d45819a93c8ecb2b6a46a347298a",
+  "cases": [
+    {
+      "id": "source-path",
+      "query": "哪里检查输入的源码路径必须是存在的绝对目录？",
+      "expected_targets": [
+        {
+          "file_path": "backend/app/services/repository_source.py",
+          "symbol_name": "validate_source_path"
+        }
+      ]
+    },
+    {
+      "id": "git-root",
+      "query": "哪里确认用户提供的目录就是 Git 工作区根目录？",
+      "expected_targets": [
+        {
+          "file_path": "backend/app/services/repository_source.py",
+          "symbol_name": "validate_git_root"
+        }
+      ]
+    },
+    {
+      "id": "git-metadata",
+      "query": "哪里读取当前提交和分支，并拒绝有未提交修改的仓库？",
+      "expected_targets": [
+        {
+          "file_path": "backend/app/services/repository_source.py",
+          "symbol_name": "read_git_metadata"
+        }
+      ]
+    },
+    {
+      "id": "discover-python",
+      "query": "哪里遍历 Python 文件并排除虚拟环境等目录？",
+      "expected_targets": [
+        {
+          "file_path": "backend/app/services/repository_scanner.py",
+          "symbol_name": "discover_python_files"
+        }
+      ]
+    },
+    {
+      "id": "file-snapshot",
+      "query": "哪里读取文件字节并计算大小和 SHA-256？",
+      "expected_targets": [
+        {
+          "file_path": "backend/app/services/repository_scanner.py",
+          "symbol_name": "read_file_snapshot"
+        }
+      ]
+    },
+    {
+      "id": "parse-symbols",
+      "query": "哪里从 AST 中提取顶层函数和类的位置？",
+      "expected_targets": [
+        {
+          "file_path": "backend/app/rag/parse.py",
+          "symbol_name": "parse_top_level_symbols"
+        }
+      ]
+    },
+    {
+      "id": "decode-source",
+      "query": "哪里根据 Python 编码声明将字节解码为源码？",
+      "expected_targets": [
+        {
+          "file_path": "backend/app/rag/parse.py",
+          "symbol_name": "decode_python_source"
+        }
+      ]
+    },
+    {
+      "id": "replace-chunks",
+      "query": "哪里保存文件信息并用新代码块替换该文件的旧代码块？",
+      "expected_targets": [
+        {
+          "file_path": "backend/app/services/code_chunk_service.py",
+          "symbol_name": "save_chunked_file"
+        }
+      ]
+    },
+    {
+      "id": "embed-batches",
+      "query": "哪里循环分批生成向量，并把向量和模型名称写回数据库？",
+      "expected_targets": [
+        {
+          "file_path": "backend/app/services/repository_embedding_service.py",
+          "symbol_name": "embed_repository_chunks"
+        }
+      ]
+    },
+    {
+      "id": "search-flow",
+      "query": "自然语言检索中，哪里负责把问题向量化，哪里负责按余弦距离查询数据库？",
+      "expected_targets": [
+        {
+          "file_path": "backend/app/services/retrieval_service.py",
+          "symbol_name": "semantic_search"
+        },
+        {
+          "file_path": "backend/app/db/repositories/code_chunk_repo.py",
+          "symbol_name": "search_code_chunks"
+        }
+      ]
+    }
+  ]
+}

@@ -868,30 +868,18 @@ HNSW INDEX
 
 每一次 Agent 工作都是一个 Task。
 
-```text
-agent_tasks
-──────────────────────────────
-id                  UUID PK
-
-repository_id       UUID FK
-
-user_request        TEXT
-task_type           VARCHAR
-
-status              VARCHAR
-
-plan                JSONB
-
-current_step        INTEGER
-
-retry_count         INTEGER
-
-final_report        TEXT
-
-created_at          TIMESTAMP
-started_at          TIMESTAMP
-completed_at        TIMESTAMP
-```
+| 字段 | Python 类型 | 数据库与默认值 |
+|---|---|---|
+| `id` | `UUID` | 主键，`default=uuid4` |
+| `repository_id` | `UUID` | 外键 `repositories.id`，非空 |
+| `user_request` | `str` | `Text`，非空 |
+| `task_type` | `str` | `String(32)`，默认 `"question"` |
+| `status` | `str` | `String(32)`，默认 `"created"` |
+| `created_at` | `datetime` | 带时区，`server_default=func.now()` |
+| `started_at` | `datetime \| None` | 带时区，可空 |
+| `completed_at` | `datetime \| None` | 带时区，可空 |
+| `result` | `dict[str, Any] \| None` | PostgreSQL `JSONB`，可空 |
+| `error` | `str \| None` | `Text`，可空 |
 
 一个用户请求：
 

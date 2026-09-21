@@ -5,12 +5,13 @@ import logging
 
 from .db.session import check_database_connection
 from .core.config import APP_NAME
-from .api.routes import repositories
+from .api.routes import repositories, tasks
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 app = FastAPI(title=APP_NAME)
 app.include_router(repositories.router)
+app.include_router(tasks.router)
 
 # 增加 GET /health，响应为 {"status": "ok"}。本次先把它定义为进程存活检查；数据库就绪单独验证
 # 进程存活检查：能处理请求即可返回成功，不依赖数据库连接状态。
