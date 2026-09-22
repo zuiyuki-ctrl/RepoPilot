@@ -5,6 +5,7 @@ from uuid import UUID
 
 from backend.app.core.exceptions import InvalidAnswerCitationError, RepositoryScanError
 from backend.app.services import agent_service as agent
+from backend.app.agent import nodes, policy
 
 
 # 模拟模型消息和工具结果，测试不连接数据库、不读取仓库、不消耗模型额度。
@@ -34,12 +35,12 @@ def source_result(content="def example():\n    return 1\n"):
 class ReadonlyAgentTests(unittest.TestCase):
     def setUp(self):
         self.repository_id = UUID("00000000-0000-0000-0000-000000000001")
-        self.repository = self.start_patch("get_repository", return_value=object())
-        self.model = self.start_patch("request_tool_turn")
-        self.tool = self.start_patch("execute_readonly_tool")
+        self.repository = self.start_patch(agent, "get_repository", return_value=object())
+        self.model = self.start_patch(nodes, "request_tool_turn")
+        self.tool = self.start_patch(nodes, "execute_readonly_tool")
 
-    def start_patch(self, name, **kwargs):
-        patcher = patch.object(agent, name, **kwargs)
+    def start_patch(self, target, name, **kwargs):
+        patcher = patch.object(target, name, **kwargs)
         mock = patcher.start()
         self.addCleanup(patcher.stop)
         return mock
@@ -58,14 +59,14 @@ class ReadonlyAgentTests(unittest.TestCase):
     def test_direct_answer_without_evidence_is_replaced(self):
         self.model.return_value = answer_turn("猜测旧块没有删除。[S1]")
         result = self.run_agent()
-        self.assertEqual(result["answer"], agent.NO_EVIDENCE_ANSWER)
+        self.assertEqual(result["answer"], policy.NO_EVIDENCE_ANSWER)
         self.assertEqual(result["sources"], [])
         self.tool.assert_not_called()
 
     def test_empty_search_is_not_evidence(self):
         self.model.side_effect = [tool_turn("search_code"), answer_turn()]
         self.tool.return_value = {"hits": []}
-        self.assertEqual(self.run_agent()["answer"], agent.NO_EVIDENCE_ANSWER)
+        self.assertEqual(self.run_agent()["answer"], policy.NO_EVIDENCE_ANSWER)
 
     def test_whitespace_source_is_not_evidence(self):
         self.model.side_effect = [tool_turn("read_source"), answer_turn()]
@@ -75,7 +76,7 @@ class ReadonlyAgentTests(unittest.TestCase):
     def test_source_read_failure_can_be_corrected(self):
         self.model.side_effect = [tool_turn("read_source"), tool_turn("read_source"), answer_turn()]
         self.tool.side_effect = [RepositoryScanError("private filesystem details"), source_result()]
-        with self.assertLogs(agent.logger, level="WARNING"):
+        with self.assertLogs(nodes.logger, level="WARNING"):
             result = self.run_agent()
         self.assertEqual(self.tool.call_count, 2)
         self.assertIn("error", result["tool_trace"][0]["result"])
@@ -103,14 +104,14 @@ class ReadonlyAgentTests(unittest.TestCase):
     def test_tool_errors_without_evidence_cannot_produce_claims(self):
         self.model.side_effect = [tool_turn("read_source"), answer_turn()]
         self.tool.side_effect = ValueError("invalid range")
-        self.assertEqual(self.run_agent()["answer"], agent.NO_EVIDENCE_ANSWER)
+        self.assertEqual(self.run_agent()["answer"], policy.NO_EVIDENCE_ANSWER)
 
     def test_long_errors_are_bounded_and_json_remains_valid(self):
         self.model.side_effect = [tool_turn("read_source"), answer_turn()]
         self.tool.side_effect = ValueError('"\n' * 5000)
         result = self.run_agent()
         error = result["tool_trace"][0]["result"]["error"]
-        self.assertLessEqual(len(error), agent.MAX_TOOL_ERROR_CHARS)
+        self.assertLessEqual(len(error), policy.MAX_TOOL_ERROR_CHARS)
         self.assertEqual(json.loads(self.tool_messages()[0]["content"])["error"], error)
 
     def test_errors_consume_budget_and_stop_later_tools(self):
@@ -130,7 +131,7 @@ class ReadonlyAgentTests(unittest.TestCase):
         self.model.side_effect = [tool_turn("read_source"), answer_turn()]
         self.tool.return_value = source_result("x" * 40001)
         result = self.run_agent()
-        self.assertEqual(result["answer"], agent.NO_EVIDENCE_ANSWER)
+        self.assertEqual(result["answer"], policy.NO_EVIDENCE_ANSWER)
         self.assertIn("error", result["tool_trace"][0]["result"])
         self.assertFalse(self.model.call_args.kwargs["allow_tools"])
 

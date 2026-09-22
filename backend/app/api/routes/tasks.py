@@ -1,9 +1,10 @@
 from uuid import UUID
 
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy.exc import SQLAlchemyError
 
+from ...schemas.task_event import TaskEventRead
 from ...core.exceptions import InvalidTaskInputError, TaskStateConflictError, InvalidAnswerCitationError, \
     TaskExecutionError
 from ...services import task_service
@@ -126,3 +127,37 @@ def run_task(task_id: UUID):
 
     # 4. 正常返回 TaskRead，HTTP 200。
     return result
+
+
+@router.get(
+    "/{task_id}/events",
+    response_model=list[TaskEventRead],
+)
+def list_task_events(
+    task_id: UUID,
+    after_sequence: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=100),
+):
+    # 1. 调用 task_service.list_task_events。
+    try:
+        task_events = task_service.list_task_events(
+            task_id,
+            after_sequence=after_sequence,
+            limit=limit
+        )
+
+    # 2. InvalidTaskInputError → 422，固定提示。
+    except InvalidTaskInputError as exc:
+        raise HTTPException(status_code=422, detail="Task request cannot be blank") from exc
+
+    # 3. SQLAlchemyError → 503，记录 task_id，使用固定提示。
+    except SQLAlchemyError as exc:
+        logger.exception("Database unavailable; task_id=%s", task_id)
+        raise HTTPException(status_code=503, detail="Database unavailable") from exc
+
+    # 4. result is None → 404。
+    if task_events is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    # 5. 返回结果，包括空列表。
+    return task_events

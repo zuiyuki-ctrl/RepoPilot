@@ -55,7 +55,12 @@ def run_readonly_agent(
         "result": None,
     }
 
-    final_state: ReadonlyAgentState = READONLY_AGENT_GRAPH.invoke(initial_state)
+    final_state: ReadonlyAgentState = READONLY_AGENT_GRAPH.invoke(
+        initial_state,
+        config={
+            "recursion_limit": 32
+        }
+    )
     result = final_state["result"]
 
     if result is None:

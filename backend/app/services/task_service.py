@@ -1,5 +1,7 @@
 from uuid import UUID
 
+from ..schemas.task_event import TaskEventRead
+from ..db.repositories.task_event_repo import append_task_event
 from ..schemas.agent import AgentQuestionResponse
 from ..db.repositories.task_repo import get_task_for_update, mark_task_running
 from .agent_service import run_readonly_agent
@@ -7,7 +9,7 @@ from ..core.exceptions import InvalidTaskInputError, TaskStateConflictError, Tas
 from ..db.repositories.repository_repo import get_repository
 from ..db.session import SessionLocal
 from ..schemas.task import TaskCreate, TaskRead
-from ..db.repositories import task_repo
+from ..db.repositories import task_repo,task_event_repo
 
 import logging
 logger = logging.getLogger(__name__)
@@ -73,6 +75,18 @@ def run_task(task_id: UUID) -> TaskRead | None:
 
         # 4. mark_task_running，退出事务并提交。
         mark_task_running(session, task)
+        append_task_event(
+            session,
+            task_id=task_id,
+            event_type="TASK_STARTED",
+            node_name="task_server",
+            message="Task started",
+            payload={
+                "attempt": 1,
+                "step_id": "task",
+                "started_at": task.started_at.isoformat(),
+            }
+        )
 
     try:
         # 执行阶段：在任务事务外调用 Agent。
@@ -107,6 +121,21 @@ def run_task(task_id: UUID) -> TaskRead | None:
 
             task_repo.mark_task_completed(session, task, result=saved_result)
 
+            append_task_event(
+                session,
+                task_id=task_id,
+                event_type="TASK_COMPLETED",
+                node_name="task_server",
+                message="Task completed",
+                payload={
+                    "attempt": 1,
+                    "step_id": "task",
+                    "started_at": task.started_at.isoformat(),
+                    "completed_at": task.completed_at.isoformat(),
+                    "duration_ms": int((task.completed_at - task.started_at).total_seconds() * 1000),
+                }
+            )
+
             # 9. 在 Session 内转成 TaskRead，保存到 task_read。
             task_read = TaskRead.model_validate(task)
 
@@ -126,8 +155,24 @@ def run_task(task_id: UUID) -> TaskRead | None:
                 # 调用 task_repo.mark_task_failed，
                 # error 使用固定说明，例如：
                 # "Task execution failed; see server logs."
-                if task and task.status == "running":
+                if task is not None and task.status == "running":
                     task_repo.mark_task_failed(session, task, error="Task execution failed; see server logs.")
+
+                    append_task_event(
+                        session,
+                        task_id=task_id,
+                        event_type="TASK_FAILED",
+                        node_name="task_server",
+                        message="Task failed",
+                        payload={
+                            "attempt": 1,
+                            "step_id": "task",
+                            "started_at": task.started_at.isoformat(),
+                            "completed_at": task.completed_at.isoformat(),
+                            "duration_ms": (task.completed_at - task.started_at) * 1000,
+                            "description": "Task execution failed; see server logs",
+                        }
+                    )
 
         except Exception:
             logger.exception(
@@ -137,3 +182,42 @@ def run_task(task_id: UUID) -> TaskRead | None:
 
         # 重新抛出外层捕获的原始异常。
         raise
+
+# python -m alembic revision --autogenerate -m "create task_events table"
+# python -m alembic upgrade head
+
+def list_task_events(
+    task_id: UUID,
+    *,
+    after_sequence: int = 0,
+    limit: int = 50,
+) -> list[TaskEventRead] | None:
+    # 1. 校验 after_sequence >= 0，1 <= limit <= 100。
+    if after_sequence < 0:
+        raise ValueError("after_sequence must be nonnegative")
+
+    if not 1 <= limit <= 100:
+        raise ValueError("limit must be between 1 and 100")
+
+    # 2. 使用 SessionLocal()。
+    with SessionLocal() as session:
+        # 3. 查询任务，不存在返回 None。
+        task = task_repo.get_task(task_id)
+        if task is None:
+            return None
+
+        # 4. 调用事件数据访问层。
+        events  = task_event_repo.list_task_events(
+            session,
+            task_id=task_id,
+            after_sequence=after_sequence,
+            limit=limit,
+        )
+
+        # 5. 在会话内转换成 TaskEventRead 列表。
+        result: list[TaskEventRead] = []
+
+        for event in events:
+            result.append(TaskEventRead.model_validate(event))
+
+        return result

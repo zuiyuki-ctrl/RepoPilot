@@ -899,23 +899,16 @@ AgentTask
 
 保存 Agent 执行轨迹。task_events 是 P0 Agent Trace 的持久化数据源，同时服务任务状态展示、失败归因和 Evaluation；WebSocket 仅是事件的传输方式。
 
-```text
-task_events
-──────────────────────────────
-id                  UUID PK
-
-task_id             UUID FK
-
-event_type          VARCHAR
-
-node_name           VARCHAR
-
-message             TEXT
-
-payload             JSONB
-
-created_at          TIMESTAMP
-```
+| 字段 | Python 类型 | 配置 |
+|---|---|---|
+| `id` | `UUID` | 主键，`default=uuid4` |
+| `task_id` | `UUID` | 外键 `agent_tasks.id` |
+| `sequence` | `int` | `Integer`，非空 |
+| `event_type` | `str` | `String(64)` |
+| `node_name` | `str` | `String(64)` |
+| `message` | `str` | `Text` |
+| `payload` | `dict[str, Any]` | `JSONB`，非空 |
+| `created_at` | `datetime` | 带时区，`server_default=func.now()` |
 
 例如：
 
