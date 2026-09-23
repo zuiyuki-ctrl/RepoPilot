@@ -146,18 +146,14 @@ def list_task_events(
             limit=limit
         )
 
-    # 2. InvalidTaskInputError → 422，固定提示。
-    except InvalidTaskInputError as exc:
-        raise HTTPException(status_code=422, detail="Task request cannot be blank") from exc
-
-    # 3. SQLAlchemyError → 503，记录 task_id，使用固定提示。
+    # 2. SQLAlchemyError → 503，记录 task_id，使用固定提示。
     except SQLAlchemyError as exc:
         logger.exception("Database unavailable; task_id=%s", task_id)
         raise HTTPException(status_code=503, detail="Database unavailable") from exc
 
-    # 4. result is None → 404。
+    # 3. result is None → 404。
     if task_events is None:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    # 5. 返回结果，包括空列表。
+    # 4. 返回结果，包括空列表。
     return task_events

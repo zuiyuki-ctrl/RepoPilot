@@ -10,7 +10,7 @@ class TaskEventRead(BaseModel):
 
     id: UUID
     task_id: UUID
-    sequence: str
+    sequence: int
     event_type: str
     node_name: str
     message: str

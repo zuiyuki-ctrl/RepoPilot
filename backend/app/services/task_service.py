@@ -1,7 +1,6 @@
 from uuid import UUID
 
 from ..schemas.task_event import TaskEventRead
-from ..db.repositories.task_event_repo import append_task_event
 from ..schemas.agent import AgentQuestionResponse
 from ..db.repositories.task_repo import get_task_for_update, mark_task_running
 from .agent_service import run_readonly_agent
@@ -9,7 +8,7 @@ from ..core.exceptions import InvalidTaskInputError, TaskStateConflictError, Tas
 from ..db.repositories.repository_repo import get_repository
 from ..db.session import SessionLocal
 from ..schemas.task import TaskCreate, TaskRead
-from ..db.repositories import task_repo,task_event_repo
+from ..db.repositories import task_repo, task_event_repo
 
 import logging
 logger = logging.getLogger(__name__)
@@ -75,7 +74,7 @@ def run_task(task_id: UUID) -> TaskRead | None:
 
         # 4. mark_task_running，退出事务并提交。
         mark_task_running(session, task)
-        append_task_event(
+        task_event_repo.append_task_event(
             session,
             task_id=task_id,
             event_type="TASK_STARTED",
@@ -121,7 +120,7 @@ def run_task(task_id: UUID) -> TaskRead | None:
 
             task_repo.mark_task_completed(session, task, result=saved_result)
 
-            append_task_event(
+            task_event_repo.append_task_event(
                 session,
                 task_id=task_id,
                 event_type="TASK_COMPLETED",
@@ -158,7 +157,7 @@ def run_task(task_id: UUID) -> TaskRead | None:
                 if task is not None and task.status == "running":
                     task_repo.mark_task_failed(session, task, error="Task execution failed; see server logs.")
 
-                    append_task_event(
+                    task_event_repo.append_task_event(
                         session,
                         task_id=task_id,
                         event_type="TASK_FAILED",
@@ -169,7 +168,7 @@ def run_task(task_id: UUID) -> TaskRead | None:
                             "step_id": "task",
                             "started_at": task.started_at.isoformat(),
                             "completed_at": task.completed_at.isoformat(),
-                            "duration_ms": (task.completed_at - task.started_at) * 1000,
+                            "duration_ms": int((task.completed_at - task.started_at).total_seconds() * 1000),
                             "description": "Task execution failed; see server logs",
                         }
                     )
@@ -202,7 +201,7 @@ def list_task_events(
     # 2. 使用 SessionLocal()。
     with SessionLocal() as session:
         # 3. 查询任务，不存在返回 None。
-        task = task_repo.get_task(task_id)
+        task = task_repo.get_task(session, task_id)
         if task is None:
             return None
 

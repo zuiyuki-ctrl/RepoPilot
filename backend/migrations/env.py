@@ -7,6 +7,9 @@ from backend.app.db.models.repository import Repository
 from backend.app.db.session import engine
 from backend.app.db.models.repository_file import RepositoryFile
 from backend.app.db.models.code_chunk import CodeChunk
+from backend.app.db.models.agent_task import AgentTask
+from backend.app.db.models.task_event import TaskEvent
+
 
 config = context.config
 
