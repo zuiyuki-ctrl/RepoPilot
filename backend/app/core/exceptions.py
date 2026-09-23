@@ -27,3 +27,6 @@ class TaskStateConflictError(RuntimeError):
 
 class TaskExecutionError(RuntimeError):
     """任务执行无法完成。"""
+
+class InvalidPlanError(ValueError):
+    """模型生成的计划格式或引用不合法。"""

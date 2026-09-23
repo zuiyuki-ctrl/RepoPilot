@@ -37,7 +37,6 @@ def emit_agent_event(
     if event_sink is None:
         return None
 
-    # TODO 3：
     # 调用 event_sink，并完整传递四个命名参数。
     event_sink(
         event_type=event_type,
@@ -67,9 +66,6 @@ def model_node(
     # 使用 uuid4() 创建唯一 call_id，并转成字符串。
     call_id = str(uuid4())
 
-    # 使用 perf_counter() 记录单调时钟开始时间。
-    started_at = perf_counter()
-
     # 如果 execution_info 存在，使用 node_attempt；
     # 否则默认使用 1。
     execution_info = runtime.execution_info
@@ -90,6 +86,9 @@ def model_node(
         },
     )
 
+    # 使用 perf_counter() 记录单调时钟开始时间。
+    started_at = perf_counter()
+
     # 4.调用模型
     try:
         assistant_message = request_tool_turn(
@@ -102,21 +101,28 @@ def model_node(
         # int((perf_counter() - started_at) * 1000)
         duration_ms = int((perf_counter() - started_at) * 1000)
 
-        emit_agent_event(
-            runtime,
-            event_type="MODEL_CALL_FAILED",
-            node_name="model",
-            message="Model call failed",
-            payload={
-                "call_id": call_id,
-                "step_id": "model",
-                "attempt": attempt,
-                "duration_ms": duration_ms,
+        try:
+            emit_agent_event(
+                runtime,
+                event_type="MODEL_CALL_FAILED",
+                node_name="model",
+                message="Model call failed",
+                payload={
+                    "call_id": call_id,
+                    "step_id": "model",
+                    "attempt": attempt,
+                    "duration_ms": duration_ms,
 
-                # 只记录异常类型名称，不记录 str(exc)。
-                "error_type": type(exc).__name__,
-            },
-        )
+                    # 只记录异常类型名称，不记录 str(exc)。
+                    "error_type": type(exc).__name__,
+                },
+            )
+        except Exception:
+            logger.exception(
+                "Failed to persist model failure event; call_id=%s",
+                call_id,
+            )
+
         raise
 
     # 5.判断模型返回类型
@@ -142,7 +148,7 @@ def model_node(
             "duration_ms": duration_ms,
             "response_type": response_type,
 
-            # TODO：记录本次返回的工具调用数量。
+            # 记录本次返回的工具调用数量。
             "tool_call_count": len(tool_calls),
         },
     )
@@ -172,7 +178,10 @@ def route_after_model(
 
 
 
-def tools_node(state: ReadonlyAgentState) -> dict:
+def tools_node(
+        state: ReadonlyAgentState,
+        runtime: Runtime[AgentRunContext]
+) -> dict:
     # 1. 从最后一条 assistant 消息取出本批 tool_calls。
     tool_calls = state["messages"][-1]["tool_calls"]
 
@@ -193,6 +202,24 @@ def tools_node(state: ReadonlyAgentState) -> dict:
         raise ValueError("Model requested tools after the tool budget was exhausted")
 
     if remaining_chars < budget_error_size * len(tool_calls):
+        execution_info = runtime.execution_info
+        attempt = execution_info.node_attempt if execution_info else 1
+        emit_agent_event(
+            runtime,
+            event_type="BUDGET_EXCEEDED",
+            node_name="tools",
+            message="Tool batch rejected due to budget",
+            payload={
+                "step_id": "tools",
+                "attempt": attempt,
+                "action": "reject_batch",
+                "reason": "tool_result_chars",
+                "attempted": False,
+                "requested_calls": len(tool_calls),
+                "required_chars": budget_error_size * len(tool_calls),
+                "remaining_chars": remaining_chars,
+            },
+        )
         raise ValueError("Too many tool calls for the remaining tool-result budget")
 
     # 4. 搬入现有 for call_index, call in enumerate(tool_calls) 循环。
@@ -200,12 +227,60 @@ def tools_node(state: ReadonlyAgentState) -> dict:
         function_name = call["function"]["name"]
         arguments_text = call["function"]["arguments"]
 
+        # 本次工具调用的内部唯一编号。
+        call_id = str(uuid4())
+
+        # 取得当前节点执行次数，参考 model_node 的写法。
+        execution_info = runtime.execution_info
+        attempt = execution_info.node_attempt if execution_info else 1
+
+        # 开始、成功、失败事件共享这些字段。
+        base_payload = {
+            "call_id": call_id,
+            "tool_call_id": call["id"],
+            "tool_name": function_name,
+            "step_id": "tools",
+            "attempt": attempt,
+        }
+
         # 第一阶段：决定是否真正执行工具
         if used_calls >= state["max_tool_calls"] or output_exhausted:
+            # 跳过是预算决策，不是一次实际执行，不能发出 TOOL_CALL_STARTED/FAILED。
+            emit_agent_event(
+                runtime,
+                event_type="BUDGET_EXCEEDED",
+                node_name="tools",
+                message="Tool execution skipped due to budget",
+                payload={
+                    **base_payload,
+                    "action": "skip_tool",
+                    "reason": "tool_calls" if used_calls >= state["max_tool_calls"] else "tool_result_chars",
+                    "attempted": False,
+                    "used_calls": used_calls,
+                    "max_tool_calls": state["max_tool_calls"],
+                    "remaining_chars": remaining_chars,
+                },
+            )
             result = dict(BUDGET_ERROR)
         else:
             # 一旦开始处理这次调用，即使参数错误，也要消耗调用次数
             used_calls += 1
+
+            # None 表示目前没有发现可恢复错误。
+            error_type: str | None = None
+
+            emit_agent_event(
+                runtime,
+                event_type="TOOL_CALL_STARTED",
+                node_name="tools",
+                message="Tool call started",
+                payload={
+                    **base_payload,
+                    "arguments_chars": len(arguments_text),
+                },
+            )
+
+            started_at = perf_counter()
 
             try:
                 args = json.loads(arguments_text)
@@ -219,7 +294,9 @@ def tools_node(state: ReadonlyAgentState) -> dict:
                     arguments=args,
                 )
 
-            except RepositoryScanError:
+            except RepositoryScanError as exc:
+                error_type = type(exc).__name__
+
                 # 记录 warning，不要把底层文件系统信息暴露给模型
                 logger.warning(
                     "Agent source read failed; repository_id=%s",
@@ -231,10 +308,63 @@ def tools_node(state: ReadonlyAgentState) -> dict:
                 }
 
             except (ValueError, FileSkippedError, SyntaxError) as exc:
+                error_type = type(exc).__name__
+
                 # 将错误字符串限制在 MAX_TOOL_ERROR_CHARS
                 result = {
                     "error": str(exc)[:MAX_TOOL_ERROR_CHARS],
                 }
+
+            except Exception as exc:
+                try:
+                    # 1. 调用 emit_agent_event
+                    emit_agent_event(
+                        runtime,
+                        event_type="TOOL_CALL_FAILED",
+                        node_name="tools",
+                        message="Tool call failed",
+                        payload={
+                            **base_payload,
+                            "duration_ms": int((perf_counter() - started_at) * 1000),
+                            "error_type": type(exc).__name__,
+                            "recoverable": False,
+                        }
+                    )
+
+                except Exception:
+                    logger.exception(
+                        "Failed to persist tool failure event; call_id=%s",
+                        call_id,
+                    )
+                raise
+
+            duration_ms = int((perf_counter() - started_at) * 1000)
+
+            if error_type is None:
+                emit_agent_event(
+                    runtime,
+                    event_type="TOOL_CALL_COMPLETED",
+                    node_name="tools",
+                    message="Tool call completed",
+                    payload={
+                        **base_payload,
+                        "duration_ms": duration_ms,
+                    }
+                )
+
+            else:
+                emit_agent_event(
+                    runtime,
+                    event_type="TOOL_CALL_FAILED",
+                    node_name="tools",
+                    message="Tool call failed",
+                    payload={
+                        **base_payload,
+                        "duration_ms": duration_ms,
+                        "error_type": error_type,
+                        "recoverable": True,
+                    }
+                )
 
         # 第二阶段：从成功结果中准备候选证据
         result, pending_sources = prepare_evidence(
@@ -250,6 +380,24 @@ def tools_node(state: ReadonlyAgentState) -> dict:
         reserved_chars = calls_after_current * budget_error_size
 
         if len(result_text) > remaining_chars - reserved_chars:
+
+            emit_agent_event(
+                runtime,
+                event_type="BUDGET_EXCEEDED",
+                node_name="tools",
+                message="Tool result discarded due to budget",
+                payload={
+                    **base_payload,
+                    "action": "discard_result",
+                    "reason": "tool_result_chars",
+                    "attempted": True,
+                    "result_chars": len(result_text),
+                    "remaining_chars": remaining_chars,
+                    "reserved_chars": reserved_chars,
+                    "available_chars": remaining_chars - reserved_chars,
+                },
+            )
+
             # 1. 将 result 换成 BUDGET_ERROR
             result = dict(BUDGET_ERROR)
 

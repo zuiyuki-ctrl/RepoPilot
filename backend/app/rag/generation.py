@@ -2,6 +2,7 @@ import httpx
 
 from .tool_chat import TOOL_DEFINITIONS
 from ..core import config
+from .prompts import DEFAULT_FINAL_INSTRUCTION
 
 
 SYSTEM_PROMPT = """
@@ -93,11 +94,13 @@ def generate_answer(question: str, context_text: str) -> str:
         raise ValueError("answer must be a nonblank string")
     return answer
 
-# 负责与模型通信，接收回答或调用请求
+# 负责与模型通信，接收回答或调用请求。
+# 禁用工具时，仅在消息副本中追加收尾指令，省略工具参数；响应仍禁止工具调用。
 def request_tool_turn(
     messages: list[dict],
     *,
     allow_tools: bool = True,
+    final_instruction: str = DEFAULT_FINAL_INSTRUCTION
 ) -> dict:
     # 1. 检查 messages 非空。
     # 检查 API Key、CHAT_BASE_URL、CHAT_MODEL 已配置。
@@ -119,9 +122,20 @@ def request_tool_turn(
         "stream": False,
         "enable_thinking": False,
         "max_tokens": 1500,
-        "tools": TOOL_DEFINITIONS,
-        "tool_choice": "auto" if allow_tools else "none",
     }
+
+    if allow_tools:
+        request_body["tools"] = TOOL_DEFINITIONS
+        request_body["tool_choice"] = "auto"
+    else:
+        request_body["messages"] = list(messages) + [
+            {
+                "role": "user",
+                "content": (
+
+                ),
+            }
+        ]
 
 
     # 3. 使用 httpx.Client(timeout=60.0) 发送请求。
@@ -176,7 +190,7 @@ def request_tool_turn(
     content = message.get("content", "")
     if finish_reason == "tool_calls":
         if not allow_tools:
-            raise ValueError("allow_tools cannot be False")
+            raise ValueError("Model returned tool_calls while tools were disabled")
 
         if not isinstance(tool_calls, list) or not tool_calls:
             raise ValueError("tool_calls must be a nonempty list")

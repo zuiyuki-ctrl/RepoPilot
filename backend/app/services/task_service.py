@@ -78,7 +78,7 @@ def run_task(task_id: UUID) -> TaskRead | None:
             session,
             task_id=task_id,
             event_type="TASK_STARTED",
-            node_name="task_server",
+            node_name="task_service",
             message="Task started",
             payload={
                 "attempt": 1,
@@ -157,7 +157,7 @@ def run_task(task_id: UUID) -> TaskRead | None:
                 session,
                 task_id=task_id,
                 event_type="TASK_COMPLETED",
-                node_name="task_server",
+                node_name="task_service",
                 message="Task completed",
                 payload={
                     "attempt": 1,
@@ -194,7 +194,7 @@ def run_task(task_id: UUID) -> TaskRead | None:
                         session,
                         task_id=task_id,
                         event_type="TASK_FAILED",
-                        node_name="task_server",
+                        node_name="task_service",
                         message="Task failed",
                         payload={
                             "attempt": 1,
@@ -226,10 +226,10 @@ def list_task_events(
 ) -> list[TaskEventRead] | None:
     # 1. 校验 after_sequence >= 0，1 <= limit <= 100。
     if after_sequence < 0:
-        raise ValueError("after_sequence must be nonnegative")
+        raise InvalidTaskInputError("after_sequence must be nonnegative")
 
     if not 1 <= limit <= 100:
-        raise ValueError("limit must be between 1 and 100")
+        raise InvalidTaskInputError("limit must be between 1 and 100")
 
     # 2. 使用 SessionLocal()。
     with SessionLocal() as session:

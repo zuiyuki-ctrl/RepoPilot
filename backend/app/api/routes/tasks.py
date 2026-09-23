@@ -151,6 +151,9 @@ def list_task_events(
         logger.exception("Database unavailable; task_id=%s", task_id)
         raise HTTPException(status_code=503, detail="Database unavailable") from exc
 
+    except InvalidTaskInputError as exc:
+        raise HTTPException(status_code=422, detail="Invalid event pagination parameters") from exc
+
     # 3. result is None → 404。
     if task_events is None:
         raise HTTPException(status_code=404, detail="Task not found")
