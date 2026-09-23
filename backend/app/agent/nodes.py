@@ -1,7 +1,13 @@
 # 三个节点及路由函数
 import json
-from typing import Literal
+from time import perf_counter
+from typing import Literal, Any
+from uuid import uuid4
 
+from langgraph.runtime import Runtime
+
+from ..core import config
+from .context import AgentRunContext
 from .evidence import finish_answer, prepare_evidence
 from ..agent.state import ReadonlyAgentState
 from ..core.exceptions import RepositoryScanError, FileSkippedError
@@ -13,30 +19,142 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+"""如果当前 Graph 运行提供了 Sink，就发送事件。"""
+def emit_agent_event(
+    runtime: Runtime[AgentRunContext],
+    *,
+    event_type: str,
+    node_name: str,
+    message: str,
+    payload: dict[str, Any],
+) -> None:
 
-def model_node(state: ReadonlyAgentState) -> dict:
-    # 1. 根据次数、字符预算和 output_exhausted 计算 allow_tools。
-    budget_error_size = len(json.dumps(BUDGET_ERROR, ensure_ascii=False))
+    # 从 runtime.context 取得 event_sink。
+    event_sink = runtime.context.event_sink
+
+    # 没有 sink 表示这次运行不属于持久化 Task，
+    # 直接返回，不应报错。
+    if event_sink is None:
+        return None
+
+    # TODO 3：
+    # 调用 event_sink，并完整传递四个命名参数。
+    event_sink(
+        event_type=event_type,
+        node_name=node_name,
+        message=message,
+        payload=payload
+    )
+
+def model_node(
+    state: ReadonlyAgentState,
+    runtime: Runtime[AgentRunContext],
+) -> dict:
+
+    # 1.计算工具预算
+    budget_error_size = len(
+        json.dumps(BUDGET_ERROR, ensure_ascii=False)
+    )
+
     allow_tools = (
         state["used_calls"] < state["max_tool_calls"]
         and not state["output_exhausted"]
         and state["remaining_chars"] >= budget_error_size
     )
 
-    # 2. 调用 request_tool_turn。
-    assistant_message = request_tool_turn(
-        state["messages"],
-        allow_tools=allow_tools,
+    # 2.准备本次模型调用信息
+
+    # 使用 uuid4() 创建唯一 call_id，并转成字符串。
+    call_id = str(uuid4())
+
+    # 使用 perf_counter() 记录单调时钟开始时间。
+    started_at = perf_counter()
+
+    # 如果 execution_info 存在，使用 node_attempt；
+    # 否则默认使用 1。
+    execution_info = runtime.execution_info
+    attempt = execution_info.node_attempt if execution_info else 1
+
+    # 3. 记录 MODEL_CALL_STARTED
+    emit_agent_event(
+        runtime,
+        event_type="MODEL_CALL_STARTED",
+        node_name="model",
+        message="Model call started",
+        payload={
+            "call_id": call_id,
+            "step_id": "model",
+            "attempt": attempt,
+            "allow_tools": allow_tools,
+            "model": config.CHAT_MODEL,
+        },
     )
 
-    # 3. 返回追加 assistant 消息后的 messages，以及 allow_tools。
-    # 当前 State 没有追加 reducer，messages 会被返回的新列表替换。
-    # 创建新列表，不直接 append 到传入的 state 上。
+    # 4.调用模型
+    try:
+        assistant_message = request_tool_turn(
+            state["messages"],
+            allow_tools=allow_tools,
+        )
+
+    except Exception as exc:
+        # 计算 duration_ms：
+        # int((perf_counter() - started_at) * 1000)
+        duration_ms = int((perf_counter() - started_at) * 1000)
+
+        emit_agent_event(
+            runtime,
+            event_type="MODEL_CALL_FAILED",
+            node_name="model",
+            message="Model call failed",
+            payload={
+                "call_id": call_id,
+                "step_id": "model",
+                "attempt": attempt,
+                "duration_ms": duration_ms,
+
+                # 只记录异常类型名称，不记录 str(exc)。
+                "error_type": type(exc).__name__,
+            },
+        )
+        raise
+
+    # 5.判断模型返回类型
+    tool_calls = assistant_message.get("tool_calls") or []
+
+    # 有 tool_calls 时为 "tool_calls"；
+    # 否则为 "answer"。
+    response_type = "tool_calls" if tool_calls else "answer"
+
+    # 计算成功调用耗时。
+    duration_ms = int((perf_counter() - started_at) * 1000)
+
+    # 6. 记录 MODEL_CALL_COMPLETED
+    emit_agent_event(
+        runtime,
+        event_type="MODEL_CALL_COMPLETED",
+        node_name="model",
+        message="Model call completed",
+        payload={
+            "call_id": call_id,
+            "step_id": "model",
+            "attempt": attempt,
+            "duration_ms": duration_ms,
+            "response_type": response_type,
+
+            # TODO：记录本次返回的工具调用数量。
+            "tool_call_count": len(tool_calls),
+        },
+    )
+
+    # 7. 返回 State 增量
+    new_messages = list(state["messages"])
+    new_messages.append(assistant_message)
     return {
-        "messages": [*state["messages"], assistant_message],
+        # 创建新列表，将 assistant_message 放在原 messages 后面。
+        "messages": new_messages,
         "allow_tools": allow_tools,
     }
-
 
 
 def route_after_model(

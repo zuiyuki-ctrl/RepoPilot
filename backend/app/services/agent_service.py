@@ -1,5 +1,6 @@
 from uuid import UUID
 
+from ..agent.context import AgentEventSink, AgentRunContext
 from ..agent.state import ReadonlyAgentState
 from ..agent.graph import READONLY_AGENT_GRAPH
 
@@ -20,6 +21,7 @@ def run_readonly_agent(
     *,
     question: str,
     max_tool_calls: int = 4,
+    event_sink: AgentEventSink | None = None
 ) -> dict | None:
     # 1. question 去掉首尾空白，要求长度为 1～1000。
     # max_tool_calls 要求为 1～8。
@@ -59,7 +61,8 @@ def run_readonly_agent(
         initial_state,
         config={
             "recursion_limit": 32
-        }
+        },
+        context=AgentRunContext(event_sink=event_sink),
     )
     result = final_state["result"]
 

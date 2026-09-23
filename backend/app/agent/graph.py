@@ -1,12 +1,16 @@
 from langgraph.graph import START, END, StateGraph
 
+from .context import AgentRunContext
 from .state import ReadonlyAgentState
 from .nodes import model_node, tools_node, finish_node, route_after_model
 
 
 def build_readonly_agent_graph():
     # 使用 ReadonlyAgentState 创建 StateGraph。
-    builder = StateGraph(ReadonlyAgentState)
+    builder = StateGraph(
+        state_schema=ReadonlyAgentState,
+        context_schema=AgentRunContext
+    )
 
     # 注册 model、tools、finish 三个节点。
     builder.add_node("model", model_node)

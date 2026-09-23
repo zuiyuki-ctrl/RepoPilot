@@ -87,12 +87,45 @@ def run_task(task_id: UUID) -> TaskRead | None:
             }
         )
 
+    """将单个 Agent 内部事件立即提交到数据库。"""
+    def persist_agent_event(
+        *,
+        event_type: str,
+        node_name: str,
+        message: str,
+        payload: dict,
+    ) -> None:
+
+        with SessionLocal.begin() as session:
+            # 锁定当前任务。
+            current_task = get_task_for_update(session, task_id)
+
+            # 如果任务已经不存在，抛出 TaskExecutionError。
+            if current_task is None:
+                raise TaskExecutionError()
+
+            # Graph 执行期间任务必须是 running。
+            # 如果不是 running，抛出 TaskStateConflictError。
+            if current_task.status != "running":
+                raise TaskStateConflictError()
+
+            # 调用 append_task_event：
+            task_event_repo.append_task_event(
+                session,
+                task_id=task_id,
+                event_type=event_type,
+                node_name=node_name,
+                message=message,
+                payload=payload
+            )
+
     try:
         # 执行阶段：在任务事务外调用 Agent。
         result = run_readonly_agent(
             repository_id,
             question=user_request,
             max_tool_calls=4,
+            event_sink=persist_agent_event
         )
 
         # 5. result 为 None，抛 TaskExecutionError。
