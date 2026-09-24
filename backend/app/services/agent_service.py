@@ -1,8 +1,9 @@
 from uuid import UUID
 
 from ..agent.context import AgentEventSink, AgentRunContext
-from ..agent.state import ReadonlyAgentState
-from ..agent.graph import READONLY_AGENT_GRAPH
+from ..agent.state import ReadonlyAgentState, PlanningAgentState
+from ..agent.graph import READONLY_AGENT_GRAPH, PLANNING_AGENT_GRAPH
+from ..schemas.plan import ChangePlan
 
 from .repository_service import get_repository
 
@@ -70,3 +71,73 @@ def run_readonly_agent(
         raise RuntimeError("Readonly agent graph completed without a result")
 
     return result
+
+
+def run_planning_agent(
+    repository_id: UUID,
+    *,
+    user_request: str,
+    max_tool_calls: int = 4,
+    event_sink: AgentEventSink | None = None,
+) -> ChangePlan | None:
+    # 1. 清理并校验 user_request。
+    #    strip 后长度必须为 1～1000。
+    normalized_request = user_request.strip()
+    if not 1 <= len(normalized_request) <= 1000:
+        raise ValueError("user_request must be between 1 and 1000 characters")
+
+    # 2. 校验 max_tool_calls 为 1～8。
+    if not 1 <= max_tool_calls <= 8:
+        raise ValueError("max_tool_calls must be between 1 and 8")
+
+    # 3. 调用 get_repository(repository_id)
+    repository = get_repository(repository_id)
+    if repository is None:
+        return None
+
+    # 4. 创建 PlanningAgentState。
+    initial_state: PlanningAgentState = {
+        "repository_id": repository_id,
+        "max_tool_calls": max_tool_calls,
+
+        # 研究阶段仍使用现有只读系统提示。
+        "messages": [
+            {"role": "system", "content": AGENT_SYSTEM_PROMPT},
+            {"role": "user", "content": normalized_request},
+        ],
+        "tool_trace": [],
+        "sources": [],
+
+        "used_calls": 0,
+        "remaining_chars": MAX_TOOL_RESULT_CHARS,
+        "output_exhausted": False,
+        "allow_tools": True,
+
+        # PlanningAgentState 继承的现有最终结果字段。
+        "result": None,
+
+        # 计划流程新增字段。
+        "user_request": normalized_request,
+        "plan": None,
+    }
+
+    # 5. 在数据库事务之外调用计划 Graph。
+    final_state: PlanningAgentState = PLANNING_AGENT_GRAPH.invoke(
+        initial_state,
+        config={
+            "recursion_limit": 32,
+        },
+        context=AgentRunContext(event_sink=event_sink),
+    )
+
+    # 6. 取得最终计划。
+    plan = final_state["plan"]
+
+    # 7. Graph 正常结束却没有计划时抛 RuntimeError。
+    if plan is None:
+        raise RuntimeError(
+            "Planning agent graph completed without a plan"
+        )
+
+    # 8. 返回 ChangePlan。
+    return plan

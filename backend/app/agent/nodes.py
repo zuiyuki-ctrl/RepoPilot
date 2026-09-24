@@ -9,11 +9,14 @@ from langgraph.runtime import Runtime
 from ..core import config
 from .context import AgentRunContext
 from .evidence import finish_answer, prepare_evidence
-from ..agent.state import ReadonlyAgentState
+from ..agent.state import ReadonlyAgentState, PlanningAgentState
 from ..core.exceptions import RepositoryScanError, FileSkippedError
 from ..rag.generation import request_tool_turn
 from .policy import BUDGET_ERROR, MAX_TOOL_ERROR_CHARS
 from ..services.tool_service import execute_readonly_tool
+
+from .plan_generation import generate_change_plan
+from ..schemas.agent import AgentSourceReference
 
 import logging
 
@@ -455,3 +458,25 @@ def finish_node(state: ReadonlyAgentState) -> dict:
 
     # 3. 返回 {"result": 校验后的结果}。
     return {"result": result}
+
+
+def plan_node(state: PlanningAgentState) -> dict:
+    # 1. 将 state["sources"] 中的字典逐项转换成
+    #    AgentSourceReference。
+    sources = []
+    for source in state["sources"]:
+        sources.append(AgentSourceReference.model_validate(source))
+
+
+    # 2. 调用 generate_change_plan。
+    plan = generate_change_plan(
+        state["user_request"],
+        evidence_messages=state["messages"],
+        sources=sources
+    )
+
+    # 3. 返回仅包含 plan 的 State 增量。
+    # 不修改 messages、sources 或其他现有字段。
+    return {
+        "plan": plan
+    }
