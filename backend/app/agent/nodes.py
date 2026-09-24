@@ -10,7 +10,7 @@ from ..core import config
 from .context import AgentRunContext
 from .evidence import finish_answer, prepare_evidence
 from ..agent.state import ReadonlyAgentState, PlanningAgentState
-from ..core.exceptions import RepositoryScanError, FileSkippedError
+from ..core.exceptions import RepositoryScanError, FileSkippedError, InsufficientPlanEvidenceError
 from ..rag.generation import request_tool_turn
 from .policy import BUDGET_ERROR, MAX_TOOL_ERROR_CHARS
 from ..services.tool_service import execute_readonly_tool
@@ -460,23 +460,103 @@ def finish_node(state: ReadonlyAgentState) -> dict:
     return {"result": result}
 
 
-def plan_node(state: PlanningAgentState) -> dict:
-    # 1. 将 state["sources"] 中的字典逐项转换成
-    #    AgentSourceReference。
+def plan_node(
+    state: PlanningAgentState,
+    runtime: Runtime[AgentRunContext],
+) -> dict:
+    # 1. 转换 sources；无证据则拒绝。
+    if not state["sources"]:
+        raise InsufficientPlanEvidenceError("Cannot generate a plan without code evidence")
+
     sources = []
     for source in state["sources"]:
         sources.append(AgentSourceReference.model_validate(source))
 
+    # 2. 创建 call_id、attempt 和 base_payload。
+    call_id = str(uuid4())
+    execution_info = runtime.execution_info
+    attempt = execution_info.node_attempt if execution_info else 1
 
-    # 2. 调用 generate_change_plan。
-    plan = generate_change_plan(
-        state["user_request"],
-        evidence_messages=state["messages"],
-        sources=sources
+    base_payload = {
+        "call_id": call_id,
+        "step_id": "plan",
+        "attempt": attempt,
+    }
+
+    # 3. 调用 emit_agent_event，记录 MODEL_CALL_STARTED
+    emit_agent_event(
+        runtime,
+        event_type="MODEL_CALL_STARTED",
+        node_name="plan",
+        message="Plan generation started",
+        payload={
+            **base_payload,
+            "model": config.CHAT_MODEL,
+            "allow_tools": False
+        },
     )
 
-    # 3. 返回仅包含 plan 的 State 增量。
-    # 不修改 messages、sources 或其他现有字段。
-    return {
-        "plan": plan
-    }
+    # 4. 使用 perf_counter() 保存 started_at。
+    started_at = perf_counter()
+
+    try:
+        # 5. 调用现有 generate_change_plan，保存返回的 plan。
+        plan = generate_change_plan(
+            state["user_request"],
+            evidence_messages=state["messages"],
+            sources=sources
+        )
+    except Exception as exc:
+        # 6. 计算 duration_ms。
+        duration_ms = int((perf_counter() - started_at) * 1000)
+
+        try:
+            # 7. 调用 emit_agent_event，记录 MODEL_CALL_FAILED。
+            emit_agent_event(
+                runtime,
+                event_type="MODEL_CALL_FAILED",
+                node_name="plan",
+                message="Plan generation failed",
+                payload={
+                    **base_payload,
+                    "duration_ms": duration_ms,
+                    "error_type": type(exc).__name__,
+                }
+            )
+        except Exception:
+            # 8. logger.exception 记录“失败事件保存失败”，附 call_id。
+            logger.exception("失败事件保存失败; call_id: %s", call_id)
+
+        # 9. 原样重新抛出生成计划时的异常。
+        raise
+
+    # 10. 计算 duration_ms，记录 MODEL_CALL_COMPLETED。
+    duration_ms = int((perf_counter() - started_at) * 1000)
+    emit_agent_event(
+        runtime,
+        event_type="MODEL_CALL_COMPLETED",
+        node_name="plan",
+        message="Plan generation completed",
+        payload={
+            **base_payload,
+            "duration_ms": duration_ms,
+            "response_type": "plan",
+            "tool_call_count": 0
+        }
+    )
+
+    # 11. 记录 PLAN_CREATED，包含校验后的完整计划。
+    emit_agent_event(
+        runtime,
+        event_type="PLAN_CREATED",
+        node_name="plan",
+        message="Change plan created",
+        payload={
+            **base_payload,
+            "plan": plan.model_dump(mode="json"),
+            "sources": [source.model_dump(mode="json") for source in sources]
+        }
+    )
+
+    # 12. 返回 {"plan": plan}。
+    return {"plan": plan}

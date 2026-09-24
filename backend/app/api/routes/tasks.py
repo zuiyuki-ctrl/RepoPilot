@@ -6,7 +6,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from ...schemas.task_event import TaskEventRead
 from ...core.exceptions import InvalidTaskInputError, TaskStateConflictError, InvalidAnswerCitationError, \
-    TaskExecutionError
+    TaskExecutionError, InvalidPlanError, InsufficientPlanEvidenceError
 from ...services import task_service
 from ...schemas.task import TaskRead, TaskCreate
 
@@ -109,6 +109,12 @@ def run_task(task_id: UUID):
         raise HTTPException(
             status_code=502, detail="Generated answer contains invalid citations"
         ) from exc
+
+    except InvalidPlanError as exc:
+        raise HTTPException(status_code=502, detail="Model returned an invalid plan") from exc
+
+    except InsufficientPlanEvidenceError as exc:
+        raise HTTPException(status_code=409, detail="No code evidence available for planning") from exc
 
     except (TaskExecutionError, ValueError) as exc:
         # 500 Internal Server Error: 内部执行逻辑崩溃或意料之外的内部参数错误

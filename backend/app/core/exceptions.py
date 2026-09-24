@@ -30,3 +30,6 @@ class TaskExecutionError(RuntimeError):
 
 class InvalidPlanError(ValueError):
     """模型生成的计划格式或引用不合法。"""
+
+class InsufficientPlanEvidenceError(RuntimeError):
+    """当前没有足够的代码证据用于生成计划。"""

@@ -16,8 +16,6 @@ def parse_change_plan(
     sources: list[AgentSourceReference],
 ) -> ChangePlan:
     # 1. 用 ChangePlan.model_validate_json(content) 解析。
-    #    捕获 pydantic.ValidationError，转换为 InvalidPlanError。
-    #    使用 raise ... from exc 保留异常原因。
     try:
         plan = ChangePlan.model_validate_json(content)
     except pydantic.ValidationError as exc:

@@ -3,11 +3,11 @@ from uuid import UUID
 from ..schemas.task_event import TaskEventRead
 from ..schemas.agent import AgentQuestionResponse
 from ..db.repositories.task_repo import get_task_for_update, mark_task_running
-from .agent_service import run_readonly_agent
+from .agent_service import run_readonly_agent, run_planning_agent
 from ..core.exceptions import InvalidTaskInputError, TaskStateConflictError, TaskExecutionError
 from ..db.repositories.repository_repo import get_repository
 from ..db.session import SessionLocal
-from ..schemas.task import TaskCreate, TaskRead
+from ..schemas.task import TaskCreate, TaskRead, TaskPlanResult
 from ..db.repositories import task_repo, task_event_repo
 
 import logging
@@ -71,6 +71,7 @@ def run_task(task_id: UUID) -> TaskRead | None:
         # 3. 保存后续使用的 repository_id、user_request。
         repository_id = task.repository_id
         user_request = task.user_request.strip()
+        task_type = task.task_type
 
         # 4. mark_task_running，退出事务并提交。
         mark_task_running(session, task)
@@ -120,21 +121,45 @@ def run_task(task_id: UUID) -> TaskRead | None:
             )
 
     try:
-        # 执行阶段：在任务事务外调用 Agent。
-        result = run_readonly_agent(
-            repository_id,
-            question=user_request,
-            max_tool_calls=4,
-            event_sink=persist_agent_event
-        )
+        # 执行阶段：在任务事务外调用 Agent
+        if task_type == "question":
+            result = run_readonly_agent(
+                repository_id,
+                question=user_request,
+                max_tool_calls=4,
+                event_sink=persist_agent_event
+            )
 
-        # 5. result 为 None，抛 TaskExecutionError。
-        # 提示：任务存在，但它对应的仓库已不可用。
-        if result is None:
-            raise TaskExecutionError("repository is unavailable.")
+            if result is None:
+                raise TaskExecutionError("repository is unavailable.")
 
-        # 6. 转换为 AgentQuestionResponse，再得到 saved_result。
-        response = AgentQuestionResponse(**result, repository_id=repository_id)
+            response = AgentQuestionResponse(
+                **result,
+                repository_id=repository_id
+            )
+
+
+        elif task_type == "plan":
+
+            plan = run_planning_agent(
+                repository_id,
+                user_request=user_request,
+                max_tool_calls=4,
+                event_sink=persist_agent_event
+            )
+            #     # 2. 返回 None 时抛 TaskExecutionError。
+            if plan is None:
+                raise TaskExecutionError("repository is unavailable.")
+
+            # 3. 构造 TaskPlanResult，保存为 response。
+            response = TaskPlanResult(
+                repository_id=repository_id,
+                plan=plan
+            )
+
+        else:
+            raise TaskExecutionError("Unsupported task type")
+
         saved_result = response.model_dump(mode="json")
 
         # 事务 B：保存成功结果。

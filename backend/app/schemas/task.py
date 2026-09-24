@@ -4,6 +4,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .plan import ChangePlan
 from ..schemas.agent import AgentQuestionResponse
 
 
@@ -12,8 +13,13 @@ class TaskCreate(BaseModel):
 
     repository_id: UUID
     user_request: str = Field(min_length=1, max_length=1000)
-    task_type: Literal["question"] = Field(default="question")
+    task_type: Literal["question", "plan"] = Field(default="question")
 
+class TaskPlanResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    repository_id: UUID
+    plan: ChangePlan
 
 class TaskRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -26,5 +32,5 @@ class TaskRead(BaseModel):
     created_at: datetime
     started_at: datetime | None
     completed_at: datetime | None
-    result: AgentQuestionResponse | None
+    result: AgentQuestionResponse | TaskPlanResult | None
     error: str | None
