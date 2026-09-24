@@ -112,7 +112,7 @@ def request_tool_turn(
         "messages": messages,
         "stream": False,
         "enable_thinking": False,
-        "max_tokens": 1500,
+        "max_tokens": 3000,
     }
 
     if allow_tools:

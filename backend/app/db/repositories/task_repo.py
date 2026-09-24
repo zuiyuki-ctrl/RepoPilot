@@ -97,3 +97,23 @@ def mark_task_failed(
     # 3. 填写 completed_at，flush。
     task.completed_at = datetime.now(timezone.utc)
     session.flush()
+
+
+# 是否允许审核，由服务层判断；数据访问层只负责落实已确定的变更
+def save_plan_review(
+    session: Session,
+    task: AgentTask,
+    *,
+    decision: str,
+    comment: str | None,
+) -> None:
+    # 1. 设置 review_decision 和 review_comment。
+    task.review_decision = decision
+    task.review_comment = comment
+
+    # 2. reviewed_at 使用 datetime.now(timezone.utc)。
+    task.reviewed_at = datetime.now(timezone.utc)
+
+    # 3. session.flush()，不 commit。
+    session.add(task)
+    session.flush()

@@ -1,5 +1,7 @@
 from uuid import UUID
 
+from pydantic import ValidationError
+
 from ..schemas.task_event import TaskEventRead
 from ..schemas.agent import AgentQuestionResponse
 from ..db.repositories.task_repo import get_task_for_update, mark_task_running
@@ -7,11 +9,13 @@ from .agent_service import run_readonly_agent, run_planning_agent
 from ..core.exceptions import InvalidTaskInputError, TaskStateConflictError, TaskExecutionError
 from ..db.repositories.repository_repo import get_repository
 from ..db.session import SessionLocal
-from ..schemas.task import TaskCreate, TaskRead, TaskPlanResult
+from ..schemas.task import TaskCreate, TaskRead, TaskPlanResult, TaskPlanReviewRequest
 from ..db.repositories import task_repo, task_event_repo
 
 import logging
+
 logger = logging.getLogger(__name__)
+
 
 def create_task(data: TaskCreate) -> TaskRead | None:
     # 1. 对 user_request 做 strip。
@@ -89,12 +93,13 @@ def run_task(task_id: UUID) -> TaskRead | None:
         )
 
     """将单个 Agent 内部事件立即提交到数据库。"""
+
     def persist_agent_event(
-        *,
-        event_type: str,
-        node_name: str,
-        message: str,
-        payload: dict,
+            *,
+            event_type: str,
+            node_name: str,
+            message: str,
+            payload: dict,
     ) -> None:
 
         with SessionLocal.begin() as session:
@@ -240,14 +245,15 @@ def run_task(task_id: UUID) -> TaskRead | None:
         # 重新抛出外层捕获的原始异常。
         raise
 
+
 # python -m alembic revision --autogenerate -m "create task_events table"
 # python -m alembic upgrade head
 
 def list_task_events(
-    task_id: UUID,
-    *,
-    after_sequence: int = 0,
-    limit: int = 50,
+        task_id: UUID,
+        *,
+        after_sequence: int = 0,
+        limit: int = 50,
 ) -> list[TaskEventRead] | None:
     # 1. 校验 after_sequence >= 0，1 <= limit <= 100。
     if after_sequence < 0:
@@ -264,7 +270,7 @@ def list_task_events(
             return None
 
         # 4. 调用事件数据访问层。
-        events  = task_event_repo.list_task_events(
+        events = task_event_repo.list_task_events(
             session,
             task_id=task_id,
             after_sequence=after_sequence,
@@ -278,3 +284,84 @@ def list_task_events(
             result.append(TaskEventRead.model_validate(event))
 
         return result
+
+
+# 用户对已经生成的计划作出批准或拒绝决定，程序保存决定，并记录审核事件。
+def review_task_plan(
+        task_id: UUID,
+        data: TaskPlanReviewRequest,
+) -> TaskRead | None:
+    # 1. 清理 comment；空白评论转换为 None。
+    comment = data.comment
+
+    if comment is not None:
+        comment = comment.strip()
+
+        if not comment:
+            comment = None
+
+    # 2. SessionLocal.begin() 开启事务。
+    with SessionLocal.begin() as session:
+        # 3. 使用 get_task_for_update 锁定任务；不存在返回 None。
+        task = get_task_for_update(session, task_id)
+        if task is None:
+            return None
+
+        # 4. 检查类型、执行状态及是否已经审核。
+        if task.task_type != "plan":
+            raise TaskStateConflictError("Only plan tasks can be reviewed")
+
+        # 状态不是 completed，抛 TaskStateConflictError。
+        if task.status != "completed":
+            raise TaskStateConflictError("Only completed tasks can be reviewed")
+
+        # review_decision 不是 None，抛 TaskStateConflictError。
+        if task.review_decision is not None:
+            raise TaskStateConflictError("Task has already been reviewed")
+
+        # 5. 校验保存的计划结果。
+        try:
+            saved_plan = TaskPlanResult.model_validate(task.result)
+        except ValidationError as exc:
+            raise TaskExecutionError("Stored plan is invalid") from exc
+
+        if saved_plan.repository_id != task.repository_id:
+            raise TaskExecutionError("Stored plan repository does not match task")
+
+        # 6. 调用 task_repo.save_plan_review
+        task_repo.save_plan_review(
+            session,
+            task,
+            decision=data.decision,
+            comment=comment
+        )
+
+        # 7. 使用同一个 session 调用 append_task_event。
+        task_event_repo.append_task_event(
+            session,
+            task_id=task.id,
+            event_type=(
+                "HUMAN_APPROVED"
+                if data.decision == "approved"
+                else "HUMAN_REJECTED"
+            ),
+            node_name="task_service",
+            message=(
+                "Plan approved"
+                if data.decision == "approved"
+                else "Plan rejected"
+            ),
+            payload={
+                "step_id": "plan_review",
+                "attempt": 1,
+                "decision": data.decision,
+                "comment": comment,
+                "reviewed_at": task.reviewed_at.isoformat(),
+            }
+        )
+
+        # 8. 在会话内转换成 TaskRead。
+        result = TaskRead.model_validate(task)
+
+    # 9. 退出事务成功后返回。
+    return result

@@ -2,13 +2,14 @@ from uuid import UUID
 
 import httpx
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 
 from ...schemas.task_event import TaskEventRead
 from ...core.exceptions import InvalidTaskInputError, TaskStateConflictError, InvalidAnswerCitationError, \
     TaskExecutionError, InvalidPlanError, InsufficientPlanEvidenceError
 from ...services import task_service
-from ...schemas.task import TaskRead, TaskCreate
+from ...schemas.task import TaskRead, TaskCreate, TaskPlanReviewRequest
 
 import logging
 
@@ -166,3 +167,41 @@ def list_task_events(
 
     # 4. 返回结果，包括空列表。
     return task_events
+
+
+@router.post("/{task_id}/review", response_model=TaskRead)
+def review_task_plan(
+    task_id: UUID,
+    data: TaskPlanReviewRequest,
+):
+    # 1. 调用 task_service.review_task_plan。
+    try:
+        result = task_service.review_task_plan(task_id, data)
+
+    # 2. TaskStateConflictError → 409。
+    except TaskStateConflictError as exc:
+        logger.exception(
+            "Task state conflict; task_id=%s",
+            task_id
+        )
+        raise HTTPException(status_code=409, detail="Task cannot be review in its current state") from exc
+
+    # 3. SQLAlchemyError → 503。
+    except SQLAlchemyError as exc:
+        logger.exception(
+            "Database unavailable; task_id=%s",
+            task_id
+        )
+        raise HTTPException(status_code=503, detail="Database unavailable") from exc
+
+    # 4. TaskExecutionError 或内部结果 ValidationError → 500。
+    except (TaskExecutionError, ValidationError) as exc:
+        logger.exception("Stored plan review failed; task_id=%s", task_id)
+        raise HTTPException(status_code=500, detail="Task execution error") from exc
+
+    # 5. 返回 None → 404。
+    if result is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    # 6. 成功返回 TaskRead。
+    return result

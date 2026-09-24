@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import ForeignKey, Text, String, DateTime, func
+from sqlalchemy import ForeignKey, Text, String, DateTime, func, CheckConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import mapped_column, Mapped
 
@@ -10,6 +10,14 @@ from ..base import Base
 
 class AgentTask(Base):
     __tablename__ = "agent_tasks"
+
+    __table_args__ = (
+        CheckConstraint(
+            "review_decision IS NULL "
+            "OR review_decision IN ('approved', 'rejected')",
+            name="ck_agent_tasks_review_decision",
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(
         primary_key=True,
@@ -55,5 +63,20 @@ class AgentTask(Base):
 
     error: Mapped[str | None] = mapped_column(
         Text,
+        nullable=True
+    )
+
+    review_decision: Mapped[str | None] = mapped_column(
+        String(16),
+        nullable=True
+    )
+
+    review_comment: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True
+    )
+
+    reviewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
         nullable=True
     )

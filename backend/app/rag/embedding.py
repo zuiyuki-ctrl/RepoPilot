@@ -38,7 +38,14 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
         "dimensions": config.EMBEDDING_DIMENSIONS,
     }
 
-    with httpx.Client(timeout=30.0) as client:
+    timeout = httpx.Timeout(
+        connect=10.0,
+        read=120.0,
+        write=30.0,
+        pool=10.0,
+    )
+
+    with httpx.Client(timeout=timeout) as client:
         # 6. POST 到配置的完整 endpoint
         response = client.post(config.EMBEDDING_ENDPOINT, headers=headers, json=request_body)
 

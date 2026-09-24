@@ -34,3 +34,19 @@ class TaskRead(BaseModel):
     completed_at: datetime | None
     result: AgentQuestionResponse | TaskPlanResult | None
     error: str | None
+
+    review_decision: Literal["approved", "rejected"] | None
+    review_comment: str | None
+    reviewed_at: datetime | None
+
+
+# 用户的审核决定
+class TaskPlanReviewRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        strict=True,
+        str_strip_whitespace=True,
+    )
+
+    decision: Literal["approved", "rejected"]
+    comment: str | None = Field(default=None, max_length=1000)

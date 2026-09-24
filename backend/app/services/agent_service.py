@@ -10,6 +10,7 @@ from .repository_service import get_repository
 from ..agent.policy import (
     AGENT_SYSTEM_PROMPT,
     MAX_TOOL_RESULT_CHARS,
+    PLAN_RESEARCH_SYSTEM_PROMPT
 )
 
 
@@ -102,7 +103,7 @@ def run_planning_agent(
 
         # 研究阶段仍使用现有只读系统提示。
         "messages": [
-            {"role": "system", "content": AGENT_SYSTEM_PROMPT},
+            {"role": "system", "content": PLAN_RESEARCH_SYSTEM_PROMPT },
             {"role": "user", "content": normalized_request},
         ],
         "tool_trace": [],
