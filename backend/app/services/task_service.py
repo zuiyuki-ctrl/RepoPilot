@@ -181,22 +181,41 @@ def run_task(task_id: UUID) -> TaskRead | None:
             if task.status != "running":
                 raise TaskStateConflictError()
 
-            task_repo.mark_task_completed(session, task, result=saved_result)
+            if task_type == "question":
+                # 调用 mark_task_completed。
+                # 记录现有 TASK_COMPLETED。
+                task_repo.mark_task_completed(session, task=task, result=saved_result)
 
-            task_event_repo.append_task_event(
-                session,
-                task_id=task_id,
-                event_type="TASK_COMPLETED",
-                node_name="task_service",
-                message="Task completed",
-                payload={
-                    "attempt": 1,
-                    "step_id": "task",
-                    "started_at": task.started_at.isoformat(),
-                    "completed_at": task.completed_at.isoformat(),
-                    "duration_ms": int((task.completed_at - task.started_at).total_seconds() * 1000),
-                }
-            )
+                task_event_repo.append_task_event(
+                    session,
+                    task_id=task_id,
+                    event_type="TASK_COMPLETED",
+                    node_name="task_service",
+                    message="Task completed",
+                    payload={
+                        "attempt": 1,
+                        "step_id": "task",
+                        "started_at": task.started_at.isoformat(),
+                        "completed_at": task.completed_at.isoformat(),
+                        "duration_ms": int((task.completed_at - task.started_at).total_seconds() * 1000),
+                    }
+                )
+            else:
+                # 调用 mark_task_awaiting_review。
+                # 记录 TASK_AWAITING_REVIEW。
+                task_repo.mark_task_awaiting_review(session, task=task, result=saved_result)
+
+                task_event_repo.append_task_event(
+                    session,
+                    task_id=task_id,
+                    event_type="TASK_AWAITING_REVIEW",
+                    node_name="task_service",
+                    message="Task is awaiting plan review",
+                    payload={
+                        "attempt": 1,
+                        "step_id": "plan_review",
+                    },
+                )
 
             # 9. 在 Session 内转成 TaskRead，保存到 task_read。
             task_read = TaskRead.model_validate(task)
@@ -312,8 +331,8 @@ def review_task_plan(
             raise TaskStateConflictError("Only plan tasks can be reviewed")
 
         # 状态不是 completed，抛 TaskStateConflictError。
-        if task.status != "completed":
-            raise TaskStateConflictError("Only completed tasks can be reviewed")
+        if task.status != "awaiting_review":
+            raise TaskStateConflictError("Only tasks awaiting review can be reviewed")
 
         # review_decision 不是 None，抛 TaskStateConflictError。
         if task.review_decision is not None:

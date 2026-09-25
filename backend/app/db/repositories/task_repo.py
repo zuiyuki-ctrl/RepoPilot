@@ -107,13 +107,43 @@ def save_plan_review(
     decision: str,
     comment: str | None,
 ) -> None:
-    # 1. 设置 review_decision 和 review_comment。
+    # 1. 取得当前 UTC 时间，整个函数复用同一个时间值。
+    reviewed_at = datetime.now(timezone.utc)
+
+    # 2. 保存 decision、comment 和 reviewed_at。
     task.review_decision = decision
     task.review_comment = comment
+    task.reviewed_at = reviewed_at
 
-    # 2. reviewed_at 使用 datetime.now(timezone.utc)。
-    task.reviewed_at = datetime.now(timezone.utc)
+    # 3. 根据 decision 更新状态：
+    if decision == "approved":
+        task.status = "approved"
+        task.completed_at = None
 
-    # 3. session.flush()，不 commit。
-    session.add(task)
+    if decision == "rejected":
+        task.status = "rejected"
+        task.completed_at = reviewed_at
+
+    # 4. flush，不 commit。
+    session.flush()
+
+def mark_task_awaiting_review(
+    session: Session,
+    task: AgentTask,
+    *,
+    result: dict,
+) -> None:
+    # 1. 将 status 设置成 awaiting_review。
+    task.status = "awaiting_review"
+
+    # 2. 保存结构化计划 result。
+    task.result = result
+
+    # 3. 将 error 设置为 None。
+    task.error = None
+
+    # 4. completed_at 保持 None，因为整个任务尚未结束。
+    task.completed_at = None
+
+    # 5. flush，不 commit。
     session.flush()

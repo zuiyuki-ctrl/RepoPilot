@@ -33,3 +33,15 @@ class InvalidPlanError(ValueError):
 
 class InsufficientPlanEvidenceError(RuntimeError):
     """当前没有足够的代码证据用于生成计划。"""
+
+class InvalidWorkspacePathError(ValueError):
+    """计划中的文件路径不能安全地映射到仓库工作副本。"""
+
+class WorkspaceWriteError(RuntimeError):
+    """向仓库工作副本写入文件失败。"""
+
+class PlanScopeViolationError(RuntimeError):
+    """执行操作超出了用户批准的计划范围。"""
+
+class WorkspaceDiffError(RuntimeError):
+    """无法安全读取仓库工作副本的 Git 差异。"""
