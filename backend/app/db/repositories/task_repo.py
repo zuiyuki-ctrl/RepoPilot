@@ -7,6 +7,7 @@ from sqlalchemy import select
 from ..models import AgentTask
 
 
+# 插入 created 状态的任务并 flush，取得默认字段；任务服务负责提交事务和后续执行。
 def create_task(
     session: Session,
     *,
@@ -29,12 +30,14 @@ def create_task(
     return task
 
 
+# 按主键查询任务 ORM 对象，供服务层读取状态和结果；不存在返回 None。
 def get_task(
     session: Session,
     task_id: UUID,
 ) -> AgentTask | None:
     return session.get(AgentTask, task_id)
 
+# 按任务 ID 查询并锁定对应行，协调执行、审核及事件编号分配；锁由调用方事务释放。
 def get_task_for_update(
     session: Session,
     task_id: UUID,
@@ -49,6 +52,7 @@ def get_task_for_update(
     return session.execute(statement).scalar_one_or_none()
 
 
+# 将已领取的任务标记为 running 并记录开始时间；供任务执行服务调用，只 flush 不提交。
 def mark_task_running(
     session: Session,
     task: AgentTask,
@@ -63,6 +67,7 @@ def mark_task_running(
     session.flush()
 
 
+# 保存任务执行结果并标记 completed、清除错误、记录完成时间；提交由任务服务负责。
 def mark_task_completed(
     session: Session,
     task: AgentTask,
@@ -81,6 +86,7 @@ def mark_task_completed(
     session.flush()
 
 
+# 将任务标记为 failed，清空结果并保存受控错误说明和结束时间；供执行失败收尾使用。
 def mark_task_failed(
     session: Session,
     task: AgentTask,
@@ -127,6 +133,7 @@ def save_plan_review(
     # 4. flush，不 commit。
     session.flush()
 
+# 保存已生成的计划并将任务置为 awaiting_review，供人工审核接续执行；只 flush，由服务提交。
 def mark_task_awaiting_review(
     session: Session,
     task: AgentTask,

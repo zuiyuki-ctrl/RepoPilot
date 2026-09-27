@@ -8,6 +8,7 @@ from ..db.repositories.repository_repo import get_repository
 from ..core import config
 
 # 问题向量化，再查询数据库
+# 检查仓库后向量化用户问题，再检索同仓库同模型的相近代码块，供问答和搜索工具复用。
 def semantic_search(
     repository_id: UUID,
     *,

@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session
 from ..models import TaskEvent
 
 
+# 为任务分配递增序号并追加事件，形成可查询的执行历史；调用方须在同一事务锁定任务行。
+# 复制 payload 并补充协议版本和序号，只 flush，不自行提交。
 def append_task_event(
     session: Session,
     *,
@@ -45,6 +47,7 @@ def append_task_event(
     return task_event
 
 
+# 按任务和严格大于 after_sequence 的条件升序读取事件，支持前端增量获取执行进度。
 def list_task_events(
     session: Session,
     *,

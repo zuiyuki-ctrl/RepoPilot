@@ -5,9 +5,15 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 
+from ...services import edit_proposal_service
+from ...schemas.edit import TaskFileEditRead, TaskFileEditRequest
+from ...schemas.workspace import TaskWorkspaceDiffRead, TaskWorkspaceWriteRead, TaskWorkspaceWriteRequest
+from ...services import plan_execution_service
 from ...schemas.task_event import TaskEventRead
 from ...core.exceptions import InvalidTaskInputError, TaskStateConflictError, InvalidAnswerCitationError, \
-    TaskExecutionError, InvalidPlanError, InsufficientPlanEvidenceError
+    TaskExecutionError, InvalidPlanError, InsufficientPlanEvidenceError, WorkspaceDiffError, InvalidWorkspacePathError, \
+    RepositoryBusyError, PlanScopeViolationError, WorkspaceWriteError, WorkspaceWritePersistenceError, \
+    RepositoryScanError, InvalidEditProposalError
 from ...services import task_service
 from ...schemas.task import TaskRead, TaskCreate, TaskPlanReviewRequest
 
@@ -19,6 +25,7 @@ router = APIRouter(prefix="/api/v1/tasks", tags=["tasks"])
 
 
 @router.post("", response_model=TaskRead, status_code=201)
+# 接收任务创建请求并返回登记结果，将输入和数据库异常转换为 HTTP 响应；不启动执行。
 def create_task(data: TaskCreate):
     # 1. 调用 task_service.create_task。
     try:
@@ -45,6 +52,7 @@ def create_task(data: TaskCreate):
 
 
 @router.get("/{task_id}", response_model=TaskRead)
+# 提供任务详情查询入口，返回状态、结果及审核信息，任务不存在时返回 404。
 def get_task(task_id: UUID):
     # 1. 调用 task_service.get_task。
     try:
@@ -66,6 +74,7 @@ def get_task(task_id: UUID):
     return result
 
 @router.post("/{task_id}/run", response_model=TaskRead)
+# 同步执行已创建的任务并返回结果，将状态冲突和模型、数据库故障映射为 HTTP 响应。
 def run_task(task_id: UUID):
     try:
         # 1. 调用 task_service.run_task。
@@ -140,6 +149,7 @@ def run_task(task_id: UUID):
     "/{task_id}/events",
     response_model=list[TaskEventRead],
 )
+# 提供按事件序号分页查询的 HTTP 入口，供客户端轮询任务执行进度。
 def list_task_events(
     task_id: UUID,
     after_sequence: int = Query(default=0, ge=0),
@@ -170,6 +180,7 @@ def list_task_events(
 
 
 @router.post("/{task_id}/review", response_model=TaskRead)
+# 接收用户对待审核计划的批准或拒绝决定，调用服务保存审核与事件；不执行计划。
 def review_task_plan(
     task_id: UUID,
     data: TaskPlanReviewRequest,
@@ -204,4 +215,247 @@ def review_task_plan(
         raise HTTPException(status_code=404, detail="Task not found")
 
     # 6. 成功返回 TaskRead。
+    return result
+
+
+@router.get(
+    "/{task_id}/diff",
+    response_model=TaskWorkspaceDiffRead,
+)
+# 提供计划任务关联工作副本的差异预览，返回整个副本相对于 HEAD 的变化，不只限于该任务。
+def get_task_workspace_diff(task_id: UUID):
+    # 1. 调用 plan_execution_service.get_task_workspace_diff。
+    try:
+        diff = plan_execution_service.get_task_workspace_diff(task_id)
+
+    # 2. 转换异常。
+    except TaskStateConflictError as exc:
+        logger.exception("Only plan tasks support workspace; task_id=%s", task_id)
+        raise HTTPException(status_code=409, detail="Only plan tasks support workspace diff",) from exc
+
+    except SQLAlchemyError as exc:
+        logger.exception("Database unavailable; task_id=%s", task_id)
+        raise HTTPException(status_code=503, detail="Database unavailable") from exc
+
+    except WorkspaceDiffError as exc:
+        logger.exception("Workspace diff unavailable; task_id=%s", task_id)
+        raise HTTPException(status_code=503, detail="Workspace diff unavailable") from exc
+
+    except InvalidWorkspacePathError as exc:
+        logger.exception("Stored workspace path is invalid; task_id=%s", task_id)
+        raise HTTPException(status_code=500, detail="Stored workspace path is invalid") from exc
+
+    except TaskExecutionError as exc:
+        logger.exception("Task workspace is unavailable; task_id=%s", task_id)
+        raise HTTPException(status_code=500, detail="Task workspace is unavailable") from exc
+
+    # 3. 结果为 None，返回 404。
+    if diff is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    # 4. 返回响应对象。
+    return diff
+
+
+@router.post(
+    "/{task_id}/files",
+    response_model=TaskWorkspaceWriteRead,
+)
+# 提供已批准计划的单文件写入入口，校验请求并转换执行异常，返回写入摘要。
+# 持久化未确认时明确报告文件已写入，避免调用方误以为修改已回滚。
+def write_task_workspace_file(
+    task_id: UUID,
+    data: TaskWorkspaceWriteRequest,
+):
+    # 1. 调用受审批约束的服务。
+    try:
+        result = plan_execution_service.write_approved_plan_file(
+            task_id,
+            file_path=data.file_path,
+            content=data.content
+        )
+    except TaskStateConflictError as e:
+        raise HTTPException(
+            status_code=409,
+            detail="Task is not approved for execution",
+        ) from e
+
+    except RepositoryBusyError as e:
+        raise HTTPException(
+            status_code=409,
+            detail="Repository is busy",
+        ) from e
+
+    except PlanScopeViolationError as e:
+        raise HTTPException(
+            status_code=403,
+            detail="File is not included in the approved plan",
+        ) from e
+
+    except InvalidWorkspacePathError as e:
+        raise HTTPException(
+            status_code=422,
+            detail="Workspace target path is invalid",
+        ) from e
+
+    except WorkspaceWriteError as e:
+        logger.exception(
+            "Workspace file write failed; task_id=%s; file_path=%s",
+            task_id,
+            data.file_path,
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Workspace file write failed",
+        ) from e
+
+    except SQLAlchemyError as e:
+        logger.exception(
+            "Database unavailable during workspace write; task_id=%s; file_path=%s",
+            task_id,
+            data.file_path,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Database unavailable",
+        ) from e
+
+    except TaskExecutionError as e:
+        logger.exception(
+            "Task execution data is invalid; task_id=%s; file_path=%s",
+            task_id,
+            data.file_path,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="Task execution data is invalid",
+        ) from e
+
+    except WorkspaceWritePersistenceError as e:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "code": "workspace_write_persistence_failed",
+                "message": (
+                    "The file was written, but persistence was not confirmed. "
+                    "Inspect workspace diff and task events before retrying."
+                ),
+                "file_written": True,
+            },
+        ) from e
+
+        # 3. 返回 None 时，抛出 404 HTTPException
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Task not found",
+        )
+
+
+    # 4. 构造 TaskWorkspaceWriteRead 并返回。
+    return TaskWorkspaceWriteRead(
+        task_id=task_id,
+        file_path=result.file_path,
+        created=result.created,
+        bytes_written=result.bytes_written,
+    )
+
+
+@router.post(
+    "/{task_id}/edit-proposal",
+    response_model=TaskFileEditRead,
+)
+def generate_task_file_edit(
+    task_id: UUID,
+    data: TaskFileEditRequest,
+):
+    try:
+        result = edit_proposal_service.generate_task_file_edit(task_id, file_path=data.file_path)
+    except TaskStateConflictError as e:
+        raise HTTPException(
+            status_code=409,
+            detail="任务尚未批准或类型不支持",
+        ) from e
+
+    except PlanScopeViolationError as e:
+        raise HTTPException(
+            status_code=403,
+            detail="文件不在批准范围",
+        ) from e
+
+    except InvalidTaskInputError as e:
+        raise HTTPException(
+            status_code=422,
+            detail="文件类型、大小或编码不符合本功能要求",
+        ) from e
+
+    except InvalidWorkspacePathError as e:
+        raise HTTPException(
+            status_code=422,
+            detail="工作副本目标路径无法通过检查",
+        ) from e
+
+    except RepositoryScanError as e:
+        logger.exception("Repository scan failed; task_id=%s; file_path=%s", task_id, data.file_path)
+        raise HTTPException(
+            status_code=503,
+            detail="当前无法读取工作副本源码",
+        ) from e
+
+    except InvalidEditProposalError as e:
+        logger.exception("Edit proposal failed; task_id=%s; file_path=%s", task_id, data.file_path)
+        raise HTTPException(
+            status_code=502,
+            detail="模型生成的候选不合法",
+        ) from e
+
+    except httpx.HTTPError as e:
+        logger.exception("模型服务请求失败; task_id=%s; file_path=%s", task_id, data.file_path)
+        raise HTTPException(
+            status_code=503,
+            detail="模型服务请求失败",
+        ) from e
+
+    except SQLAlchemyError as e:
+        logger.exception(
+            "Database unavailable during workspace write; task_id=%s; file_path=%s",
+            task_id,
+            data.file_path
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="数据库不可用",
+        ) from e
+
+    except TaskExecutionError as e:
+        logger.exception(
+            "Edit proposal generation failed; task_id=%s; file_path=%s",
+            task_id,
+            data.file_path,
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="存储的任务或计划数据异常",
+        ) from e
+
+    except ValueError as e:
+        logger.exception(
+            "Edit proposal generation failed; task_id=%s; file_path=%s",
+            task_id,
+            data.file_path,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="内部生成流程异常",
+        ) from e
+
+        # 3. result 为 None 时返回 404
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Task not found",
+        )
+
     return result

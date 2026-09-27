@@ -12,6 +12,7 @@ class AnswerContext:
 
 
 # 把检索结果整理成有编号的证据
+# 在字符预算内选择完整代码块并分配来源编号，生成普通问答所需上下文与对应引用清单。
 def build_answer_context(
     hits: list[CodeChunkSearchHit],
     *,

@@ -6,6 +6,7 @@ from .prompts import DEFAULT_FINAL_INSTRUCTION, QA_SYSTEM_PROMPT
 
 
 # 实现基于证据生成回答
+# 将问题及代码证据发送给聊天模型，返回完整文本回答；引用编号校验由问答服务负责。
 def generate_answer(question: str, context_text: str) -> str:
     # 1. 检查 question、context_text 非空白。
     # 检查 API Key、CHAT_BASE_URL、CHAT_MODEL 已配置。
@@ -34,12 +35,7 @@ def generate_answer(question: str, context_text: str) -> str:
         {"role": "user", "content": f"问题：\n{question}\n\n代码证据：\n{context_text}"},
     ]
 
-    # 5. 创建请求体，包含：
-    # model=config.CHAT_MODEL
-    # messages=上面的列表
-    # stream=False
-    # enable_thinking=False
-    # max_tokens=1500
+    # 5. 创建请求体
     request_body = {
         "model": config.CHAT_MODEL,
         "messages": messages,
@@ -87,6 +83,7 @@ def generate_answer(question: str, context_text: str) -> str:
 
 # 负责与模型通信，接收回答或调用请求。
 # 禁用工具时，仅在消息副本中追加收尾指令，省略工具参数；响应仍禁止工具调用。
+# 负责“一次模型通信”，返回模型消息
 def request_tool_turn(
         messages: list[dict],
         *,

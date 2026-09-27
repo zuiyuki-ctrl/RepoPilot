@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 
 
+# 将已有检索评估报告整理成 Markdown，展示总体指标、逐题结果和未命中目标，不重新检索。
 def render_report(report: dict) -> str:
     lines: list[str] = []
 
@@ -94,6 +95,7 @@ def render_report(report: dict) -> str:
 
     return "\n".join(lines) + "\n"
 
+# 读取命令行指定的 JSON 报告并生成同名 Markdown，供人工复盘检索效果。
 def main() -> None:
     parser = argparse.ArgumentParser()
 

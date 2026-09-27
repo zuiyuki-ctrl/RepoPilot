@@ -5,6 +5,8 @@ from .retrieval_service import semantic_search
 from .source_service import read_repository_source
 
 
+# 校验模型给出的工具参数，将 search_code/read_source 分发到现有服务并返回可序列化结果。
+# 仓库范围由调用方固定，拒绝未知工具，是 Agent 访问源码的只读入口。
 def execute_readonly_tool(
     repository_id: UUID,
     *,

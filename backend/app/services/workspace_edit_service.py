@@ -10,6 +10,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# 识别路径本身是否为符号链接或 Windows 重解析点，供工作副本路径检查复用。
 def _is_link_or_reparse_point(path: Path) -> bool:
     file_stat = path.lstat()
     attributes = getattr(file_stat, "st_file_attributes", 0)
@@ -138,6 +139,17 @@ def resolve_workspace_target(
                 "File path contains an invalid path component"
             )
 
+        # 拒绝 .git 路径段
+        if part.casefold() == ".git":
+            raise InvalidWorkspacePathError(
+                "Git metadata cannot be edited"
+            )
+
+        if part.endswith((".", " ")):
+            raise InvalidWorkspacePathError(
+                "Path components cannot end with a dot or space"
+            )
+
     # ---------- 6. 构造候选路径 ----------
 
     candidate = root.joinpath(*parts)
@@ -249,6 +261,8 @@ class WorkspaceWriteResult:
     bytes_written: int
 
 
+# 校验目标路径与 UTF-8 大小后，以同目录临时文件替换目标，供批准计划的单文件写入使用。
+# 不创建父目录、不判断审批范围；文件替换不与数据库事务共同回滚。
 def write_workspace_file(
         workspace_path: Path,
         *,

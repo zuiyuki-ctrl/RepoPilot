@@ -3,6 +3,8 @@ import httpx
 from ..core import config
 
 
+# 请求配置的 embedding 服务，将一批文本转换为等维向量，并校验返回数量、顺序和维度。
+# 代码入库向量化与用户问题检索共用此入口，不在这里写数据库。
 def embed_texts(texts: list[str]) -> list[list[float]]:
     # 1. 空列表直接返回 []，不发送请求。
     if not texts:

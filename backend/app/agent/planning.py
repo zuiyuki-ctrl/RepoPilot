@@ -10,6 +10,7 @@ from ..core.exceptions import InvalidPlanError
 
 
 # 检查模型生成的计划能不能被程序接受
+# 将模型 JSON 转为 ChangePlan，校验步骤序号、证据引用和文件路径，作为计划入库前的格式与业务检查。
 def parse_change_plan(
     content: str,
     *,

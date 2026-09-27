@@ -74,6 +74,8 @@ def run_readonly_agent(
     return result
 
 
+# 校验需求及仓库，初始化计划图并传入事件回调，返回通过校验的 ChangePlan。
+# 供 plan 类型任务调用；仓库不存在返回 None，图结束却无计划则报错。
 def run_planning_agent(
     repository_id: UUID,
     *,

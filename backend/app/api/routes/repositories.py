@@ -210,6 +210,7 @@ def list_repository_chunks(
     "/{repository_id}/search",
     response_model=list[CodeChunkSearchHit],
 )
+# 提供自然语言代码检索接口，返回按距离排序的代码块，供用户定位实现。
 def search_repository(
     repository_id: UUID,
     query: str = Query(min_length=1, max_length=1000),
@@ -240,6 +241,7 @@ def search_repository(
     "/{repository_id}/ask",
     response_model=QuestionResponse,
 )
+# 提供固定检索流程的代码问答接口，返回答案和证据来源并转换模型异常。
 def ask_repository(repository_id: UUID, data: QuestionRequest):
     # 1. data.question 为空白时，返回 HTTP 422。
     if data.question.strip() == "":
@@ -266,6 +268,7 @@ def ask_repository(repository_id: UUID, data: QuestionRequest):
     "/{repository_id}/source",
     response_model=SourceRead,
 )
+# 提供工作副本源码片段查询接口，供用户查看引用上下文；校验路径、行号和读取限制。
 def read_repository_source(
     repository_id: UUID,
     file_path: str = Query(min_length=1),
@@ -312,6 +315,7 @@ def read_repository_source(
     "/{repository_id}/agent/ask",
     response_model=AgentQuestionResponse,
 )
+# 提供只读 Agent 问答入口，由图自主搜索和读取源码，返回回答、来源及工具轨迹。
 def ask_repository_agent(
     repository_id: UUID,
     data: AgentQuestionRequest,

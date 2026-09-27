@@ -13,6 +13,7 @@ import argparse
 
 Target = tuple[str, str]  # (file_path, symbol_name)
 
+# 按文件路径和符号名计算前 k 个检索结果覆盖预期目标的比例，供检索评估汇总指标。
 def recall_at_k(
     hits: list[CodeChunkSearchHit],
     expected_targets: set[Target],
@@ -41,6 +42,7 @@ def recall_at_k(
     # 5. 返回交集大小 / expected_targets 大小。
     return len(intersection) / len(expected_targets)
 
+# 读取并校验评估 JSON 的仓库版本、用例和预期目标，提前拒绝不合法数据集。
 def load_dataset(path: Path) -> dict:
     # 1. path.read_text(encoding="utf-8") 读取文本。
     # 使用 json.loads(...) 解析成字典。
@@ -119,6 +121,7 @@ def load_dataset(path: Path) -> dict:
     # 4. 返回 dataset。
     return dataset
 
+# 核对仓库提交后逐题检索并计算 Recall@1/3/5，失败用例计零并保留错误，输出评估报告数据。
 def run_evaluation(dataset: dict) -> dict:
     repository_id = UUID(dataset["repository_id"])
 
@@ -229,6 +232,7 @@ def run_evaluation(dataset: dict) -> dict:
         "cases": case_results,
     }
 
+# 解析数据集参数并运行检索评估，将报告写入文件并打印指标；会访问数据库和 embedding 服务。
 def main() -> None:
     project_root = Path(__file__).resolve().parents[1]
 

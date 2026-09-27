@@ -10,6 +10,7 @@ from ..db.repositories.code_chunk_repo import list_chunks_needing_embedding
 from ..rag.embedding import embed_texts
 
 # 编写分批保存服务
+# 锁定仓库并分批生成、保存缺失或模型不匹配的代码向量，为语义检索准备数据；返回本次处理数量。
 def embed_repository_chunks(repository_id: UUID) -> int | None:
     model = config.EMBEDDING_MODEL
     embedded_count = 0

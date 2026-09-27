@@ -23,6 +23,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 """如果当前 Graph 运行提供了 Sink，就发送事件。"""
+# 通过运行上下文中的可选 event_sink 发送节点事件，使图执行与数据库持久化解耦。
 def emit_agent_event(
     runtime: Runtime[AgentRunContext],
     *,
@@ -48,6 +49,7 @@ def emit_agent_event(
         payload=payload
     )
 
+# 根据工具预算请求模型并追加 assistant 消息，驱动 Agent 的研究阶段，同时记录模型调用事件。
 def model_node(
     state: ReadonlyAgentState,
     runtime: Runtime[AgentRunContext],
@@ -166,6 +168,7 @@ def model_node(
     }
 
 
+# 根据最后一条模型消息是否包含工具调用选择分支；返回路由标签，具体目标由图映射。
 def route_after_model(
     state: ReadonlyAgentState,
 ) -> Literal["tools", "finish"]:
@@ -181,6 +184,8 @@ def route_after_model(
 
 
 
+# 执行本轮模型请求的只读工具，更新消息、证据、调用记录及预算，并发送工具执行事件。
+# 一次只处理一批调用，之后由图回到 model 节点继续研究。
 def tools_node(
         state: ReadonlyAgentState,
         runtime: Runtime[AgentRunContext]
@@ -449,6 +454,7 @@ def tools_node(
     }
 
 
+# 校验问答引用并整理回答、来源和调用记录，写入 state.result，作为只读问答图的最终输出。
 def finish_node(state: ReadonlyAgentState) -> dict:
     # 1. 从最后一条 assistant 消息取得 content。
     content = state["messages"][-1]["content"]
@@ -460,6 +466,8 @@ def finish_node(state: ReadonlyAgentState) -> dict:
     return {"result": result}
 
 
+# 利用研究阶段收集的证据生成并校验修改计划，记录计划生成事件，写入 state.plan。
+# 无证据时拒绝生成；这里只提出方案，不执行文件修改。
 def plan_node(
     state: PlanningAgentState,
     runtime: Runtime[AgentRunContext],

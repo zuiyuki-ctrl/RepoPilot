@@ -2,6 +2,7 @@ from backend.app.db.models.repository import Repository
 from backend.app.db.session import SessionLocal
 
 
+# 写入一条学习用仓库记录并重新查询，演示 ORM 提交及默认字段；运行会实际修改数据库。
 def main():
     with SessionLocal.begin() as session:
         repository = Repository(

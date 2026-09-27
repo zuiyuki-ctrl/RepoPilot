@@ -17,6 +17,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+# 校验需求和仓库后登记任务，作为问答或计划流程的入口；此时只创建记录，不执行 Agent。
 def create_task(data: TaskCreate) -> TaskRead | None:
     # 1. 对 user_request 做 strip。
     user_request = data.user_request.strip()
@@ -45,6 +46,7 @@ def create_task(data: TaskCreate) -> TaskRead | None:
     return result
 
 
+# 查询任务当前状态及已保存结果，供任务详情接口使用；不存在返回 None。
 def get_task(task_id: UUID) -> TaskRead | None:
     # 1. 使用 SessionLocal()。
     with SessionLocal() as session:
@@ -60,6 +62,8 @@ def get_task(task_id: UUID) -> TaskRead | None:
     return result
 
 
+# 领取 created 任务并运行问答或计划 Agent；短事务保存状态和事件，模型调用在事务外执行。
+# 问答成功保存结果，计划成功进入待审核阶段；异常时尽力记录失败，再向路由传播原始错误。
 def run_task(task_id: UUID) -> TaskRead | None:
     with SessionLocal.begin() as session:
         # 1. 事务 A：调用 get_task_for_update。
@@ -94,6 +98,7 @@ def run_task(task_id: UUID) -> TaskRead | None:
 
     """将单个 Agent 内部事件立即提交到数据库。"""
 
+    # 把图节点发出的事件写入当前任务的执行历史；每条事件使用独立短事务并锁定任务行。
     def persist_agent_event(
             *,
             event_type: str,
@@ -268,6 +273,8 @@ def run_task(task_id: UUID) -> TaskRead | None:
 # python -m alembic revision --autogenerate -m "create task_events table"
 # python -m alembic upgrade head
 
+# 确认任务存在后，按序号增量查询事件并转换为响应对象，供客户端持续查看进度。
+# None 表示任务不存在，空列表表示当前没有新事件。
 def list_task_events(
         task_id: UUID,
         *,

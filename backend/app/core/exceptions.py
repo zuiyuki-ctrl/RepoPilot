@@ -45,3 +45,12 @@ class PlanScopeViolationError(RuntimeError):
 
 class WorkspaceDiffError(RuntimeError):
     """无法安全读取仓库工作副本的 Git 差异。"""
+
+class WorkspaceWritePersistenceError(RuntimeError):
+    """文件已写入，但修改事件或事务提交未确认成功。"""
+
+class InvalidEditProposalError(ValueError):
+    """模型生成的文件修改格式、目标或源码不合法。"""
+
+class WorkspaceFileConflictError(RuntimeError):
+    """当前文件与生成候选时的原文不一致。"""

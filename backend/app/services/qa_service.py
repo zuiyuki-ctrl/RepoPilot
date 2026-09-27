@@ -8,6 +8,8 @@ from .retrieval_service import semantic_search
 from ..schemas.qa import QuestionRequest, QuestionResponse
 
 
+# 按固定流程检索代码、构建证据、生成回答并校验引用，供普通问答接口使用。
+# 仓库不存在返回 None，无证据时直接给出不足说明，不请求聊天模型。
 def answer_repository_question(
     repository_id: UUID,
     data: QuestionRequest,

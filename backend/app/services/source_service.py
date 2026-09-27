@@ -8,6 +8,7 @@ from ..schemas.source import SourceRead
 
 
 # 实现读取服务
+# 定位仓库工作副本并有界读取指定 Python 源码行，供引用查看及 read_source 工具使用。
 def read_repository_source(
     repository_id: UUID,
     *,

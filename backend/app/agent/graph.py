@@ -5,6 +5,7 @@ from .state import ReadonlyAgentState, PlanningAgentState
 from .nodes import model_node, tools_node, finish_node, route_after_model, plan_node
 
 
+# 连接并编译 model → tools 循环及 finish 出口，为代码问答提供可执行的图。
 def build_readonly_agent_graph():
     # 使用 ReadonlyAgentState 创建 StateGraph。
     builder = StateGraph(
@@ -44,6 +45,7 @@ def build_readonly_agent_graph():
 READONLY_AGENT_GRAPH = build_readonly_agent_graph()
 
 
+# 复用研究节点，将研究结束分支连接到 plan 节点，生成结构化修改方案而非普通问答结果。
 def build_planning_agent_graph():
     # 1. 使用 PlanningAgentState 和现有 AgentRunContext 创建 StateGraph。
     builder = StateGraph(

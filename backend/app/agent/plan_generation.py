@@ -8,6 +8,8 @@ from ..schemas.agent import AgentSourceReference
 from ..schemas.plan import ChangePlan
 
 
+# 把需求、研究消息、合法证据和输出 Schema 交给模型，禁用工具生成计划并调用解析器校验。
+# 供 plan 节点使用，返回结构化 ChangePlan，不写文件或数据库。
 def generate_change_plan(
     user_request: str,
     *,

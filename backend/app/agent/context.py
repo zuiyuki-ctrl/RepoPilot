@@ -5,6 +5,7 @@ from typing import Any, Protocol
 class AgentEventSink(Protocol):
     """Agent 节点通过该接口发送事件，不关心事件如何持久化。"""
 
+    # 约定节点事件回调的参数格式；任务服务提供实际落库实现，节点无需依赖数据库。
     def __call__(
         self,
         *,
