@@ -218,6 +218,7 @@ def review_task_plan(
     return result
 
 
+# 查看工作副本差异
 @router.get(
     "/{task_id}/diff",
     response_model=TaskWorkspaceDiffRead,
@@ -257,6 +258,7 @@ def get_task_workspace_diff(task_id: UUID):
     return diff
 
 
+# 手动写入入口，现在也要求 executing
 @router.post(
     "/{task_id}/files",
     response_model=TaskWorkspaceWriteRead,
@@ -277,7 +279,10 @@ def write_task_workspace_file(
     except TaskStateConflictError as e:
         raise HTTPException(
             status_code=409,
-            detail="Task is not approved for execution",
+            detail=(
+                "任务必须是已批准且处于 executing 状态的计划任务；"
+                "批准后请先调用 POST /api/v1/tasks/{task_id}/execute"
+            ),
         ) from e
 
     except RepositoryBusyError as e:
@@ -362,6 +367,7 @@ def write_task_workspace_file(
     )
 
 
+# 读取当前源码，生成候选，返回原文件 hash
 @router.post(
     "/{task_id}/edit-proposal",
     response_model=TaskFileEditRead,
@@ -375,7 +381,10 @@ def generate_task_file_edit(
     except TaskStateConflictError as e:
         raise HTTPException(
             status_code=409,
-            detail="任务尚未批准或类型不支持",
+            detail=(
+                "任务必须是已批准且处于 executing 状态的计划任务；"
+                "批准后请先调用 POST /api/v1/tasks/{task_id}/execute"
+            ),
         ) from e
 
     except PlanScopeViolationError as e:
@@ -461,6 +470,7 @@ def generate_task_file_edit(
     return result
 
 
+# 复验候选，持锁比较 hash，然后写文件、记录事件
 @router.post(
     "/{task_id}/edit-proposal/apply",
     response_model=TaskWorkspaceWriteRead,
@@ -480,7 +490,10 @@ def apply_task_file_edit(
     except TaskStateConflictError as exc:
         raise HTTPException(
             status_code=409,
-            detail="Task is not approved for execution",
+            detail=(
+                "任务必须是已批准且处于 executing 状态的计划任务；"
+                "批准后请先调用 POST /api/v1/tasks/{task_id}/execute"
+            ),
         ) from exc
 
     except WorkspaceFileConflictError as exc:
@@ -514,9 +527,14 @@ def apply_task_file_edit(
         ) from exc
 
     except RepositoryScanError as exc:
+        logger.exception(
+            "Workspace source read failed; task_id=%s; file_path=%s",
+            task_id,
+            data.proposal.file_path,
+        )
         raise HTTPException(
-            status_code=409,
-            detail="Workspace file is no longer available",
+            status_code=503,
+            detail="Workspace source is unavailable",
         ) from exc
 
     except WorkspaceWritePersistenceError as exc:
@@ -577,6 +595,7 @@ def apply_task_file_edit(
     )
 
 
+# 将已批准计划切换为 executing，记录 TASK_EXECUTION_STARTED
 @router.post(
     "/{task_id}/execute",
     response_model=TaskRead,

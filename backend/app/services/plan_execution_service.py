@@ -16,7 +16,9 @@ from ..core.exceptions import (
     RepositoryBusyError,
     WorkspaceWritePersistenceError,
     WorkspaceFileConflictError,
-    InvalidTaskInputError
+    InvalidTaskInputError,
+    FileSkippedError,
+    RepositoryScanError
 )
 from ..db.repositories import (
     repository_repo,
@@ -127,11 +129,19 @@ def write_approved_plan_file(
                 )
 
                 # 10.3 使用 read_file_snapshot 读取当前文件
-                snapshot = read_file_snapshot(
-                    workspace_path,
-                    target,
-                    max_bytes=MAX_EDIT_INPUT_BYTES,
-                )
+                try:
+                    snapshot = read_file_snapshot(
+                        workspace_path,
+                        target,
+                        max_bytes=MAX_EDIT_INPUT_BYTES,
+                    )
+                except FileSkippedError as exc:
+                    raise WorkspaceFileConflictError("Workspace file was skipped") from exc
+
+                except RepositoryScanError as exc:
+                    if isinstance(exc.__cause__, FileNotFoundError):
+                        raise WorkspaceFileConflictError("Workspace file was skipped") from exc
+                    raise
 
                 # 10.4 比较 snapshot.metadata.file_hash 和 expected_file_hash。
                 #    不一致时抛 WorkspaceFileConflictError。

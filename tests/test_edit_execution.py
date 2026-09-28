@@ -25,13 +25,14 @@ from backend.app.services.workspace_edit_service import (
 )
 
 class EditExecutionTests(unittest.TestCase):
-    def make_approved_task(self):
+    # 构造审核已通过、当前处于执行中的计划任务，供写入分支测试使用。
+    def make_executing_task(self):
         repository_id = UUID("00000000-0000-0000-0000-000000000001")
         return SimpleNamespace(
             id=UUID("00000000-0000-0000-0000-000000000101"),
             repository_id=repository_id,
             task_type="plan",
-            status="approved",
+            status="executing",
             review_decision="approved",
             result={
                 "repository_id": str(repository_id),
@@ -151,8 +152,8 @@ class EditExecutionTests(unittest.TestCase):
         writer.assert_not_called()
 
     def test_hash_conflict_does_not_write_or_emit_event(self):
-        # 1. 模拟 approved plan task。
-        task = self.make_approved_task()
+        # 1. 模拟审核已通过且处于 executing 状态的计划任务。
+        task = self.make_executing_task()
         task_id = task.id
         session = Mock(name="session")
         # 2. 模拟计划包含目标文件。
@@ -209,7 +210,7 @@ class EditExecutionTests(unittest.TestCase):
 
     def test_file_outside_approved_plan_is_rejected_before_write(self):
         # 计划只包含 example.py。
-        task = self.make_approved_task()
+        task = self.make_executing_task()
         session = Mock(name="session")
         # 请求写 other.py。
         with (
@@ -292,7 +293,7 @@ class EditExecutionTests(unittest.TestCase):
             self.assertEqual(len(truncated.diff), 10)
 
     def test_approved_file_is_written_and_event_is_recorded(self):
-        task = self.make_approved_task()
+        task = self.make_executing_task()
         session = Mock(name="session")
         repository = SimpleNamespace(
             workspace_path="C:/workspace/repopilot",
@@ -358,8 +359,8 @@ class EditExecutionTests(unittest.TestCase):
         )
 
     def test_event_failure_after_write_reports_persistence_uncertainty(self):
-        # 准备与成功测试相同的 approved task 和 repository。
-        task = self.make_approved_task()
+        # 准备与成功测试相同的执行中任务和 repository，审核结论仍为 approved。
+        task = self.make_executing_task()
         session = Mock(name="session")
         repository = SimpleNamespace(
             workspace_path="C:/workspace/repopilot",

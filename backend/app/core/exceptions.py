@@ -54,3 +54,6 @@ class InvalidEditProposalError(ValueError):
 
 class WorkspaceFileConflictError(RuntimeError):
     """当前文件与生成候选时的原文不一致。"""
+
+class SandboxPreparationError(RuntimeError):
+    """无法准备测试沙箱的输入快照。"""
