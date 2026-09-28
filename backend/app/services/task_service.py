@@ -270,9 +270,6 @@ def run_task(task_id: UUID) -> TaskRead | None:
         raise
 
 
-# python -m alembic revision --autogenerate -m "create task_events table"
-# python -m alembic upgrade head
-
 # 确认任务存在后，按序号增量查询事件并转换为响应对象，供客户端持续查看进度。
 # None 表示任务不存在，空列表表示当前没有新事件。
 def list_task_events(
@@ -390,4 +387,63 @@ def review_task_plan(
         result = TaskRead.model_validate(task)
 
     # 9. 退出事务成功后返回。
+    return result
+
+
+def begin_plan_execution(
+    task_id: UUID,
+) -> TaskRead | None:
+    with SessionLocal.begin() as session:
+        # 1. 锁定任务。
+        task = get_task_for_update(session, task_id)
+
+        # 2. 不存在返回 None。
+        if task is None:
+            return None
+
+        # 3. 同时检查：
+        #    task_type == "plan"
+        #    status == "approved"
+        #    review_decision == "approved"
+        if (
+            task.task_type != "plan"
+            or task.status != "approved"
+            or task.review_decision != "approved"
+        ):
+            raise TaskStateConflictError("Task is not ready for execution")
+
+        # 4. 使用 TaskPlanResult.model_validate(task.result)
+        try:
+            saved_result = TaskPlanResult.model_validate(task.result)
+        except ValidationError as exc:
+            raise TaskExecutionError("Stored plan is invalid") from exc
+
+        # 5. saved_result.repository_id 必须等于 task.repository_id。
+        if saved_result.repository_id != task.repository_id:
+            raise TaskExecutionError("Stored plan repository does not match task")
+
+        # 6. 调用 mark_task_executing。
+        task_repo.mark_task_executing(session, task)
+
+        # 7. 记录 TASK_EXECUTION_STARTED。
+        task_event_repo.append_task_event(
+            session,
+            task_id=task.id,
+            event_type="TASK_EXECUTION_STARTED",
+            node_name="task_service",
+            message="Plan execution started",
+            payload={
+                "step_id": "execute_plan",
+                "attempt": 1,
+                "reviewed_at": (
+                    task.reviewed_at.isoformat()
+                    if task.reviewed_at is not None
+                    else None
+                ),
+            },
+        )
+
+        # 8. 会话内转换并返回 TaskRead。
+        result = TaskRead.model_validate(task)
+
     return result

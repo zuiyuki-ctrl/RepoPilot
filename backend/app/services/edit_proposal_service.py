@@ -34,8 +34,8 @@ def generate_task_file_edit(
         if task is None:
             return None
 
-        if task.task_type != "plan" or task.status != "approved" or task.review_decision != "approved":
-            raise TaskStateConflictError
+        if task.task_type != "plan" or task.status != "executing" or task.review_decision != "approved":
+            raise TaskStateConflictError("Task is not executing")
 
         # 用 TaskPlanResult.model_validate(task.result) 解析存储结果。ValidationError 转成 TaskExecutionError。
         try:

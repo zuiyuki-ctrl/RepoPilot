@@ -5,7 +5,7 @@ from pydantic import ValidationError
 from sqlalchemy.exc import DBAPIError
 
 from ..schemas.edit import FileEditProposal
-from ..agent.edit_generation import MAX_EDIT_INPUT_BYTES
+from ..agent.edit_generation import MAX_EDIT_INPUT_BYTES, validate_file_edit_proposal
 from .repository_scanner import read_file_snapshot
 from .workspace_git_service import read_workspace_diff
 from ..schemas.workspace import TaskWorkspaceDiffRead
@@ -62,10 +62,10 @@ def write_approved_plan_file(
             # 4. 检查这是已批准的计划任务
             if (
                     task.task_type != "plan"
-                    or task.status != "approved"
+                    or task.status != "executing"
                     or task.review_decision != "approved"
             ):
-                raise TaskStateConflictError("Task is not approved for execution")
+                raise TaskStateConflictError("Task is not executing")
 
             # 5. 使用 TaskPlanResult 校验数据库中的 result。
             #    ValidationError 转换为 TaskExecutionError，
@@ -112,20 +112,31 @@ def write_approved_plan_file(
                 raise TaskExecutionError()
 
             # 10.1 expected_file_hash 不为 None 时，执行下面的检查。
-            if expected_file_hash:
+            if expected_file_hash is not None:
+                if (
+                    not isinstance(expected_file_hash, str)
+                    or HEX_64_PATTERN.fullmatch(expected_file_hash) is None
+                ):
+                    raise InvalidTaskInputError("Invalid expected file hash")
+
                 # 10.2 使用 resolve_workspace_target 得到 target。
+                workspace_path = Path(repository.workspace_path)
                 target = resolve_workspace_target(
-                    workspace_path=Path(repository.workspace_path),
+                    workspace_path=workspace_path,
                     file_path=file_path
                 )
 
                 # 10.3 使用 read_file_snapshot 读取当前文件
-                snapshot = read_file_snapshot(target, Path(file_path), max_bytes=MAX_EDIT_INPUT_BYTES)
+                snapshot = read_file_snapshot(
+                    workspace_path,
+                    target,
+                    max_bytes=MAX_EDIT_INPUT_BYTES,
+                )
 
                 # 10.4 比较 snapshot.metadata.file_hash 和 expected_file_hash。
                 #    不一致时抛 WorkspaceFileConflictError。
                 if snapshot.metadata.file_hash != expected_file_hash:
-                    raise WorkspaceFileConflictError
+                    raise WorkspaceFileConflictError("Workspace file changed after proposal generation")
 
                 # 10.5 全部检查通过后，继续原有 write_workspace_file、事件记录和提交。
 
@@ -218,20 +229,23 @@ def apply_task_file_edit(
     base_file_hash: str,
     proposal: FileEditProposal,
 ) -> WorkspaceWriteResult | None:
-    # 1. 检查 base_file_hash 满足 64 位小写十六进制格式。
-    #    不合法抛 InvalidTaskInputError。
-    if not bool(HEX_64_PATTERN.match(base_file_hash)):
-        raise InvalidTaskInputError("Invalid task hash")
+    # 1. 检查 hash 的类型和格式。
+    if (
+        not isinstance(base_file_hash, str)
+        or HEX_64_PATTERN.fullmatch(base_file_hash) is None
+    ):
+        raise InvalidTaskInputError("Invalid base file hash")
 
-    # 2. 检查 proposal.file_path 以 ".py" 结尾。
-    #    不合法抛 InvalidTaskInputError。
+    # 2. 复验候选。
+    validated_proposal = validate_file_edit_proposal(
+        proposal,
+        expected_file_path=proposal.file_path,
+    )
 
-    # 3. 再次校验候选源码，具体见下文。
-
-    # 4. 调用 write_approved_plan_file：
-    #    file_path=校验后的候选路径
-    #    content=校验后的候选完整源码
-    #    expected_file_hash=base_file_hash
-
-    # 5. 返回写入结果。
-    ...
+    # 3. 调用批准范围写入服务，并要求原文件 hash 一致。
+    return write_approved_plan_file(
+        task_id,
+        file_path=validated_proposal.file_path,
+        content=validated_proposal.content,
+        expected_file_hash=base_file_hash,
+    )

@@ -6,14 +6,14 @@ from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 
 from ...services import edit_proposal_service
-from ...schemas.edit import TaskFileEditRead, TaskFileEditRequest
+from ...schemas.edit import TaskFileEditRead, TaskFileEditRequest, TaskFileEditApplyRequest
 from ...schemas.workspace import TaskWorkspaceDiffRead, TaskWorkspaceWriteRead, TaskWorkspaceWriteRequest
 from ...services import plan_execution_service
 from ...schemas.task_event import TaskEventRead
 from ...core.exceptions import InvalidTaskInputError, TaskStateConflictError, InvalidAnswerCitationError, \
     TaskExecutionError, InvalidPlanError, InsufficientPlanEvidenceError, WorkspaceDiffError, InvalidWorkspacePathError, \
     RepositoryBusyError, PlanScopeViolationError, WorkspaceWriteError, WorkspaceWritePersistenceError, \
-    RepositoryScanError, InvalidEditProposalError
+    RepositoryScanError, InvalidEditProposalError, WorkspaceFileConflictError
 from ...services import task_service
 from ...schemas.task import TaskRead, TaskCreate, TaskPlanReviewRequest
 
@@ -452,6 +452,165 @@ def generate_task_file_edit(
         ) from e
 
         # 3. result 为 None 时返回 404
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Task not found",
+        )
+
+    return result
+
+
+@router.post(
+    "/{task_id}/edit-proposal/apply",
+    response_model=TaskWorkspaceWriteRead,
+)
+def apply_task_file_edit(
+    task_id: UUID,
+    data: TaskFileEditApplyRequest,
+):
+    try:
+        result = plan_execution_service.apply_task_file_edit(
+            task_id,
+            base_file_hash=data.base_file_hash,
+            proposal=data.proposal,
+        )
+
+    # 下面依次处理业务异常。
+    except TaskStateConflictError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="Task is not approved for execution",
+        ) from exc
+
+    except WorkspaceFileConflictError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="Workspace file changed after proposal generation",
+        ) from exc
+
+    except PlanScopeViolationError as exc:
+        raise HTTPException(
+            status_code=403,
+            detail="File is not included in the approved plan",
+        ) from exc
+
+    except (InvalidTaskInputError, InvalidEditProposalError) as exc:
+        raise HTTPException(
+            status_code=422,
+            detail="Edit proposal is invalid",
+        ) from exc
+
+    except InvalidWorkspacePathError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail="Workspace target path is invalid",
+        ) from exc
+
+    except RepositoryBusyError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="Repository is busy",
+        ) from exc
+
+    except RepositoryScanError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="Workspace file is no longer available",
+        ) from exc
+
+    except WorkspaceWritePersistenceError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "code": "workspace_write_persistence_failed",
+                "message": (
+                    "The file was written, but persistence was not confirmed. "
+                    "Inspect workspace diff and task events before retrying."
+                ),
+                "file_written": True,
+            },
+        ) from exc
+
+    except WorkspaceWriteError as exc:
+        logger.exception(
+            "Workspace edit application failed; task_id=%s; file_path=%s",
+            task_id,
+            data.proposal.file_path,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="Workspace file write failed",
+        ) from exc
+
+    except SQLAlchemyError as exc:
+        logger.exception(
+            "Database unavailable while applying edit; task_id=%s",
+            task_id,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Database unavailable",
+        ) from exc
+
+    except TaskExecutionError as exc:
+        logger.exception(
+            "Stored task data is invalid; task_id=%s",
+            task_id,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="Stored task data is invalid",
+        ) from exc
+
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Task not found",
+        )
+
+    return TaskWorkspaceWriteRead(
+        task_id=task_id,
+        file_path=result.file_path,
+        created=result.created,
+        bytes_written=result.bytes_written,
+    )
+
+
+@router.post(
+    "/{task_id}/execute",
+    response_model=TaskRead,
+)
+def begin_plan_execution(task_id: UUID):
+    try:
+        result = task_service.begin_plan_execution(task_id)
+
+    except TaskStateConflictError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="Task is not ready for execution",
+        ) from exc
+
+    except SQLAlchemyError as exc:
+        logger.exception(
+            "Database unavailable while starting execution; task_id=%s",
+            task_id,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Database unavailable",
+        ) from exc
+
+    except TaskExecutionError as exc:
+        logger.exception(
+            "Stored plan is invalid; task_id=%s",
+            task_id,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="Stored plan is invalid",
+        ) from exc
+
     if result is None:
         raise HTTPException(
             status_code=404,

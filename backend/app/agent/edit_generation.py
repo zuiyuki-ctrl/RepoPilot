@@ -13,43 +13,84 @@ from .policy import EDIT_SYSTEM_PROMPT, EDIT_FINAL_INSTRUCTION
 MAX_EDIT_INPUT_BYTES = 20_000
 MAX_EDIT_OUTPUT_BYTES = 50_000
 
+def validate_file_edit_proposal(
+    proposal: FileEditProposal,
+    *,
+    expected_file_path: str,
+) -> FileEditProposal:
+    # 1. expected_file_path 必须是 .py 文件路径。
+    if (
+        not isinstance(expected_file_path, str)
+        or not expected_file_path.endswith(".py")
+    ):
+        raise InvalidEditProposalError(
+            "Target file must be a Python file"
+        )
+
+    # 2. proposal.file_path 必须和预期路径精确相等。
+    if proposal.file_path != expected_file_path:
+        raise InvalidEditProposalError(
+            "Proposed file path does not match the requested target"
+        )
+
+    # 3. summary 和 content 不能是纯空白。
+    if not proposal.summary.strip():
+        raise InvalidEditProposalError(
+            "Edit summary must not be blank"
+        )
+
+    if not proposal.content.strip():
+        raise InvalidEditProposalError(
+            "Proposed source must not be blank"
+        )
+
+    # 4. 将候选源码编码为 UTF-8。
+    try:
+        content_bytes = proposal.content.encode("utf-8")
+    except UnicodeEncodeError as exc:
+        raise InvalidEditProposalError(
+            "Proposed source cannot be encoded as UTF-8"
+        ) from exc
+
+    # 5. 检查 UTF-8 字节长度。
+    if len(content_bytes) > MAX_EDIT_OUTPUT_BYTES:
+        raise InvalidEditProposalError(
+            "Proposed source exceeds the output size limit"
+        )
+
+    # 6. 检查 Python 语法。
+    try:
+        ast.parse(
+            content_bytes,
+            filename=expected_file_path,
+        )
+    except (SyntaxError, ValueError) as exc:
+        raise InvalidEditProposalError(
+            "Proposed source is not valid Python syntax"
+        ) from exc
+
+    # 7. 返回同一个已验证候选。
+    return proposal
+
 # 候选解析函数
 def parse_file_edit(
     content: str,
     *,
     expected_file_path: str,
 ) -> FileEditProposal:
-    # 1. FileEditProposal.model_validate_json(content)。
-    #    ValidationError 转换为 InvalidEditProposalError，保留异常链。
+    # 1. 只负责把 JSON 转成 Pydantic 模型。
     try:
         proposal = FileEditProposal.model_validate_json(content)
     except ValidationError as exc:
-        raise InvalidEditProposalError("Model returned an invalid edit structure") from exc
+        raise InvalidEditProposalError(
+            "Model returned an invalid edit structure"
+        ) from exc
 
-    # 2. proposal.file_path 必须与 expected_file_path 精确相等。
-    #    不去空白、不改变大小写，不允许模型换目标。
-    if proposal.file_path != expected_file_path:
-        raise InvalidEditProposalError("Proposed file path does not match the requested target")
-
-    # 3. summary 和源码 content 不能是纯空白。
-    if not proposal.summary.strip() or not proposal.content.strip():
-        raise InvalidEditProposalError("Edit summary and source content must not be blank")
-
-    # 4. 将源码编码为 UTF-8，检查字节数不超过候选输出上限。
-    try:
-        content_bytes = proposal.content.encode("utf-8")
-    except UnicodeEncodeError as exc:
-        raise InvalidEditProposalError("Proposed source cannot be encoded as UTF-8") from exc
-
-    if len(content_bytes) > MAX_EDIT_OUTPUT_BYTES:
-        raise InvalidEditProposalError("Proposed source exceeds the output size limit")
-
-    # 5. 用 ast.parse 检查候选 Python 源码语法。
-    try:
-        ast.parse(content_bytes, filename=expected_file_path)
-    except (SyntaxError, ValueError) as exc:
-        raise InvalidEditProposalError("Proposed source is not valid Python syntax") from exc
-    return proposal
+    # 2. 所有业务校验交给公共函数。
+    return validate_file_edit_proposal(
+        proposal,
+        expected_file_path=expected_file_path,
+    )
 
 
 # 候选生成函数

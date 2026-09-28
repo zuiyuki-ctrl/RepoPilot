@@ -154,3 +154,18 @@ def mark_task_awaiting_review(
 
     # 5. flush，不 commit。
     session.flush()
+
+
+def mark_task_executing(
+    session: Session,
+    task: AgentTask,
+) -> None:
+    # 1. status 设置为 executing。
+    task.status = "executing"
+
+    # 2. 清除旧错误；completed_at 保持 None。
+    task.error = None
+    task.completed_at = None
+
+    # 3. flush，不 commit。
+    session.flush()
