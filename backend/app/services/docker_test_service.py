@@ -168,6 +168,9 @@ def run_pytest_in_docker(
             check=False,
         )
 
+        if result.returncode in {125, 126, 127}:
+            raise SandboxExecutionError(f"Docker test command could not run; exit_code={result.returncode}")
+
         stdout, stdout_truncated = _truncate_output(
             result.stdout,
             max_chars=max_output_chars

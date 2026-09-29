@@ -80,14 +80,11 @@ def get_latest_task_event_by_type(
     按 sequence 查找任务最近一次指定类型的事件。
     """
 
-    # TODO 1：
     # 查询 TaskEvent，并同时按 task_id 和 event_type 筛选。
-    statement = ...
+    statement = select(TaskEvent).where(TaskEvent.task_id == task_id, TaskEvent.event_type == event_type)
 
-    # TODO 2：
     # 按 sequence 倒序，只取一条。
-    statement = ...
+    statement = statement.order_by(TaskEvent.sequence.desc()).limit(1)
 
-    # TODO 3：
-    # 返回 ORM 对象或 None。
-    return ...
+    # 返回 ORM 对象或 None
+    return session.execute(statement).scalar_one_or_none()

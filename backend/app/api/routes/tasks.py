@@ -706,6 +706,12 @@ def run_task_tests(task_id: UUID):
             detail="Task workspace is unavailable",
         ) from exc
 
+    except RepositoryBusyError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="Repository is busy; retry after the current operation finishes",
+        ) from exc
+
     # 服务返回 None 表示任务不存在。
     if result is None:
         raise HTTPException(

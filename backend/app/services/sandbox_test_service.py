@@ -23,7 +23,6 @@ def run_workspace_pytest(
     max_output_chars: int = MAX_TEST_OUTPUT_CHARS,
 ) -> SandboxTestResult:
 
-    # TODO 1：
     # 使用 TemporaryDirectory 创建专属于本次测试的临时目录。
     # prefix 使用 "repopilot-pytest-"。
     #
@@ -32,11 +31,9 @@ def run_workspace_pytest(
     with TemporaryDirectory(prefix="repopilot-pytest-") as temporary_directory:
         snapshot_path = Path(temporary_directory)
 
-        # TODO 2：
         # 从 workspace_path 准备 Python 测试快照。
         snapshot = prepare_python_test_snapshot(workspace_path, snapshot_path)
 
-        # TODO 3：
         # 把 snapshot 和三个运行参数交给 run_pytest_in_docker。
         # 必须 return 它的 SandboxTestResult。
         return run_pytest_in_docker(

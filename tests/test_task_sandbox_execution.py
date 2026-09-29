@@ -89,6 +89,15 @@ class TaskSandboxExecutionTests(unittest.TestCase):
         self.append_task_event = event_patch.start()
         self.addCleanup(event_patch.stop)
 
+        # 编排测试使用假快照，避免读取或复制真实工作区文件。
+        snapshot_patch = patch.object(
+            task_test_service,
+            "_prepare_task_test_snapshot",
+            return_value=Mock(name="snapshot"),
+        )
+        self.prepare_snapshot = snapshot_patch.start()
+        self.addCleanup(snapshot_patch.stop)
+
     def test_successful_test_run_records_start_and_finish(self):
         result = SandboxTestResult(
             exit_code=0,
@@ -101,14 +110,15 @@ class TaskSandboxExecutionTests(unittest.TestCase):
 
         with patch.object(
                 task_test_service,
-                "run_workspace_pytest",
+                "run_pytest_in_docker",
                 return_value=result,
-        ) as run_workspace:
+        ) as run_docker:
             actual = task_test_service.run_task_pytest(self.task_id)
 
         self.assertIs(actual, result)
-        run_workspace.assert_called_once_with(
-            self.workspace_path,
+        self.prepare_snapshot.assert_called_once()
+        run_docker.assert_called_once_with(
+            self.prepare_snapshot.return_value,
             image=task_test_service.DEFAULT_TEST_IMAGE,
             timeout_seconds=task_test_service.DEFAULT_TEST_TIMEOUT_SECONDS,
             max_output_chars=task_test_service.MAX_TEST_OUTPUT_CHARS,
@@ -138,7 +148,7 @@ class TaskSandboxExecutionTests(unittest.TestCase):
 
         with patch.object(
                 task_test_service,
-                "run_workspace_pytest",
+                "run_pytest_in_docker",
                 return_value=result,
         ):
             actual = task_test_service.run_task_pytest(self.task_id)
@@ -158,7 +168,7 @@ class TaskSandboxExecutionTests(unittest.TestCase):
 
         with patch.object(
                 task_test_service,
-                "run_workspace_pytest",
+                "run_pytest_in_docker",
                 side_effect=error,
         ):
             with self.assertRaises(SandboxExecutionError) as raised:
@@ -185,12 +195,13 @@ class TaskSandboxExecutionTests(unittest.TestCase):
 
         with patch.object(
                 task_test_service,
-                "run_workspace_pytest",
-        ) as run_workspace:
+                "run_pytest_in_docker",
+        ) as run_docker:
             with self.assertRaises(TaskStateConflictError):
                 task_test_service.run_task_pytest(self.task_id)
 
-        run_workspace.assert_not_called()
+        self.prepare_snapshot.assert_not_called()
+        run_docker.assert_not_called()
         self.append_task_event.assert_not_called()
 
     def test_route_returns_200_style_result_for_failed_tests(self):

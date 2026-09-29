@@ -1,21 +1,23 @@
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from uuid import UUID
 import logging
 from dataclasses import dataclass
 
+from sqlalchemy.exc import DBAPIError
 
+from .sandbox_snapshot_service import SandboxSnapshot, prepare_python_test_snapshot
 from ..core.exceptions import (
     TaskExecutionError,
-    TaskStateConflictError,
+    TaskStateConflictError, RepositoryBusyError,
 )
 from ..db.session import SessionLocal
 from .docker_test_service import (
     DEFAULT_TEST_IMAGE,
     DEFAULT_TEST_TIMEOUT_SECONDS,
     MAX_TEST_OUTPUT_CHARS,
-    SandboxTestResult,
+    SandboxTestResult, run_pytest_in_docker,
 )
-from .sandbox_test_service import run_workspace_pytest
 
 from ..db.repositories import (
     repository_repo,
@@ -29,6 +31,7 @@ logger = logging.getLogger(__name__)
 @dataclass(frozen=True)
 class TaskTestContext:
     task_id: UUID
+    repository_id: UUID
     workspace_path: Path
 
 
@@ -50,12 +53,22 @@ def run_task_pytest(
         return None
 
     try:
-        result = run_workspace_pytest(
-            context.workspace_path,
-            image=image,
-            timeout_seconds=timeout_seconds,
-            max_output_chars=max_output_chars,
-        )
+        with TemporaryDirectory(prefix="repopilot-pytest-") as temporary_directory:
+            # 1. 调用 _prepare_task_test_snapshot。
+            #    传 context 和 Path(temporary_directory)。
+            #    返回时，数据库事务已结束，仓库锁已释放。
+            snapshot = _prepare_task_test_snapshot(context, Path(temporary_directory))
+
+            # 2. 调用 run_pytest_in_docker。
+            #    传入 snapshot、image、timeout_seconds、max_output_chars。
+            #    把返回值保存为 result。
+            result = run_pytest_in_docker(
+                snapshot,
+                image=image,
+                timeout_seconds=timeout_seconds,
+                max_output_chars=max_output_chars,
+            )
+
     except Exception as exc:
         # 调用 _fail_task_pytest 恢复状态，然后用裸 raise
         # 重新抛出最初的异常。
@@ -119,10 +132,61 @@ def _begin_task_pytest(
         # 在会话内提取普通值并构造上下文。
         context = TaskTestContext(
             task_id=task_id,
+            repository_id=repository.id,
             workspace_path=Path(repository.workspace_path),
         )
 
     return context
+
+
+def _prepare_task_test_snapshot(
+    context: TaskTestContext,
+    snapshot_path: Path,
+) -> SandboxSnapshot:
+    # 1. 开启 SessionLocal.begin() 事务。
+    with SessionLocal.begin() as session:
+        # 2. 锁定 context.task_id 对应的任务。
+        #    不存在：TaskExecutionError。
+        #    要求 plan、testing、review_decision == "approved"。
+        #    不符合：TaskStateConflictError。
+        task = task_repo.get_task_for_update(session, context.task_id)
+        if task is None:
+            raise TaskExecutionError("Task disappeared during sandbox testing")
+
+        if (
+            task.task_type != "plan"
+            or task.status != "testing"
+            or task.review_decision != "approved"
+        ):
+            raise TaskStateConflictError()
+
+        # 3. 检查 task.repository_id == context.repository_id。
+        #    不一致：TaskExecutionError。
+        if task.repository_id != context.repository_id:
+            raise TaskExecutionError()
+
+        # 4. 锁定仓库，具体处理见下文。
+        try:
+            repository = repository_repo.get_repository_for_update(session, task.repository_id)
+        except DBAPIError as exc:
+            if getattr(exc.orig, "sqlstate", None) == "55P03":
+                raise RepositoryBusyError("Repository is busy") from exc
+            raise
+
+        # 5. 检查仓库存在、workspace_path 非空，
+        #    并与 context.workspace_path 一致。
+        if repository is None or not repository.workspace_path:
+            raise TaskExecutionError("Task workspace is unavailable")
+
+        if Path(repository.workspace_path) != context.workspace_path:
+            raise TaskExecutionError()
+
+        # 6. 在事务内部调用 prepare_python_test_snapshot。
+        #    将结果保存到 snapshot。
+        snapshot = prepare_python_test_snapshot(Path(repository.workspace_path), snapshot_path)
+
+    # 7. 退出事务后，返回 snapshot。
+    return snapshot
 
 
 def _finish_task_pytest(
