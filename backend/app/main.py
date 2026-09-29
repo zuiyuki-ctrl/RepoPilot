@@ -30,3 +30,9 @@ def ready():
         raise HTTPException(status_code=503, detail="Database unavailable")
 
     return {"status": "ready"}
+
+# git pull
+# docker compose up -d db
+# alembic current
+# alembic heads
+# alembic upgrade head

@@ -17,6 +17,18 @@ class AgentTask(Base):
             "OR review_decision IN ('approved', 'rejected')",
             name="ck_agent_tasks_review_decision",
         ),
+        CheckConstraint(
+            "retry_count >= 0",
+            name="ck_agent_tasks_retry_count_nonnegative",
+        ),
+        CheckConstraint(
+            "max_retries >= 0 AND max_retries <= 3",
+            name="ck_agent_tasks_max_retries_range",
+        ),
+        CheckConstraint(
+            "retry_count <= max_retries",
+            name="ck_agent_tasks_retry_budget",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(
@@ -79,4 +91,14 @@ class AgentTask(Base):
     reviewed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True
+    )
+
+    retry_count: Mapped[int] = mapped_column(
+        default=0,
+        server_default="0",
+    )
+
+    max_retries: Mapped[int] = mapped_column(
+        default=1,
+        server_default="1",
     )

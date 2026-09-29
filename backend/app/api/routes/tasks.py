@@ -5,17 +5,22 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 
-from ...services import edit_proposal_service
+from ...services import (
+    edit_proposal_service,
+    plan_execution_service,
+    task_service,
+    task_test_service
+)
 from ...schemas.edit import TaskFileEditRead, TaskFileEditRequest, TaskFileEditApplyRequest
 from ...schemas.workspace import TaskWorkspaceDiffRead, TaskWorkspaceWriteRead, TaskWorkspaceWriteRequest
-from ...services import plan_execution_service
 from ...schemas.task_event import TaskEventRead
 from ...core.exceptions import InvalidTaskInputError, TaskStateConflictError, InvalidAnswerCitationError, \
     TaskExecutionError, InvalidPlanError, InsufficientPlanEvidenceError, WorkspaceDiffError, InvalidWorkspacePathError, \
     RepositoryBusyError, PlanScopeViolationError, WorkspaceWriteError, WorkspaceWritePersistenceError, \
-    RepositoryScanError, InvalidEditProposalError, WorkspaceFileConflictError
-from ...services import task_service
+    RepositoryScanError, InvalidEditProposalError, WorkspaceFileConflictError, SandboxPreparationError, \
+    SandboxExecutionError
 from ...schemas.task import TaskRead, TaskCreate, TaskPlanReviewRequest
+from ...schemas.testing import TaskTestRead
 
 import logging
 
@@ -637,3 +642,88 @@ def begin_plan_execution(task_id: UUID):
         )
 
     return result
+
+
+# 对已批准的计划任务运行 Docker pytest。
+@router.post(
+    "/{task_id}/tests",
+    response_model=TaskTestRead,
+)
+def run_task_tests(task_id: UUID):
+    """
+    对已批准且处于 executing 状态的计划任务运行 Docker pytest。
+    """
+
+    try:
+        # 调用 task_test_service.run_task_pytest
+        result = task_test_service.run_task_pytest(task_id)
+
+    except TaskStateConflictError as exc:
+        # 包括任务尚未执行、正在测试或状态已被其他流程改变。
+        raise HTTPException(
+            status_code=409,
+            detail="Task is not ready for sandbox testing",
+        ) from exc
+
+    except SandboxPreparationError as exc:
+        logger.exception(
+            "Sandbox snapshot preparation failed; task_id=%s",
+            task_id,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Sandbox snapshot preparation failed",
+        ) from exc
+
+    except SandboxExecutionError as exc:
+        logger.exception(
+            "Sandbox execution failed; task_id=%s",
+            task_id,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Sandbox execution failed",
+        ) from exc
+
+    except SQLAlchemyError as exc:
+        logger.exception(
+            "Database unavailable during sandbox testing; task_id=%s",
+            task_id,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Database unavailable",
+        ) from exc
+
+    except TaskExecutionError as exc:
+        logger.exception(
+            "Task workspace unavailable during sandbox testing; "
+            "task_id=%s",
+            task_id,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="Task workspace is unavailable",
+        ) from exc
+
+    # 服务返回 None 表示任务不存在。
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Task not found",
+        )
+
+    # 只有未超时且 exit_code == 0 才算通过。
+    passed = not result.timed_out and result.exit_code == 0
+
+    # 将结果转换为 API 响应。
+    return TaskTestRead(
+        task_id=task_id,
+        passed=passed,
+        exit_code=result.exit_code,
+        stdout=result.stdout,
+        stderr=result.stderr,
+        timed_out=result.timed_out,
+        stdout_truncated=result.stdout_truncated,
+        stderr_truncated=result.stderr_truncated,
+    )

@@ -67,3 +67,27 @@ def list_task_events(
     # 4. 应用 limit，返回列表。
     statement = statement.limit(limit)
     return list(session.scalars(statement).all())
+
+
+# 读取最近测试事件的方法
+def get_latest_task_event_by_type(
+    session: Session,
+    *,
+    task_id: UUID,
+    event_type: str,
+) -> TaskEvent | None:
+    """
+    按 sequence 查找任务最近一次指定类型的事件。
+    """
+
+    # TODO 1：
+    # 查询 TaskEvent，并同时按 task_id 和 event_type 筛选。
+    statement = ...
+
+    # TODO 2：
+    # 按 sequence 倒序，只取一条。
+    statement = ...
+
+    # TODO 3：
+    # 返回 ORM 对象或 None。
+    return ...

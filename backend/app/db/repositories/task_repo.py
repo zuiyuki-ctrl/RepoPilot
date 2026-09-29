@@ -169,3 +169,42 @@ def mark_task_executing(
 
     # 3. flush，不 commit。
     session.flush()
+
+
+def mark_task_testing(
+    session: Session,
+    task: AgentTask,
+) -> None:
+    """
+    将正在执行修改的任务切换到沙箱测试状态。
+    只 flush，事务提交由服务层负责。
+    """
+    # 把状态改成 testing。
+    task.status = "testing"
+
+    # 清除旧错误，保持 completed_at 为 None。
+    task.error = None
+    task.completed_at = None
+
+    session.flush()
+
+
+# 进入 Reflection 的状态方法
+def mark_task_reflecting(
+    session: Session,
+    task: AgentTask,
+) -> None:
+    """
+    消耗一次重试额度并把任务切换为 reflecting。
+    调用方必须已经锁定任务并验证剩余额度。
+    """
+
+    task.retry_count += 1
+
+    # 状态改成 reflecting，清除旧错误，
+    # completed_at 保持 None。
+    task.status = "reflecting"
+    task.error = None
+    task.completed_at = None
+
+    session.flush()

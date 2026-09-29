@@ -31,7 +31,7 @@ class SandboxSnapshot:
 
 # workspace_path 是仓库工作副本。
 # snapshot_path 是调用方创建的空临时目录。
-# 函数负责复制，不负责删除目录
+# 从工作区中抽取出一份干净、安全的 Python 代码副本，专门提供给沙箱环境去运行测试。
 def prepare_python_test_snapshot(
     workspace_path: Path,
     snapshot_path: Path,
@@ -60,9 +60,9 @@ def prepare_python_test_snapshot(
         # 5. 两个目录不能相同，也不能互相包含。
         #    提示：Path.is_relative_to()
         if (
-                workspace_root == snapshot_root
-                or workspace_root.is_relative_to(snapshot_root)
-                or snapshot_root.is_relative_to(workspace_root)
+            workspace_root == snapshot_root
+            or workspace_root.is_relative_to(snapshot_root)
+            or snapshot_root.is_relative_to(workspace_root)
         ):
             raise SandboxPreparationError("Workspace and snapshot directories must not overlap")
 
@@ -83,8 +83,7 @@ def prepare_python_test_snapshot(
         for candidate in paths:
             relative_path = candidate.relative_to(workspace_root).as_posix()
 
-            # 1. 校验源文件路径，结果保存为 target。
-            #    调用 resolve_workspace_target(workspace_root, relative_path)。
+            # 1. 校验源文件路径，结果保存为 target
             target = resolve_workspace_target(workspace_root, relative_path)
 
             # 2. 读取源文件，结果保存为 snapshot。

@@ -39,6 +39,9 @@ class TaskRead(BaseModel):
     review_comment: str | None
     reviewed_at: datetime | None
 
+    retry_count: int = Field(default=0, ge=0)
+    max_retries: int = Field(default=1, ge=0, le=3)
+
 
 # 用户的审核决定
 class TaskPlanReviewRequest(BaseModel):

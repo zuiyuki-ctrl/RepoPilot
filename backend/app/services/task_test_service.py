@@ -1,0 +1,208 @@
+from pathlib import Path
+from uuid import UUID
+import logging
+from dataclasses import dataclass
+
+
+from ..core.exceptions import (
+    TaskExecutionError,
+    TaskStateConflictError,
+)
+from ..db.session import SessionLocal
+from .docker_test_service import (
+    DEFAULT_TEST_IMAGE,
+    DEFAULT_TEST_TIMEOUT_SECONDS,
+    MAX_TEST_OUTPUT_CHARS,
+    SandboxTestResult,
+)
+from .sandbox_test_service import run_workspace_pytest
+
+from ..db.repositories import (
+    repository_repo,
+    task_event_repo,
+    task_repo,
+)
+
+logger = logging.getLogger(__name__)
+
+# 只保存脱离 ORM 会话后仍然安全使用的数据
+@dataclass(frozen=True)
+class TaskTestContext:
+    task_id: UUID
+    workspace_path: Path
+
+
+def run_task_pytest(
+    task_id: UUID,
+    *,
+    image: str = DEFAULT_TEST_IMAGE,
+    timeout_seconds: int = DEFAULT_TEST_TIMEOUT_SECONDS,
+    max_output_chars: int = MAX_TEST_OUTPUT_CHARS,
+) -> SandboxTestResult | None:
+    """
+    原子领取任务测试权，在数据库事务外运行 Docker，
+    最后记录测试结果并恢复任务状态。
+    """
+
+    context = _begin_task_pytest(task_id)
+
+    if context is None:
+        return None
+
+    try:
+        result = run_workspace_pytest(
+            context.workspace_path,
+            image=image,
+            timeout_seconds=timeout_seconds,
+            max_output_chars=max_output_chars,
+        )
+    except Exception as exc:
+        # 调用 _fail_task_pytest 恢复状态，然后用裸 raise
+        # 重新抛出最初的异常。
+        try:
+            _fail_task_pytest(task_id, exc)
+        except Exception:
+            logger.exception(
+                "Failed to restore task after sandbox execution failure; "
+                "task_id=%s",
+                task_id,
+            )
+        raise
+
+    # 正常执行完成时记录结果。
+    _finish_task_pytest(task_id, result)
+
+    return result
+
+
+def _begin_task_pytest(
+    task_id: UUID,
+) -> TaskTestContext | None:
+    with SessionLocal.begin() as session:
+        # 使用 get_task_for_update，而不是 get_task。
+        # 行锁保证同一时刻只有一个请求能检查和修改状态。
+        task = task_repo.get_task_for_update(session, task_id)
+
+        if task is None:
+            return None
+
+        # 检查 plan、executing、approved 三个条件。
+        if not (
+            task.task_type == "plan"
+            and task.status == "executing"
+            and task.review_decision == "approved"
+        ):
+            raise TaskStateConflictError("Task is not ready for sandbox testing")
+
+        # 查询关联 Repository，并检查 workspace_path。
+        repository = repository_repo.get_repository(session, task.repository_id)
+
+        if repository is None or not repository.workspace_path:
+            raise TaskExecutionError("Task workspace is unavailable")
+
+        # 调用 task_repo.mark_task_testing。
+        task_repo.mark_task_testing(session, task)
+
+        # 追加 TEST_EXECUTION_STARTED 事件。
+        task_event_repo.append_task_event(
+            session,
+            task_id=task_id,
+            event_type="TEST_EXECUTION_STARTED",
+            node_name="task_test_service",
+            message="Sandbox test execution started",
+            payload={
+                "step_id": "run_tests",
+                "attempt": 1,
+            },
+        )
+
+        # 在会话内提取普通值并构造上下文。
+        context = TaskTestContext(
+            task_id=task_id,
+            workspace_path=Path(repository.workspace_path),
+        )
+
+    return context
+
+
+def _finish_task_pytest(
+    task_id: UUID,
+    result: SandboxTestResult,
+) -> None:
+    with SessionLocal.begin() as session:
+        # 锁定任务；任务不存在时抛 TaskExecutionError。
+        task = task_repo.get_task_for_update(session, task_id)
+
+        if task is None:
+            raise TaskExecutionError("Task disappeared during sandbox testing")
+
+        # 只有 testing 状态可以结束本轮测试。
+        if task.status != "testing":
+            raise TaskStateConflictError("Task is no longer running sandbox tests")
+
+        # 测试完成后先恢复到 executing。
+        # 测试失败时，后续 Reflection 仍需继续修改工作区。
+        task_repo.mark_task_executing(session, task)
+
+        # 计算是否通过：
+        # 未超时，并且退出码严格等于 0。
+        passed = not result.timed_out and result.exit_code == 0
+
+        # 追加 TEST_EXECUTION_FINISHED 事件。
+        task_event_repo.append_task_event(
+            session,
+            task_id=task.id,
+            event_type="TEST_EXECUTION_FINISHED",
+            node_name="task_test_service",
+            message=(
+                "Sandbox tests passed"
+                if passed
+                else "Sandbox tests failed"
+            ),
+            payload={
+                "step_id": "run_tests",
+                "attempt": 1,
+                "passed": passed,
+                "exit_code": result.exit_code,
+                "timed_out": result.timed_out,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "stdout_truncated": result.stdout_truncated,
+                "stderr_truncated": result.stderr_truncated,
+            },
+        )
+
+
+def _fail_task_pytest(
+    task_id: UUID,
+    error: Exception,
+) -> None:
+    with SessionLocal.begin() as session:
+        # 锁定任务。
+        task = task_repo.get_task_for_update(session, task_id)
+
+        if task is None:
+            raise TaskExecutionError("Task disappeared during sandbox testing")
+
+        # 必须仍处于 testing，否则不能覆盖其他流程写入的状态。
+        if task.status != "testing":
+            raise TaskStateConflictError("Task is no longer running sandbox tests")
+
+        # 恢复到 executing，让用户可以修复环境或重新测试
+        task_repo.mark_task_executing(session, task)
+
+        # 记录基础设施执行失败。
+        # 不保存 traceback，只保存受控的异常类型和简短消息。
+        task_event_repo.append_task_event(
+            session,
+            task_id=task.id,
+            event_type="TEST_EXECUTION_FAILED",
+            node_name="task_test_service",
+            message="Sandbox test execution failed",
+            payload={
+                "step_id": "run_tests",
+                "attempt": 1,
+                "error_type": type(error).__name__,
+                "error": str(error)[:1000],
+            },
+        )

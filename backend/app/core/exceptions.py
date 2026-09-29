@@ -57,3 +57,9 @@ class WorkspaceFileConflictError(RuntimeError):
 
 class SandboxPreparationError(RuntimeError):
     """无法准备测试沙箱的输入快照。"""
+
+class SandboxExecutionError(RuntimeError):
+    """无法启动或管理 Docker 测试沙箱。"""
+
+class RetryBudgetExceededError(RuntimeError):
+    """任务已经用完允许的 Reflection 重试次数。"""
