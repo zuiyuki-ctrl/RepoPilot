@@ -57,8 +57,8 @@ def drain_text_stream(
     max_chars: int,
 ) -> None:
     # 1. 循环调用 stream.read(4096)。
-    while True:
-        try:
+    try:
+        while True:
             chunk = stream.read(4096)
 
             # 2. 返回空字符串时结束循环，表示输出流结束。
@@ -68,15 +68,15 @@ def drain_text_stream(
             # 3. 把非空文本块交给 append_output_chunk。
             append_output_chunk(captured, chunk, max_chars=max_chars)
 
-        # 4. 读取发生异常时，把异常保存到 captured.error。
+    # 4. 读取发生异常时，把异常保存到 captured.error。
+    except Exception as exc:
+        captured.error = exc
+    finally:
+        try:
+            # 5. 关闭 stream。
+            stream.close()
         except Exception as exc:
-            captured.error = exc
-        finally:
-            try:
-                # 5. 关闭 stream。
-                stream.close()
-            except Exception as exc:
-                # 6. 只有 captured.error is None 时，
-                #    才将关闭异常保存到 captured.error。
-                if captured.error is None:
-                    captured.error = exc
+            # 6. 只有 captured.error is None 时，
+            #    才将关闭异常保存到 captured.error。
+            if captured.error is None:
+                captured.error = exc

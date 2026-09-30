@@ -2,10 +2,13 @@ import logging
 import subprocess
 from dataclasses import dataclass
 from uuid import uuid4
+from threading import Thread
 
+from .process_output import CapturedOutput, drain_text_stream
 from ..core.exceptions import SandboxExecutionError
 from .repository_scanner import _is_link_or_reparse_point
 from .sandbox_snapshot_service import SandboxSnapshot
+
 
 DEFAULT_TEST_IMAGE = "repopilot-pytest:py311"
 DEFAULT_TEST_TIMEOUT_SECONDS = 120
@@ -22,18 +25,6 @@ class SandboxTestResult:
     timed_out: bool
     stdout_truncated: bool
     stderr_truncated: bool
-
-
-# 输出截断助手
-def _truncate_output(
-    value: str,
-    *,
-    max_chars: int,
-) -> tuple[str, bool]:
-    if len(value) <= max_chars:
-        return value, False
-
-    return value[:max_chars], True
 
 
 # 容器清理助手
@@ -156,77 +147,127 @@ def run_pytest_in_docker(
         "no:cacheprovider",
     ]
 
-    # 6. subprocess.run 执行，不使用 shell=True。
+    # 6. subprocess.Popen 执行，不使用 shell=True。
+    return _run_docker_process(
+        command,
+        container_name=container_name,
+        timeout_seconds=timeout_seconds,
+        max_output_chars=max_output_chars,
+    )
+
+
+def _run_docker_process(
+    command: list[str],
+    *,
+    container_name: str,
+    timeout_seconds: int,
+    max_output_chars: int,
+) -> SandboxTestResult:
+    stdout_capture = CapturedOutput()
+    stderr_capture = CapturedOutput()
+
     try:
-        result = subprocess.run(
+        process = subprocess.Popen(
             command,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
             encoding="utf-8",
             errors="replace",
-            timeout=timeout_seconds,
-            check=False,
         )
+    except OSError as exc:
+        raise SandboxExecutionError("Docker test runner could not be started") from exc
 
-        if result.returncode in {125, 126, 127}:
-            raise SandboxExecutionError(f"Docker test command could not run; exit_code={result.returncode}")
+    # Popen 配置了 PIPE，正常情况下两者不会是 None。
+    # 显式检查能避免把类型断言当成运行时保证。
+    if process.stdout is None or process.stderr is None:
+        process.kill()
+        process.wait()
 
-        stdout, stdout_truncated = _truncate_output(
-            result.stdout,
-            max_chars=max_output_chars
-        )
+        raise SandboxExecutionError("Docker test runner output pipes are unavailable")
 
-        stderr, stderr_truncated = _truncate_output(
-            result.stderr,
-            max_chars=max_output_chars
-        )
+    stdout_thread = Thread(
+        target=drain_text_stream,
+        kwargs={
+            "stream": process.stdout,
+            "captured": stdout_capture,
+            "max_chars": max_output_chars,
+        },
+        name=f"{container_name}-stdout",
+    )
+    stderr_thread = Thread(
+        target=drain_text_stream,
+        kwargs={
+            "stream": process.stderr,
+            "captured": stderr_capture,
+            "max_chars": max_output_chars,
+        },
+        name=f"{container_name}-stderr",
+    )
 
-        return SandboxTestResult(
-            exit_code=result.returncode,
-            stdout=stdout,
-            stderr=stderr,
-            timed_out=False,
-            stdout_truncated=stdout_truncated,
-            stderr_truncated=stderr_truncated,
-        )
+    # 启动两个读取线程。
+    stdout_thread.start()
+    stderr_thread.start()
 
-    except subprocess.TimeoutExpired as exc:
+    timed_out = False
+
+    try:
+        # 等待 Docker CLI 结束。
+        # 主线程暂停执行，等待 OS 里的这个 process 进程结束
+        process.wait(timeout=timeout_seconds)
+
+    except subprocess.TimeoutExpired:
+        timed_out = True
+
+        # 先删除有唯一名称的容器。
         _force_remove_container(container_name)
 
-        raw_stdout = exc.stdout or ""
-        raw_stderr = exc.stderr or ""
+        # 如果 Docker CLI 仍未退出，终止本地进程并回收。
+        # 可以先 process.kill()，再 process.wait()。
+        process.kill()
+        process.wait()
 
-        # TimeoutExpired 在某些 Python/平台组合下即使 text=True，
-        # stdout/stderr 仍可能是 bytes。
-        if isinstance(raw_stdout, bytes):
-            raw_stdout = raw_stdout.decode(
-                "utf-8",
-                errors="replace",
-            )
+    finally:
+        # 必须等待两个排空线程结束。
+        # 此时子进程已退出，管道最终会到达 EOF。
+        stdout_thread.join()
+        stderr_thread.join()
 
-        if isinstance(raw_stderr, bytes):
-            raw_stderr = raw_stderr.decode(
-                "utf-8",
-                errors="replace",
-            )
+    # 如果任一 capture.error 不为 None，
+    # 抛 SandboxExecutionError，并用 raise ... from
+    # 保留最先发现的读取异常。
+    stream_error = stdout_capture.error or stderr_capture.error
 
-        stdout, stdout_truncated = _truncate_output(
-            raw_stdout,
-            max_chars=max_output_chars
-        )
-        stderr, stderr_truncated = _truncate_output(
-            raw_stderr,
-            max_chars=max_output_chars
-        )
+    if stream_error is not None:
+        raise SandboxExecutionError("Cannot read Docker test output") from stream_error
 
+
+    stdout = stdout_capture.get_text()
+    stderr = stderr_capture.get_text()
+
+    if timed_out:
         return SandboxTestResult(
             exit_code=None,
             stdout=stdout,
             stderr=stderr,
             timed_out=True,
-            stdout_truncated=stdout_truncated,
-            stderr_truncated=stderr_truncated,
+            stdout_truncated=stdout_capture.truncated,
+            stderr_truncated=stderr_capture.truncated,
         )
 
-    except OSError as exc:
-        raise SandboxExecutionError("Docker test runner could not be started") from exc
+    return_code = process.returncode
+
+    if return_code in {125, 126, 127}:
+        raise SandboxExecutionError(
+            f"Docker test command could not run; "
+            f"exit_code={return_code}"
+        )
+
+    return SandboxTestResult(
+        exit_code=return_code,
+        stdout=stdout,
+        stderr=stderr,
+        timed_out=False,
+        stdout_truncated=stdout_capture.truncated,
+        stderr_truncated=stderr_capture.truncated,
+    )

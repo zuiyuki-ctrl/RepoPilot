@@ -63,3 +63,6 @@ class SandboxExecutionError(RuntimeError):
 
 class RetryBudgetExceededError(RuntimeError):
     """任务已经用完允许的 Reflection 重试次数。"""
+
+class InvalidReflectionError(ValueError):
+    """模型返回的 Reflection 决策不合法。"""
