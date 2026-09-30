@@ -35,6 +35,8 @@ class TaskTestContext:
     workspace_path: Path
 
 
+# 协调任务测试：领取测试权、复制工作副本快照、在 Docker 中运行 pytest，最后保存测试结果。
+# 快照准备或运行抛异常时尝试记录失败事件；临时快照由上下文管理器清理。
 def run_task_pytest(
     task_id: UUID,
     *,
@@ -88,6 +90,8 @@ def run_task_pytest(
     return result
 
 
+# 在短事务内锁定已批准且 executing 的计划任务，切换为 testing 并记录测试开始事件。
+# 返回任务与工作副本信息，让后续耗时操作使用普通数据，不携带数据库对象。
 def _begin_task_pytest(
     task_id: UUID,
 ) -> TaskTestContext | None:
@@ -139,6 +143,8 @@ def _begin_task_pytest(
     return context
 
 
+# 确认任务仍在 testing 且工作副本未变，再锁定仓库并复制测试快照。
+# 仓库锁只覆盖复制阶段，退出事务后再运行 Docker，避免整个测试期间占用锁。
 def _prepare_task_test_snapshot(
     context: TaskTestContext,
     snapshot_path: Path,
@@ -189,6 +195,8 @@ def _prepare_task_test_snapshot(
     return snapshot
 
 
+# 保存一次完整的测试结果和输出，记录 TEST_EXECUTION_FINISHED，并将任务恢复为 executing。
+# 未超时且退出码为 0 才算通过；测试通过也不会在这里直接完成整个任务。
 def _finish_task_pytest(
     task_id: UUID,
     result: SandboxTestResult,
@@ -237,6 +245,8 @@ def _finish_task_pytest(
         )
 
 
+# 准备快照或运行测试抛异常后，将 testing 任务恢复为 executing 并记录 TEST_EXECUTION_FAILED。
+# 它记录执行流程异常；pytest 正常结束但断言失败，由完整结果事件记录。
 def _fail_task_pytest(
     task_id: UUID,
     error: Exception,

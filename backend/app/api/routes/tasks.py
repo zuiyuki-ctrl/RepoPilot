@@ -9,16 +9,18 @@ from ...services import (
     edit_proposal_service,
     plan_execution_service,
     task_service,
-    task_test_service
+    task_test_service,
+    reflection_service
 )
 from ...schemas.edit import TaskFileEditRead, TaskFileEditRequest, TaskFileEditApplyRequest
 from ...schemas.workspace import TaskWorkspaceDiffRead, TaskWorkspaceWriteRead, TaskWorkspaceWriteRequest
 from ...schemas.task_event import TaskEventRead
+from ...schemas.reflection import TaskReflectionRead
 from ...core.exceptions import InvalidTaskInputError, TaskStateConflictError, InvalidAnswerCitationError, \
     TaskExecutionError, InvalidPlanError, InsufficientPlanEvidenceError, WorkspaceDiffError, InvalidWorkspacePathError, \
     RepositoryBusyError, PlanScopeViolationError, WorkspaceWriteError, WorkspaceWritePersistenceError, \
     RepositoryScanError, InvalidEditProposalError, WorkspaceFileConflictError, SandboxPreparationError, \
-    SandboxExecutionError
+    SandboxExecutionError, RetryBudgetExceededError, InvalidReflectionError
 from ...schemas.task import TaskRead, TaskCreate, TaskPlanReviewRequest
 from ...schemas.testing import TaskTestRead
 
@@ -733,3 +735,65 @@ def run_task_tests(task_id: UUID):
         stdout_truncated=result.stdout_truncated,
         stderr_truncated=result.stderr_truncated,
     )
+
+
+@router.post(
+    "/{task_id}/reflect",
+    response_model=TaskReflectionRead,
+)
+# 分析最近一次失败测试，返回反思决策；将状态、模型和持久化异常转换为固定 HTTP 响应。
+def reflect_task(task_id: UUID):
+    try:
+        decision = reflection_service.run_task_reflection(task_id)
+
+    except RetryBudgetExceededError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="Task reflection retry budget is exhausted",
+        ) from exc
+
+    except TaskStateConflictError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="Task is not ready for reflection; a fresh failed test result is required",
+        ) from exc
+
+    except InvalidReflectionError as exc:
+        logger.exception("Invalid reflection decision; task_id=%s", task_id)
+        raise HTTPException(
+            status_code=502,
+            detail="Model returned an invalid reflection decision",
+        ) from exc
+
+    except httpx.HTTPError as exc:
+        logger.exception("Reflection model request failed; task_id=%s", task_id)
+        raise HTTPException(
+            status_code=503,
+            detail="Reflection model service is unavailable",
+        ) from exc
+
+    except SQLAlchemyError as exc:
+        logger.exception("Database unavailable during reflection; task_id=%s", task_id)
+        raise HTTPException(
+            status_code=503,
+            detail="Database unavailable",
+        ) from exc
+
+    except TaskExecutionError as exc:
+        logger.exception("Stored reflection data is invalid; task_id=%s", task_id)
+        raise HTTPException(
+            status_code=500,
+            detail="Stored task or test data is invalid",
+        ) from exc
+
+    except ValueError as exc:
+        logger.exception("Reflection processing failed; task_id=%s", task_id)
+        raise HTTPException(
+            status_code=500,
+            detail="Reflection processing failed",
+        ) from exc
+
+    if decision is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    return TaskReflectionRead(task_id=task_id, decision=decision)

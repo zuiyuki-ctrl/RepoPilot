@@ -13,6 +13,8 @@ from .policy import EDIT_SYSTEM_PROMPT, EDIT_FINAL_INSTRUCTION
 MAX_EDIT_INPUT_BYTES = 20_000
 MAX_EDIT_OUTPUT_BYTES = 50_000
 
+# 检查候选的目标路径、摘要、源码大小及 Python 语法，供生成和应用流程复用。
+# 语法通过不代表功能正确；计划权限和原文版本由服务层检查。
 def validate_file_edit_proposal(
     proposal: FileEditProposal,
     *,
@@ -72,7 +74,7 @@ def validate_file_edit_proposal(
     # 7. 返回同一个已验证候选。
     return proposal
 
-# 候选解析函数
+# 将模型返回的 JSON 解析为 FileEditProposal，再调用公共校验函数检查候选内容。
 def parse_file_edit(
     content: str,
     *,
@@ -93,8 +95,8 @@ def parse_file_edit(
     )
 
 
-# 候选生成函数
-# 组织修改任务，调用模型，再检查候选代码
+# 结合用户需求、相关计划步骤和文件原文调用模型，生成并校验单文件完整源码候选。
+# 只返回候选，不直接覆盖工作副本；落盘由后续应用流程负责。
 def generate_file_edit(
     user_request: str,
     *,

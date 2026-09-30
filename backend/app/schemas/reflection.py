@@ -1,8 +1,11 @@
+from typing import Annotated
+from uuid import UUID
+
 from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
-    model_validator,
+    model_validator, StringConstraints,
 )
 
 
@@ -13,7 +16,10 @@ class ReflectionFileAction(BaseModel):
         str_strip_whitespace=True,
     )
 
-    file_path: str = Field(min_length=1)
+    file_path: Annotated[
+        str,
+        StringConstraints(strip_whitespace=False, min_length=1),
+    ]
     instruction: str = Field(min_length=1, max_length=2000)
 
 
@@ -35,6 +41,8 @@ class ReflectionDecision(BaseModel):
         max_length=10,
     )
 
+    # 校验决策内部一致性：重试必须提供修改动作，停止重试不能携带动作，文件路径不能重复。
+    # 这是数据结构校验；是否属于批准计划，由反思生成模块另外检查。
     @model_validator(mode="after")
     def validate_action_consistency(self):
         # should_retry=True 时至少需要一个 action。
@@ -52,3 +60,9 @@ class ReflectionDecision(BaseModel):
             raise ValueError("Reflection file paths must be unique")
 
         return self
+    
+
+class TaskReflectionRead(BaseModel):
+    task_id: UUID
+
+    decision: ReflectionDecision

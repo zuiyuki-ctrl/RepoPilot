@@ -41,8 +41,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-# 校验计划批准状态及文件范围，锁定任务和仓库后写入工作副本，并记录 FILE_MODIFIED。
-# 文件写入后持久化失败会单独报错，提示核实差异与事件；不会自动恢复原文件。
+# 锁定任务和仓库，确认计划已批准且处于 executing、目标在计划范围内，再写入工作副本并记录事件。
+# 传入 expected_file_hash 时先检查原文是否变化，防止旧候选覆盖新内容。
+# 文件写入与数据库提交不是一个原子操作；写入后持久化失败会单独报错，不会自动恢复原文。
 def write_approved_plan_file(
     task_id: UUID,
     *,
@@ -233,6 +234,8 @@ def get_task_workspace_diff(
     )
 
 
+# 校验候选源码及其基准 hash，再交给计划内写入流程检查状态、范围和原文版本并落盘。
+# 这是应用已有候选的入口，不调用模型生成新候选。
 def apply_task_file_edit(
     task_id: UUID,
     *,

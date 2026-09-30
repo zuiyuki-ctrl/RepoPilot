@@ -390,6 +390,8 @@ def review_task_plan(
     return result
 
 
+# 在事务中锁定已批准的计划任务，校验存储计划后切换为 executing，并记录执行开始事件。
+# 返回提交后的任务响应；这里只开启执行阶段，不自动生成修改、写文件或运行测试。
 def begin_plan_execution(
     task_id: UUID,
 ) -> TaskRead | None:

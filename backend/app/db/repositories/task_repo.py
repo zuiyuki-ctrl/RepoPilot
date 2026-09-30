@@ -156,6 +156,8 @@ def mark_task_awaiting_review(
     session.flush()
 
 
+# 将任务设为 executing，清除错误及完成时间并 flush；用于开始执行或测试后恢复执行。
+# 不自行提交事务，状态前置条件由调用服务检查。
 def mark_task_executing(
     session: Session,
     task: AgentTask,
@@ -171,6 +173,8 @@ def mark_task_executing(
     session.flush()
 
 
+# 将任务设为 testing，清除错误及完成时间并 flush；由测试服务在领取测试权时调用。
+# 不自行检查批准状态或提交事务，交给调用服务统一处理。
 def mark_task_testing(
     session: Session,
     task: AgentTask,
@@ -189,7 +193,8 @@ def mark_task_testing(
     session.flush()
 
 
-# 进入 Reflection 的状态方法
+# 将任务设为 reflecting 并增加一次重试计数，清除错误及完成时间后 flush。
+# 调用方必须先锁定任务并检查重试预算，与反思开始事件一起提交。
 def mark_task_reflecting(
     session: Session,
     task: AgentTask,

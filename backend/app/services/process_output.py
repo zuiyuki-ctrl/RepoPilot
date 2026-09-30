@@ -16,13 +16,14 @@ class CapturedOutput:
     # 读取期间出现的异常
     error: Exception | None = None
 
+    # 拼接已经保留的输出片段，供测试运行器构造结果；被截断的内容不会恢复。
     def get_text(self) -> str:
         # 用空字符串连接 chunks，返回最终文本。
         return "".join(self.chunks)
 
 
 
-# 按剩余容量保存片段
+# 按剩余字符预算保留输出片段，超出的部分丢弃并设置 truncated，避免输出无限增长。
 def append_output_chunk(
     captured: CapturedOutput,
     chunk: str,
@@ -49,7 +50,8 @@ def append_output_chunk(
         captured.truncated = True
 
 
-# 持续读取函数
+# 在线程中持续读完输出流，即使保留额度耗尽也继续读取，避免管道写满阻塞子进程。
+# 读取或关闭异常保存到 captured.error，由主线程检查并处理。
 def drain_text_stream(
     stream: TextIO,
     captured: CapturedOutput,

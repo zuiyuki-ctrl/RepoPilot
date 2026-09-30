@@ -29,9 +29,9 @@ class SandboxSnapshot:
     total_bytes: int
 
 
-# workspace_path 是仓库工作副本。
-# snapshot_path 是调用方创建的空临时目录。
-# 从工作区中抽取出一份干净、安全的 Python 代码副本，专门提供给沙箱环境去运行测试。
+# 把工作副本中符合扫描规则的 Python 文件复制到调用方提供的空目录，作为测试快照。
+# 检查目录边界、链接及文件数量和大小限制；当前不复制非 Python 资源或安装依赖。
+# 返回快照路径、文件清单与总字节数，临时目录的清理由调用方负责。
 def prepare_python_test_snapshot(
     workspace_path: Path,
     snapshot_path: Path,

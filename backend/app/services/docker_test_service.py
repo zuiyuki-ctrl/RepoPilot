@@ -27,7 +27,7 @@ class SandboxTestResult:
     stderr_truncated: bool
 
 
-# 容器清理助手
+# 按本次运行的容器名强制清理容器，供超时等清理流程使用；清理失败只记日志。
 def _force_remove_container(container_name: str) -> None:
     try:
         subprocess.run(
@@ -52,6 +52,8 @@ def _force_remove_container(container_name: str) -> None:
 
 
 
+# 组装受限 Docker 命令，以只读方式挂载快照，关闭网络并限制资源，然后执行 pytest。
+# 校验运行参数并返回退出码、输出及超时信息；不处理任务状态或数据库事件。
 def run_pytest_in_docker(
     snapshot: SandboxSnapshot,
     *,
@@ -156,6 +158,8 @@ def run_pytest_in_docker(
     )
 
 
+# 启动 Docker 子进程，用两个线程持续读取标准输出和错误输出，并分别限制保留字符数。
+# 超时后清理容器并终止进程；将运行结果与 Docker 启动、输出读取等异常区分开。
 def _run_docker_process(
     command: list[str],
     *,

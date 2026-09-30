@@ -15,6 +15,8 @@ from .sandbox_snapshot_service import prepare_python_test_snapshot
 创建工作副本的隔离快照，在 Docker 中执行 pytest，
 并在执行结束后自动清理临时快照。
 """
+# 直接测试一个工作副本：创建临时快照、调用 Docker pytest，退出时清理快照。
+# 这是不关联任务状态和事件的测试入口；任务流程由 task_test_service 协调。
 def run_workspace_pytest(
     workspace_path: Path,
     *,

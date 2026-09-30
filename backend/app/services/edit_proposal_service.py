@@ -20,7 +20,8 @@ from ..db.session import SessionLocal
 from ..schemas.edit import TaskFileEditRead
 
 
-# 查询任务和仓库，检查批准及范围，读取原文和 hash，组织生成结果
+# 为执行中的已批准计划生成文件候选：检查任务及文件范围，读取原文快照，再在数据库会话外调用模型。
+# 返回候选与原文 hash；应用时用这个 hash 检查文件是否已变化，此处不写文件。
 def generate_task_file_edit(
     task_id: UUID,
     *,

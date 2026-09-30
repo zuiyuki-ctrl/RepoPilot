@@ -69,7 +69,8 @@ def list_task_events(
     return list(session.scalars(statement).all())
 
 
-# 读取最近测试事件的方法
+# 按任务和事件类型查询 sequence 最大的一条事件，没有匹配时返回 None。
+# 供测试、反思等流程定位最近事件；不同类型事件的新旧关系需由调用方比较序号。
 def get_latest_task_event_by_type(
     session: Session,
     *,
