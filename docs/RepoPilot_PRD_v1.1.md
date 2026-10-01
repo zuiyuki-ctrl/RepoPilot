@@ -755,6 +755,7 @@ repository_files
 code_chunks
 agent_tasks
 task_events
+test_runs
 eval_cases
 eval_runs
 ```
@@ -1018,6 +1019,58 @@ success / tests_passed / token / cost 的未知或不适用值为 NULL，不伪�
 
 ---
 
+## 11.8 test_runs（测试执行记录）
+
+2026-10-02 补充的实现设计：将单次测试执行独立建模，便于查询结果及关联事件。这是对原有测试反馈与 Trace 持久化方案的细化，不是 eval_runs 的改名，也不替代 task_events。
+
+一行表示一个任务的一次测试执行。成功领取测试权时创建记录；重新测试追加新记录，不覆盖上一轮。TestRun 只保存执行信息，Docker 执行器负责运行测试，服务层负责协调状态与事务。
+
+| 字段 | Python 类型 | 数据库与用途 |
+|---|---|---|
+| `id` | `UUID` | 主键，`default=uuid4` |
+| `task_id` | `UUID` | 非空外键 `agent_tasks.id`，建立索引 |
+| `status` | `str` | `String(32)`，非空，`running / finished / error` |
+| `image` | `str` | `String(255)`，非空，本次使用的 Docker 镜像 |
+| `timeout_seconds` | `int` | 非空，必须大于 0 |
+| `started_at` | `datetime` | 带时区，非空，领取测试权的时间，包含快照准备阶段 |
+| `completed_at` | `datetime \| None` | 带时区，运行中为空，终态必须填写 |
+| `exit_code` | `int \| None` | 退出码；运行中或没有可用退出码时为空 |
+| `timed_out` | `bool` | 非空，默认 false，标记是否超时 |
+| `stdout` | `str` | 非空 Text，Python 侧默认空字符串，保存受长度限制的输出 |
+| `stderr` | `str` | 非空 Text，Python 侧默认空字符串，保存受长度限制的错误输出 |
+| `stdout_truncated` | `bool` | 非空，Python 侧默认 false |
+| `stderr_truncated` | `bool` | 非空，Python 侧默认 false |
+| `error` | `str \| None` | Text，执行流程异常的受控提示，具体异常留在服务日志 |
+
+状态语义：
+
+- `running`：已领取测试权，正在准备快照或执行测试。
+- `finished`：已获得执行器返回的结果；包括测试通过、断言失败、pytest 收集失败及执行器返回的超时结果，不等于通过。
+- `error`：快照准备、Docker 启动等执行流程抛出异常，未得到正常结果。
+
+数据库约束：status 仅允许上述三种值；timeout_seconds > 0；running 的 completed_at 必须为空，finished/error 的 completed_at 必须非空。
+
+不额外保存 passed 字段。判定本次 pytest 执行通过时，要求 status 为 finished、timed_out 为 false 且 exit_code 为 0。该判定不能代替第 21 节的固定验收测试完整性检查，也不自动将 AgentTask 标记为 completed。
+
+事务与事件关联：
+
+1. 开始时，在同一事务内创建 TestRun(running)、将任务改为 testing、追加 TEST_EXECUTION_STARTED。
+2. Docker 在数据库事务外运行。
+3. 结束时，在同一事务内更新对应 TestRun、将任务恢复为 executing、追加 TEST_EXECUTION_FINISHED 或 TEST_EXECUTION_FAILED。
+4. 三类测试事件的 payload 均携带字符串形式的 test_run_id，指向本次记录；sequence 继续表示任务内事件顺序。TEST_EXECUTION_FINISHED 的 passed 区分测试通过与失败，TEST_EXECUTION_FAILED 表示执行流程异常。
+5. 数据库故障或进程中断可能留下 running/testing 记录；独立建表不代表已经实现自动恢复。
+
+例如：同一个任务首次测试得到 R1(finished, exit_code=1)，经 Reflection 修复后再次测试得到 R2(finished, exit_code=0)。两条记录均保留，相关开始和结束事件分别关联 R1、R2。
+
+与现有概念的边界：
+
+- task_events 保存整个任务的有序轨迹；当前测试结束事件仍保留结果字段，因此必须与 TestRun 在同一事务中更新。
+- 当前 Reflection 仍通过测试事件及 test_event_sequence 选择依据；test_event_sequence 是被引用的结果事件序号，不是 test_run_id。旧测试事件可以没有 test_run_id，不凭空回填历史记录。
+- eval_runs 表示一个评测用例在一种策略下的完整执行，其任务可能包含多次 TestRun；纯检索评测可以没有测试执行。
+- 当前 TestRun 不包含源码快照 hash，也没有通过新增 ID 自动解决测试后源码变更的有效性判断。测试记录查询接口及后续关联改造需单独实现和验收。
+
+---
+
 # 12. 数据关系
 
 ```text
@@ -1029,7 +1082,7 @@ repositories
 repository_files   agent_tasks
      │               │
      ▼               ▼
-code_chunks       task_events
+code_chunks       task_events / test_runs
 ```
 
 关系：
@@ -1046,6 +1099,9 @@ Repository
 
 AgentTask
 1:N TaskEvents
+
+AgentTask
+1:N TestRuns
 ```
 
 ---
@@ -1057,6 +1113,7 @@ Repository 1:N EvalCases
 EvalCase   1:N EvalRuns
 AgentTask 1:0..1 EvalRun（端到端评测每次创建独立 Task）
 EvalRun → AgentTask → TaskEvents（Trace）
+EvalRun → AgentTask → TestRuns（各次测试执行）
 ```
 
 纯检索 EvalRun 无需 AgentTask；同一批次通过 batch_id 聚合。
@@ -2026,7 +2083,7 @@ payload 统一记录 sequence、schema_version、step_id、attempt、开始/结�
 - Plan：结构化步骤、关联文件与计划修订。
 - Tool：tool_call_id、工具名、参数摘要、返回状态、耗时与错误；文件修改关联 Diff。
 - Model：call_id、模型/Prompt 版本、用量和计价快照引用。
-- Test：测试命令、退出码、通过/失败/跳过数量、stdout/stderr 或报告引用。
+- Test：测试命令、退出码、通过/失败/跳过数量、stdout/stderr 或报告引用；新增测试事件通过 test_run_id 关联单次执行记录，sequence 继续用于时间线排序。当前 TestRun 保存退出码与有界输出，测试数量及报告引用仍需后续采集，不因建表而视为已完成。
 - Reflection：观察到的错误、简要修复假设、下一步动作及重试轮数。
 
 记录可观察的动作、输入输出摘要和证据，不要求模型输出内部思维链。日志中的凭据需要脱敏；大段输出放在受控 artifact 中，Trace 保存引用。为避免双重统计，模型/工具调用结束事件与开始事件使用相同 call_id。
