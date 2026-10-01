@@ -77,8 +77,11 @@ class ReflectionFinishedEventPayload(BaseModel):
 
     step_id: Literal["reflect"]
     attempt: int = Field(ge=1)
+
+    # 这次 Reflection 分析的是哪条测试结果
     test_event_sequence: int = Field(ge=1)
     decision: ReflectionDecision
 
+    # 这条事件自己的编号
     sequence: int = Field(ge=1)
     schema_version: Literal[1]

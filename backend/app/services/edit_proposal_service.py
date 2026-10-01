@@ -190,12 +190,27 @@ def generate_task_reflection_edit(
             event_type="TEST_EXECUTION_FINISHED",
         )
 
+        if latest_test_event is None:
+            raise TaskExecutionError("Referenced test result is unavailable")
 
-        if (
-            latest_test_event is not None
-            and latest_test_event.sequence > reflection_event.sequence
+        if latest_test_event.sequence != reflection_payload.test_event_sequence:
+            raise TaskStateConflictError("Reflection decision is stale")
+
+        if latest_test_event.sequence >= reflection_event.sequence:
+            raise TaskExecutionError("Stored reflection event order is invalid")
+
+        for event_type in (
+            "TEST_EXECUTION_STARTED",
+            "TEST_EXECUTION_FAILED",
         ):
-            raise TaskStateConflictError("Reflection decision is stale after a newer test run")
+            newer_event = task_event_repo.get_latest_task_event_by_type(
+                session,
+                task_id=task_id,
+                event_type=event_type
+            )
+
+            if newer_event is not None and newer_event.sequence > reflection_event.sequence:
+                raise TaskStateConflictError("A newer test attempt invalidated the reflection decision")
 
         # 从 decision.actions 中查找 file_path 完全相同的 action。
         action = next(

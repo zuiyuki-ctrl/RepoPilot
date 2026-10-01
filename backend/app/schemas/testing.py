@@ -33,3 +33,5 @@ class TestExecutionEventPayload(BaseModel):
     # append_task_event 自动加入的公共字段。
     sequence: int = Field(ge=1)
     schema_version: int = Field(ge=1)
+
+    test_run_id: str | None = None

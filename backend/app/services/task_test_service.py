@@ -23,6 +23,7 @@ from ..db.repositories import (
     repository_repo,
     task_event_repo,
     task_repo,
+    test_run_repo
 )
 
 logger = logging.getLogger(__name__)
@@ -33,6 +34,7 @@ class TaskTestContext:
     task_id: UUID
     repository_id: UUID
     workspace_path: Path
+    test_run_id: UUID
 
 
 # 协调任务测试：领取测试权、复制工作副本快照、在 Docker 中运行 pytest，最后保存测试结果。
@@ -49,7 +51,11 @@ def run_task_pytest(
     最后记录测试结果并恢复任务状态。
     """
 
-    context = _begin_task_pytest(task_id)
+    context = _begin_task_pytest(
+        task_id,
+        image=image,
+        timeout_seconds=timeout_seconds,
+    )
 
     if context is None:
         return None
@@ -72,10 +78,16 @@ def run_task_pytest(
             )
 
     except Exception as exc:
+
+        logger.exception(
+            "Sandbox test execution failed; task_id=%s; test_run_id=%s",
+            context.task_id,
+            context.test_run_id,
+        )
         # 调用 _fail_task_pytest 恢复状态，然后用裸 raise
         # 重新抛出最初的异常。
         try:
-            _fail_task_pytest(task_id, exc)
+            _fail_task_pytest(context, exc)
         except Exception:
             logger.exception(
                 "Failed to restore task after sandbox execution failure; "
@@ -85,7 +97,7 @@ def run_task_pytest(
         raise
 
     # 正常执行完成时记录结果。
-    _finish_task_pytest(task_id, result)
+    _finish_task_pytest(context, result)
 
     return result
 
@@ -94,6 +106,9 @@ def run_task_pytest(
 # 返回任务与工作副本信息，让后续耗时操作使用普通数据，不携带数据库对象。
 def _begin_task_pytest(
     task_id: UUID,
+    *,
+    image: str,
+    timeout_seconds: int,
 ) -> TaskTestContext | None:
     with SessionLocal.begin() as session:
         # 使用 get_task_for_update，而不是 get_task。
@@ -117,6 +132,19 @@ def _begin_task_pytest(
         if repository is None or not repository.workspace_path:
             raise TaskExecutionError("Task workspace is unavailable")
 
+        test_run = test_run_repo.create_test_run(
+            session,
+            task_id=task_id,
+            image=image,
+            timeout_seconds=timeout_seconds,
+        )
+
+        if test_run is None:
+            raise TaskExecutionError
+
+        if test_run.status != "running":
+            raise TaskStateConflictError
+
         # 调用 task_repo.mark_task_testing。
         task_repo.mark_task_testing(session, task)
 
@@ -130,6 +158,7 @@ def _begin_task_pytest(
             payload={
                 "step_id": "run_tests",
                 "attempt": 1,
+                "test_run_id": str(test_run.id),
             },
         )
 
@@ -138,6 +167,7 @@ def _begin_task_pytest(
             task_id=task_id,
             repository_id=repository.id,
             workspace_path=Path(repository.workspace_path),
+            test_run_id=test_run.id,
         )
 
     return context
@@ -198,12 +228,12 @@ def _prepare_task_test_snapshot(
 # 保存一次完整的测试结果和输出，记录 TEST_EXECUTION_FINISHED，并将任务恢复为 executing。
 # 未超时且退出码为 0 才算通过；测试通过也不会在这里直接完成整个任务。
 def _finish_task_pytest(
-    task_id: UUID,
+    context: TaskTestContext,
     result: SandboxTestResult,
 ) -> None:
     with SessionLocal.begin() as session:
         # 锁定任务；任务不存在时抛 TaskExecutionError。
-        task = task_repo.get_task_for_update(session, task_id)
+        task = task_repo.get_task_for_update(session, context.task_id)
 
         if task is None:
             raise TaskExecutionError("Task disappeared during sandbox testing")
@@ -211,6 +241,29 @@ def _finish_task_pytest(
         # 只有 testing 状态可以结束本轮测试。
         if task.status != "testing":
             raise TaskStateConflictError("Task is no longer running sandbox tests")
+
+        test_run = test_run_repo.get_test_run(
+            session,
+            task_id=context.task_id,
+            test_run_id=context.test_run_id,
+        )
+
+        if test_run is None:
+            raise TaskExecutionError
+
+        if test_run.status != "running":
+            raise TaskStateConflictError
+
+        test_run_repo.finish_test_run(
+            session,
+            test_run=test_run,
+            exit_code=result.exit_code,
+            timed_out=result.timed_out,
+            stdout=result.stdout,
+            stderr=result.stderr,
+            stderr_truncated=result.stderr_truncated,
+            stdout_truncated=result.stdout_truncated
+        )
 
         # 测试完成后先恢复到 executing。
         # 测试失败时，后续 Reflection 仍需继续修改工作区。
@@ -241,6 +294,7 @@ def _finish_task_pytest(
                 "stderr": result.stderr,
                 "stdout_truncated": result.stdout_truncated,
                 "stderr_truncated": result.stderr_truncated,
+                "test_run_id": str(test_run.id),
             },
         )
 
@@ -248,12 +302,12 @@ def _finish_task_pytest(
 # 准备快照或运行测试抛异常后，将 testing 任务恢复为 executing 并记录 TEST_EXECUTION_FAILED。
 # 它记录执行流程异常；pytest 正常结束但断言失败，由完整结果事件记录。
 def _fail_task_pytest(
-    task_id: UUID,
+    context: TaskTestContext,
     error: Exception,
 ) -> None:
     with SessionLocal.begin() as session:
         # 锁定任务。
-        task = task_repo.get_task_for_update(session, task_id)
+        task = task_repo.get_task_for_update(session, context.task_id)
 
         if task is None:
             raise TaskExecutionError("Task disappeared during sandbox testing")
@@ -261,6 +315,26 @@ def _fail_task_pytest(
         # 必须仍处于 testing，否则不能覆盖其他流程写入的状态。
         if task.status != "testing":
             raise TaskStateConflictError("Task is no longer running sandbox tests")
+
+        test_run = test_run_repo.get_test_run(
+            session,
+            task_id=context.task_id,
+            test_run_id=context.test_run_id,
+        )
+
+        if test_run is None:
+            raise TaskExecutionError
+
+        if test_run.status != "running":
+            raise TaskStateConflictError
+
+        error_message = "Sandbox test execution failed; see server logs."
+
+        test_run_repo.fail_test_run(
+            session,
+            test_run,
+            error=error_message,
+        )
 
         # 恢复到 executing，让用户可以修复环境或重新测试
         task_repo.mark_task_executing(session, task)
@@ -277,6 +351,9 @@ def _fail_task_pytest(
                 "step_id": "run_tests",
                 "attempt": 1,
                 "error_type": type(error).__name__,
-                "error": str(error)[:1000],
+                "error": error_message,
+                "test_run_id": str(test_run.id)
             },
         )
+
+
