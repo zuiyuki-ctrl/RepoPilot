@@ -94,14 +94,18 @@ def generate_reflection_decision(
 
     # 6. 截取两路输出，更新 test_data 中的文本和截断标志。
     #    具体写法见下面的说明。
-    test_data["stdout"] = original_stdout[:MAX_REFLECTION_STREAM_CHARS]
+    test_data["stdout"] = original_stdout[
+        -MAX_REFLECTION_STREAM_CHARS:
+    ]
 
     test_data["stdout_truncated"] = (
         test_result.stdout_truncated
         or len(original_stdout) > MAX_REFLECTION_STREAM_CHARS
     )
 
-    test_data["stderr"] = original_stderr[:MAX_REFLECTION_STREAM_CHARS]
+    test_data["stderr"] = original_stderr[
+        -MAX_REFLECTION_STREAM_CHARS:
+    ]
 
     test_data["stderr_truncated"] = (
         test_result.stderr_truncated

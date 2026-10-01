@@ -213,3 +213,17 @@ def mark_task_reflecting(
     task.completed_at = None
 
     session.flush()
+
+
+def mark_plan_task_failed(
+    session: Session,
+    task: AgentTask,
+    *,
+    error: str,
+) -> None:
+    task.status = "failed"
+
+    task.completed_at = datetime.now(timezone.utc)
+    task.error = error
+
+    session.flush()

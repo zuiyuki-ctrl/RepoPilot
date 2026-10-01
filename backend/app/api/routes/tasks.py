@@ -797,3 +797,132 @@ def reflect_task(task_id: UUID):
         raise HTTPException(status_code=404, detail="Task not found")
 
     return TaskReflectionRead(task_id=task_id, decision=decision)
+
+
+@router.post(
+    "/{task_id}/reflection/edit-proposal",
+    response_model=TaskFileEditRead,
+)
+def generate_task_reflection_edit(
+    task_id: UUID,
+    data: TaskFileEditRequest,
+):
+    """
+    根据最近一次有效 Reflection action 生成单文件修复候选。
+    不直接写入工作副本。
+    """
+    try:
+        result = (
+            edit_proposal_service.generate_task_reflection_edit(
+                task_id,
+                file_path=data.file_path,
+            )
+        )
+
+    except TaskStateConflictError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Task has no current reflection repair decision, "
+                "or that decision is stale"
+            ),
+        ) from exc
+
+    except PlanScopeViolationError as exc:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "File is not included in the current "
+                "reflection decision"
+            ),
+        ) from exc
+
+    except InvalidTaskInputError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail="Reflection target file is invalid",
+        ) from exc
+
+    except InvalidWorkspacePathError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail="Workspace target path is invalid",
+        ) from exc
+
+    except RepositoryScanError as exc:
+        logger.exception(
+            "Reflection repair source read failed; "
+            "task_id=%s; file_path=%s",
+            task_id,
+            data.file_path,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Workspace source is unavailable",
+        ) from exc
+
+    except InvalidEditProposalError as exc:
+        logger.exception(
+            "Reflection repair proposal is invalid; "
+            "task_id=%s; file_path=%s",
+            task_id,
+            data.file_path,
+        )
+        raise HTTPException(
+            status_code=502,
+            detail="Model returned an invalid repair proposal",
+        ) from exc
+
+    except httpx.HTTPError as exc:
+        logger.exception(
+            "Reflection repair model request failed; "
+            "task_id=%s; file_path=%s",
+            task_id,
+            data.file_path,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Model service is unavailable",
+        ) from exc
+
+    except SQLAlchemyError as exc:
+        logger.exception(
+            "Database unavailable during reflection repair; "
+            "task_id=%s",
+            task_id,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Database unavailable",
+        ) from exc
+
+    except TaskExecutionError as exc:
+        logger.exception(
+            "Stored reflection repair data is invalid; "
+            "task_id=%s",
+            task_id,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="Stored task or reflection data is invalid",
+        ) from exc
+
+    except ValueError as exc:
+        logger.exception(
+            "Reflection repair generation failed; "
+            "task_id=%s; file_path=%s",
+            task_id,
+            data.file_path,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="Reflection repair generation failed",
+        ) from exc
+
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Task not found",
+        )
+
+    return result

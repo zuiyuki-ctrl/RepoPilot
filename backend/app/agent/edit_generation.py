@@ -103,6 +103,7 @@ def generate_file_edit(
     plan: ChangePlan,
     file_path: str,
     original_content: str,
+    repair_instruction: str | None = None,
 ) -> FileEditProposal:
     # 1. 校验需求长度、文件类型及原文大小。
     if not isinstance(user_request, str):
@@ -123,6 +124,19 @@ def generate_file_edit(
 
     if not isinstance(file_path, str) or not file_path.endswith(".py"):
         raise ValueError("Target file must be a Python file")
+
+    normalized_repair_instruction: str | None = None
+
+    if repair_instruction is not None:
+        # 必须确实是字符串。
+        if not isinstance(repair_instruction, str):
+            raise ValueError("Repair instruction must be a string")
+
+        normalized_repair_instruction = repair_instruction.strip()
+
+        # 去除空白后长度必须为 1～2000。
+        if not 1 <= len(normalized_repair_instruction) <= 2000:
+            raise ValueError("Repair instruction must contain 1 to 2000 characters")
 
 
     # 2. 从 plan.steps 中找出 files 包含 file_path 的步骤。
@@ -148,6 +162,7 @@ def generate_file_edit(
         "file_path": file_path,
         "original_content": original_content,
         "output_schema": FileEditProposal.model_json_schema(),
+        "repair_instruction": normalized_repair_instruction,
     }
 
     messages = [

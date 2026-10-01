@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import (
@@ -66,3 +66,19 @@ class TaskReflectionRead(BaseModel):
     task_id: UUID
 
     decision: ReflectionDecision
+
+
+# 完成事件载荷
+class ReflectionFinishedEventPayload(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        strict=True,
+    )
+
+    step_id: Literal["reflect"]
+    attempt: int = Field(ge=1)
+    test_event_sequence: int = Field(ge=1)
+    decision: ReflectionDecision
+
+    sequence: int = Field(ge=1)
+    schema_version: Literal[1]

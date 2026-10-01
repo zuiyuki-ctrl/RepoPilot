@@ -3,7 +3,6 @@ from uuid import UUID
 
 from pydantic import ValidationError
 
-from ..db.repositories.task_repo import mark_task_executing
 from ..schemas.reflection import ReflectionDecision
 from ..core.exceptions import (
     RetryBudgetExceededError,
@@ -189,7 +188,18 @@ def _finish_task_reflection(
         # 3. 调用 task_repo.mark_task_executing(session, task)。
         if task.repository_id != context.repository_id:
             raise TaskExecutionError("Task repository changed during reflection")
-        task_repo.mark_task_executing(session, task)
+
+        if decision.should_retry:
+            # 模型提出了可靠修复方向，回到 executing，
+            # 后续根据 actions 生成并应用修复。
+            task_repo.mark_task_executing(session, task)
+        else:
+            # 模型认为证据不足，无法可靠修复，任务进入失败终态。
+            task_repo.mark_plan_task_failed(
+                session,
+                task=task,
+                error="Reflection could not identify a reliable repair",
+            )
 
         # 4. 调用 task_event_repo.append_task_event，
         #    保存完整决策，参数见下面。
@@ -198,7 +208,11 @@ def _finish_task_reflection(
             task_id=task.id,
             event_type="REFLECTION_FINISHED",
             node_name="reflection_service",
-            message="Reflection decision generated",
+            message=(
+                "Reflection repair decision generated"
+                if decision.should_retry
+                else "Reflection stopped without a reliable repair"
+            ),
             payload={
                 "step_id": "reflect",
                 "attempt": context.retry_count,
@@ -234,7 +248,7 @@ def _fail_task_reflection(
         if task.repository_id != context.repository_id:
             raise TaskExecutionError("Task repository changed during reflection")
 
-        mark_task_executing(session, task)
+        task_repo.mark_task_executing(session, task)
 
         # 5. 追加 REFLECTION_FAILED 事件。
         task_event_repo.append_task_event(
