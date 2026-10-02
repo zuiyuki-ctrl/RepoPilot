@@ -10,7 +10,8 @@ from ...services import (
     plan_execution_service,
     task_service,
     task_test_service,
-    reflection_service
+    reflection_service,
+    test_run_service
 )
 from ...schemas.edit import TaskFileEditRead, TaskFileEditRequest, TaskFileEditApplyRequest
 from ...schemas.workspace import TaskWorkspaceDiffRead, TaskWorkspaceWriteRead, TaskWorkspaceWriteRequest
@@ -22,7 +23,11 @@ from ...core.exceptions import InvalidTaskInputError, TaskStateConflictError, In
     RepositoryScanError, InvalidEditProposalError, WorkspaceFileConflictError, SandboxPreparationError, \
     SandboxExecutionError, RetryBudgetExceededError, InvalidReflectionError
 from ...schemas.task import TaskRead, TaskCreate, TaskPlanReviewRequest
-from ...schemas.testing import TaskTestRead
+from ...schemas.testing import (
+    TaskTestRead,
+    TestRunRead,
+    TestRunValidityRead,
+)
 
 import logging
 
@@ -923,6 +928,142 @@ def generate_task_reflection_edit(
         raise HTTPException(
             status_code=404,
             detail="Task not found",
+        )
+
+    return result
+
+
+@router.get(
+    "/{task_id}/test-runs",
+    response_model=list[TestRunRead],
+)
+def list_task_test_runs(
+    task_id: UUID,
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+):
+    try:
+        result = test_run_service.list_task_test_runs(
+            task_id,
+            limit=limit,
+            offset=offset,
+        )
+
+    except InvalidTaskInputError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail="Invalid test run pagination parameters",
+        ) from exc
+
+    except SQLAlchemyError as exc:
+        logger.exception(
+            "Database unavailable while listing test runs; task_id=%s",
+            task_id,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Database unavailable",
+        ) from exc
+
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Task not found",
+        )
+
+    return result
+
+
+@router.get(
+    "/{task_id}/test-runs/{test_run_id}",
+    response_model=TestRunRead,
+)
+def get_task_test_run(
+    task_id: UUID,
+    test_run_id: UUID,
+):
+    try:
+        result = test_run_service.get_task_test_run(task_id, test_run_id)
+
+    except SQLAlchemyError as exc:
+        logger.exception(
+            "Database unavailable while reading test run; "
+            "task_id=%s; test_run_id=%s",
+            task_id,
+            test_run_id,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Database unavailable",
+        ) from exc
+
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Test run not found",
+        )
+
+    return result
+
+
+@router.get(
+    "/{task_id}/test-runs/{test_run_id}/validity",
+    response_model=TestRunValidityRead,
+)
+def get_task_test_run_validity(
+    task_id: UUID,
+    test_run_id: UUID,
+):
+    try:
+        result = test_run_service.get_task_test_run_validity(
+            task_id,
+            test_run_id,
+        )
+
+    except RepositoryBusyError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="Repository is busy",
+        ) from exc
+
+    except SandboxPreparationError as exc:
+        logger.exception(
+            "Cannot calculate current snapshot; "
+            "task_id=%s; test_run_id=%s",
+            task_id,
+            test_run_id,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Current workspace snapshot is unavailable",
+        ) from exc
+
+    except TaskExecutionError as exc:
+        logger.exception(
+            "Task workspace unavailable; task_id=%s",
+            task_id,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="Task workspace is unavailable",
+        ) from exc
+
+    except SQLAlchemyError as exc:
+        logger.exception(
+            "Database unavailable while checking test run validity; "
+            "task_id=%s; test_run_id=%s",
+            task_id,
+            test_run_id,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Database unavailable",
+        ) from exc
+
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Test run not found",
         )
 
     return result

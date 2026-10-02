@@ -1041,6 +1041,7 @@ success / tests_passed / token / cost 的未知或不适用值为 NULL，不伪�
 | `stdout_truncated` | `bool` | 非空，Python 侧默认 false |
 | `stderr_truncated` | `bool` | 非空，Python 侧默认 false |
 | `error` | `str \| None` | Text，执行流程异常的受控提示，具体异常留在服务日志 |
+| `snapshot_hash` | `str \| None` | `String(64)`，快照成功后保存稳定 SHA-256；快照准备失败或历史记录为空 |
 
 状态语义：
 
@@ -1055,19 +1056,27 @@ success / tests_passed / token / cost 的未知或不适用值为 NULL，不伪�
 事务与事件关联：
 
 1. 开始时，在同一事务内创建 TestRun(running)、将任务改为 testing、追加 TEST_EXECUTION_STARTED。
-2. Docker 在数据库事务外运行。
+2. 在数据库事务外准备快照并计算 snapshot_hash；随后开启短事务，将 hash 写入仍处于 running 的 TestRun。
 3. 结束时，在同一事务内更新对应 TestRun、将任务恢复为 executing、追加 TEST_EXECUTION_FINISHED 或 TEST_EXECUTION_FAILED。
 4. 三类测试事件的 payload 均携带字符串形式的 test_run_id，指向本次记录；sequence 继续表示任务内事件顺序。TEST_EXECUTION_FINISHED 的 passed 区分测试通过与失败，TEST_EXECUTION_FAILED 表示执行流程异常。
 5. 数据库故障或进程中断可能留下 running/testing 记录；独立建表不代表已经实现自动恢复。
 
 例如：同一个任务首次测试得到 R1(finished, exit_code=1)，经 Reflection 修复后再次测试得到 R2(finished, exit_code=0)。两条记录均保留，相关开始和结束事件分别关联 R1、R2。
 
+查询与有效性接口：
+
+- `GET /api/v1/tasks/{task_id}/test-runs`：按开始时间倒序分页查询任务的测试记录。
+- `GET /api/v1/tasks/{task_id}/test-runs/{test_run_id}`：查询指定测试记录及其有界输出。
+- `GET /api/v1/tasks/{task_id}/test-runs/{test_run_id}/validity`：重新使用测试快照规则计算当前工作区 hash，并与记录中的 `snapshot_hash` 比较。
+- 历史记录或快照准备失败的记录没有 `snapshot_hash` 时，`is_current` 返回 `null`。
+- 有效性检查通过 Repository 数据库行锁与 RepoPilot 内部写操作互斥，但不能阻止外部编辑器直接修改工作区。因此结果只表示本次扫描时观察到的状态，不是永久保证。
+
 与现有概念的边界：
 
 - task_events 保存整个任务的有序轨迹；当前测试结束事件仍保留结果字段，因此必须与 TestRun 在同一事务中更新。
 - 当前 Reflection 仍通过测试事件及 test_event_sequence 选择依据；test_event_sequence 是被引用的结果事件序号，不是 test_run_id。旧测试事件可以没有 test_run_id，不凭空回填历史记录。
 - eval_runs 表示一个评测用例在一种策略下的完整执行，其任务可能包含多次 TestRun；纯检索评测可以没有测试执行。
-- 当前 TestRun 不包含源码快照 hash，也没有通过新增 ID 自动解决测试后源码变更的有效性判断。测试记录查询接口及后续关联改造需单独实现和验收。
+- 当前 TestRun 已记录源码快照 hash，并可通过有效性接口与当前工作区重新计算结果比较。该结果是查询时刻的状态快照，不保证查询完成后工作区不会继续变化。
 
 ---
 

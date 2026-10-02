@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
+import hashlib
 
 from ..services.repository_scanner import _is_link_or_reparse_point, discover_python_files
 from .repository_scanner import read_file_snapshot
@@ -27,6 +28,8 @@ class SandboxSnapshot:
 
     # 实际复制的文件字节数总和
     total_bytes: int
+
+    snapshot_hash: str
 
 
 # 把工作副本中符合扫描规则的 Python 文件复制到调用方提供的空目录，作为测试快照。
@@ -80,6 +83,11 @@ def prepare_python_test_snapshot(
         copied_files: list[str] = []
         total_bytes = 0
 
+        snapshot_hasher = hashlib.sha256()
+
+        # 版本前缀用于区分未来可能采用的其他快照算法。
+        snapshot_hasher.update(b"RepoPilot-Python-Snapshot-v1\0")
+
         for candidate in paths:
             relative_path = candidate.relative_to(workspace_root).as_posix()
 
@@ -103,6 +111,21 @@ def prepare_python_test_snapshot(
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_bytes(snapshot.content)
 
+            path_bytes = relative_path.encode("utf-8")
+            content = snapshot.content
+
+            # 使用长度前缀明确划分路径和文件内容，
+            # 避免不同组合产生相同的拼接字节。
+            snapshot_hasher.update(
+                len(path_bytes).to_bytes(8, byteorder="big")
+            )
+            snapshot_hasher.update(path_bytes)
+
+            snapshot_hasher.update(
+                len(content).to_bytes(8, byteorder="big")
+            )
+            snapshot_hasher.update(content)
+
             # 7. 写成功后，把 relative_path 加入 copied_files。
             #    再把 file_size 加到 total_bytes。
             copied_files.append(relative_path)
@@ -112,6 +135,7 @@ def prepare_python_test_snapshot(
             root=snapshot_root,
             files=copied_files,
             total_bytes=total_bytes,
+            snapshot_hash=snapshot_hasher.hexdigest(), # 得到固定长度的 64 位十六进制字符串
         )
 
     except (

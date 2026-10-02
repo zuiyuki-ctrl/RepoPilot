@@ -100,3 +100,15 @@ def fail_test_run(
     test_run.completed_at = datetime.now(timezone.utc)
 
     session.flush()
+
+
+def set_test_run_snapshot_hash(
+    session: Session,
+    test_run: TestRun,
+    *,
+    snapshot_hash: str,
+) -> None:
+
+    test_run.snapshot_hash = snapshot_hash
+
+    session.flush()

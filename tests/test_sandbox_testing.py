@@ -2,6 +2,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from io import StringIO
 
 from backend.app.core.exceptions import SandboxExecutionError
 from backend.app.services import docker_test_service
@@ -9,12 +10,40 @@ from backend.app.services import sandbox_test_service
 from backend.app.services.docker_test_service import SandboxTestResult
 from backend.app.services.sandbox_snapshot_service import SandboxSnapshot
 
+class FakeProcess:
+    def __init__(
+        self,
+        *,
+        returncode: int = 0,
+        stdout: str = "",
+        stderr: str = "",
+        times_out: bool = False,
+    ):
+        self.returncode = returncode
+        self.stdout = StringIO(stdout)
+        self.stderr = StringIO(stderr)
+        self.times_out = times_out
+        self.killed = False
+
+    def wait(self, timeout=None):
+        if self.times_out and not self.killed:
+            raise subprocess.TimeoutExpired(
+                cmd=["docker", "run"],
+                timeout=timeout,
+            )
+
+        return self.returncode
+
+    def kill(self):
+        self.killed = True
+        self.returncode = -9
 
 def make_snapshot(root: Path) -> SandboxSnapshot:
     return SandboxSnapshot(
         root=root,
         files=["example.py", "test_example.py"],
         total_bytes=1,
+        snapshot_hash="0" * 64,
     )
 
 
@@ -99,12 +128,10 @@ def test_docker_runner_returns_pytest_failure(
     snapshot = make_snapshot(tmp_path)
     captured: dict[str, list[str]] = {}
 
-    def fake_subprocess_run(command, **kwargs):
-        # TODO 3：
-        # 保存 command，随后模拟 pytest 断言失败。
+    def fake_popen(command, **kwargs):
         captured["command"] = command
-        return subprocess.CompletedProcess(
-            args=command,
+
+        return FakeProcess(
             returncode=1,
             stdout="1 failed",
             stderr="",
@@ -112,8 +139,8 @@ def test_docker_runner_returns_pytest_failure(
 
     monkeypatch.setattr(
         docker_test_service.subprocess,
-        "run",
-        fake_subprocess_run,
+        "Popen",
+        fake_popen,
     )
 
     result = docker_test_service.run_pytest_in_docker(snapshot)
@@ -143,20 +170,19 @@ def test_docker_runner_cleans_timed_out_container(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     snapshot = make_snapshot(tmp_path)
-    commands: list[list[str]] = []
+    captured: dict[str, object] = {}
 
-    def fake_subprocess_run(command, **kwargs):
-        commands.append(command)
+    def fake_popen(command, **kwargs):
+        captured["run_command"] = command
 
-        if command[:2] == ["docker", "run"]:
-            raise subprocess.TimeoutExpired(
-                cmd=command,
-                timeout=1,
-                output=b"partial stdout",
-                stderr=b"partial stderr",
-            )
+        return FakeProcess(
+            stdout="partial stdout",
+            stderr="partial stderr",
+            times_out=True,
+        )
 
-        # docker rm --force 的模拟结果
+    def fake_cleanup_run(command, **kwargs):
+        captured["cleanup_command"] = command
         return subprocess.CompletedProcess(
             args=command,
             returncode=0,
@@ -166,8 +192,13 @@ def test_docker_runner_cleans_timed_out_container(
 
     monkeypatch.setattr(
         docker_test_service.subprocess,
+        "Popen",
+        fake_popen,
+    )
+    monkeypatch.setattr(
+        docker_test_service.subprocess,
         "run",
-        fake_subprocess_run,
+        fake_cleanup_run,
     )
 
     result = docker_test_service.run_pytest_in_docker(snapshot)
@@ -183,11 +214,15 @@ def test_docker_runner_cleans_timed_out_container(
     assert result.stdout_truncated is False
     assert result.stderr_truncated is False
 
-    assert len(commands) == 2
-    run_command, cleanup_command = commands
+    run_command = captured["run_command"]
+    cleanup_command = captured["cleanup_command"]
+
     assert run_command[:2] == ["docker", "run"]
     assert cleanup_command[:3] == ["docker", "rm", "--force"]
-    container_name = run_command[run_command.index("--name") + 1]
+
+    container_name = run_command[
+        run_command.index("--name") + 1
+    ]
     assert cleanup_command[3] == container_name
 
 
@@ -197,13 +232,13 @@ def test_docker_start_failure_becomes_domain_error(
 ) -> None:
     snapshot = make_snapshot(tmp_path)
 
-    def fake_subprocess_run(command, **kwargs):
+    def fake_popen(command, **kwargs):
         raise FileNotFoundError("docker")
 
     monkeypatch.setattr(
         docker_test_service.subprocess,
-        "run",
-        fake_subprocess_run,
+        "Popen",
+        fake_popen,
     )
 
     # TODO 6：

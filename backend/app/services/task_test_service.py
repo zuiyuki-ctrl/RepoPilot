@@ -67,6 +67,10 @@ def run_task_pytest(
             #    返回时，数据库事务已结束，仓库锁已释放。
             snapshot = _prepare_task_test_snapshot(context, Path(temporary_directory))
 
+            _record_task_test_snapshot(
+                context,
+                snapshot_hash=snapshot.snapshot_hash,
+            )
             # 2. 调用 run_pytest_in_docker。
             #    传入 snapshot、image、timeout_seconds、max_output_chars。
             #    把返回值保存为 result。
@@ -357,3 +361,45 @@ def _fail_task_pytest(
         )
 
 
+def _record_task_test_snapshot(
+    context: TaskTestContext,
+    *,
+    snapshot_hash: str,
+) -> None:
+    with SessionLocal.begin() as session:
+        # 1. 使用 get_task_for_update 锁定任务。
+        task = task_repo.get_task_for_update(session, context.task_id)
+
+        # 2. 任务不存在时抛 TaskExecutionError。
+        if task is None:
+            raise TaskExecutionError("Task disappeared during sandbox testing")
+
+        # 3. 任务必须仍处于 testing。
+        if task.status != "testing":
+            raise TaskStateConflictError("Task is no longer running sandbox tests")
+
+        # 4. 使用 task_id 和 test_run_id 查询对应记录。
+        test_run = test_run_repo.get_test_run(
+            session,
+            task_id=context.task_id,
+            test_run_id=context.test_run_id,
+        )
+
+        # 5. TestRun 不存在时抛 TaskExecutionError。
+        if test_run is None:
+            raise TaskExecutionError("Task disappeared during sandbox testing")
+
+        # 6. TestRun 必须仍处于 running。
+        if test_run.status != "running":
+            raise TaskStateConflictError("Test run is no longer active")
+
+        # 7. snapshot_hash 不应被重复写入。
+        if test_run.snapshot_hash is not None:
+            raise TaskStateConflictError("Test run snapshot is already recorded")
+
+        # 8. 调用 Repository 保存 snapshot_hash。
+        test_run_repo.set_test_run_snapshot_hash(
+            session,
+            test_run=test_run,
+            snapshot_hash=snapshot_hash,
+        )

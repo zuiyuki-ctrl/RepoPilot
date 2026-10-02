@@ -37,6 +37,19 @@ class TaskSandboxExecutionTests(unittest.TestCase):
             id=self.repository_id,
             workspace_path=str(self.workspace_path),
         )
+        self.test_run_id = UUID(
+            "00000000-0000-0000-0000-000000000401"
+        )
+        self.test_run = SimpleNamespace(
+            id=self.test_run_id,
+            task_id=self.task_id,
+            status="running",
+            snapshot_hash=None,
+        )
+        self.snapshot_hash = "b" * 64
+        self.snapshot = SimpleNamespace(
+            snapshot_hash=self.snapshot_hash,
+        )
 
         self.session = Mock(name="session")
 
@@ -66,6 +79,61 @@ class TaskSandboxExecutionTests(unittest.TestCase):
         self.get_repository = repository_patch.start()
         self.addCleanup(repository_patch.stop)
 
+        create_test_run_patch = patch.object(
+            task_test_service.test_run_repo,
+            "create_test_run",
+            return_value=self.test_run,
+        )
+        self.create_test_run = create_test_run_patch.start()
+        self.addCleanup(create_test_run_patch.stop)
+
+        get_test_run_patch = patch.object(
+            task_test_service.test_run_repo,
+            "get_test_run",
+            return_value=self.test_run,
+        )
+        self.get_test_run = get_test_run_patch.start()
+        self.addCleanup(get_test_run_patch.stop)
+
+        def set_snapshot_hash(
+            session,
+            test_run,
+            *,
+            snapshot_hash,
+        ):
+            test_run.snapshot_hash = snapshot_hash
+
+        snapshot_hash_patch = patch.object(
+            task_test_service.test_run_repo,
+            "set_test_run_snapshot_hash",
+            side_effect=set_snapshot_hash,
+        )
+        self.set_snapshot_hash = snapshot_hash_patch.start()
+        self.addCleanup(snapshot_hash_patch.stop)
+
+        def finish_test_run(session, test_run, **kwargs):
+            test_run.status = "finished"
+
+        finish_test_run_patch = patch.object(
+            task_test_service.test_run_repo,
+            "finish_test_run",
+            side_effect=finish_test_run,
+        )
+        self.finish_test_run = finish_test_run_patch.start()
+        self.addCleanup(finish_test_run_patch.stop)
+
+        def fail_test_run(session, test_run, *, error):
+            test_run.status = "error"
+            test_run.error = error
+
+        fail_test_run_patch = patch.object(
+            task_test_service.test_run_repo,
+            "fail_test_run",
+            side_effect=fail_test_run,
+        )
+        self.fail_test_run = fail_test_run_patch.start()
+        self.addCleanup(fail_test_run_patch.stop)
+
         testing_patch = patch.object(
             task_test_service.task_repo,
             "mark_task_testing",
@@ -89,11 +157,10 @@ class TaskSandboxExecutionTests(unittest.TestCase):
         self.append_task_event = event_patch.start()
         self.addCleanup(event_patch.stop)
 
-        # 编排测试使用假快照，避免读取或复制真实工作区文件。
         snapshot_patch = patch.object(
             task_test_service,
             "_prepare_task_test_snapshot",
-            return_value=Mock(name="snapshot"),
+            return_value=self.snapshot,
         )
         self.prepare_snapshot = snapshot_patch.start()
         self.addCleanup(snapshot_patch.stop)
@@ -116,6 +183,23 @@ class TaskSandboxExecutionTests(unittest.TestCase):
             actual = task_test_service.run_task_pytest(self.task_id)
 
         self.assertIs(actual, result)
+        self.create_test_run.assert_called_once_with(
+            self.session,
+            task_id=self.task_id,
+            image=task_test_service.DEFAULT_TEST_IMAGE,
+            timeout_seconds=task_test_service.DEFAULT_TEST_TIMEOUT_SECONDS,
+        )
+        self.finish_test_run.assert_called_once()
+        self.assertEqual(self.test_run.status, "finished")
+        self.set_snapshot_hash.assert_called_once_with(
+            self.session,
+            test_run=self.test_run,
+            snapshot_hash=self.snapshot_hash,
+        )
+        self.assertEqual(
+            self.test_run.snapshot_hash,
+            self.snapshot_hash,
+        )
         self.prepare_snapshot.assert_called_once()
         run_docker.assert_called_once_with(
             self.prepare_snapshot.return_value,
@@ -135,6 +219,11 @@ class TaskSandboxExecutionTests(unittest.TestCase):
         )
         finish_event = self.append_task_event.call_args_list[-1]
         self.assertIs(finish_event.kwargs["payload"]["passed"], True)
+        for event_call in self.append_task_event.call_args_list:
+            self.assertEqual(
+                event_call.kwargs["payload"]["test_run_id"],
+                str(self.test_run_id),
+            )
 
     def test_pytest_failure_is_finished_result(self):
         result = SandboxTestResult(
@@ -175,6 +264,17 @@ class TaskSandboxExecutionTests(unittest.TestCase):
                 task_test_service.run_task_pytest(self.task_id)
 
         self.assertIs(raised.exception, error)
+        self.set_snapshot_hash.assert_called_once()
+        self.assertEqual(
+            self.test_run.snapshot_hash,
+            self.snapshot_hash,
+        )
+        self.fail_test_run.assert_called_once_with(
+            self.session,
+            self.test_run,
+            error="Sandbox test execution failed; see server logs.",
+        )
+        self.assertEqual(self.test_run.status, "error")
         self.assertEqual(self.task.status, "executing")
         event_types = [
             call.kwargs["event_type"]
@@ -185,6 +285,10 @@ class TaskSandboxExecutionTests(unittest.TestCase):
             ["TEST_EXECUTION_STARTED", "TEST_EXECUTION_FAILED"],
         )
         failure_event = self.append_task_event.call_args_list[-1]
+        self.assertEqual(
+            failure_event.kwargs["payload"]["test_run_id"],
+            str(self.test_run_id),
+        )
         self.assertEqual(
             failure_event.kwargs["payload"]["error_type"],
             "SandboxExecutionError",

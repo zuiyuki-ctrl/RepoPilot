@@ -104,3 +104,8 @@ class TestRun(Base):
         Text,
         nullable=True,
     )
+
+    snapshot_hash: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+    )

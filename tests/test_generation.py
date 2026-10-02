@@ -46,7 +46,7 @@ class RequestToolTurnTests(unittest.TestCase):
         self.assertEqual(body["tool_choice"], "auto")
         self.assertEqual(body["messages"], before)
         self.assertEqual(body["model"], "test-model")
-        self.assertEqual(body["max_tokens"], 1500)
+        self.assertEqual(body["max_tokens"], 3000)
         self.assertFalse(body["stream"])
         self.assertFalse(body["enable_thinking"])
         self.assertEqual(self.messages, before)
