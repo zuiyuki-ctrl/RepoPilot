@@ -1,9 +1,12 @@
 from uuid import UUID
 
+from sqlalchemy.exc import DBAPIError
+
+from ..core.test_profiles import get_test_profile
 from ..schemas.repository_file import RepositoryFileRead
 from ..core.config import WORKSPACE_ROOT
 from .workspace_service import create_workspace
-from ..core.exceptions import InvalidRepositoryInputError
+from ..core.exceptions import InvalidRepositoryInputError, RepositoryBusyError
 from ..db.repositories import repository_repo, repository_file_repo
 from ..db.session import SessionLocal
 from ..schemas.repository import RepositoryCreate, RepositoryRead
@@ -70,6 +73,7 @@ def get_repository(repository_id: UUID) -> RepositoryRead | None:
         '''
         return RepositoryRead.model_validate(repository)
 
+
 # 查询已入库的文件清单，不触发扫描；None=仓库不存在，[]=仓库存在但没有文件记录。
 def list_repository_files(
     repository_id: UUID,
@@ -92,3 +96,32 @@ def list_repository_files(
 
         # 5. 在 Session 关闭前完成转换并返回列表。
         return repository_file_reads
+
+
+def update_repository_test_profile(
+    repository_id: UUID,
+    *,
+    test_profile: str,
+) -> RepositoryRead | None:
+    # 1. 调用 get_test_profile，确认它是允许的环境。
+    profile = get_test_profile(test_profile)
+
+    # 2. 开启 SessionLocal.begin()。
+    with SessionLocal.begin() as session:
+        try:
+            repository = repository_repo.get_repository_for_update(session, repository_id)
+
+        except DBAPIError as exc:
+            if getattr(exc.orig, "sqlstate", None) == "55P03":
+                raise RepositoryBusyError("Repository is busy")
+
+            raise
+
+        if repository is None:
+            return None
+
+        repository_repo.update_test_profile(session, repository, test_profile=test_profile)
+
+        repository_read = RepositoryRead.model_validate(repository)
+
+    return repository_read

@@ -89,3 +89,16 @@ def get_latest_task_event_by_type(
 
     # 返回 ORM 对象或 None
     return session.execute(statement).scalar_one_or_none()
+
+
+# 按序号查询事件
+def get_task_event_by_sequence(
+    session: Session,
+    *,
+    task_id: UUID,
+    sequence: int,
+) -> TaskEvent | None:
+
+    statement = select(TaskEvent).where(TaskEvent.sequence == sequence, TaskEvent.task_id == task_id)
+
+    return session.execute(statement).scalar_one_or_none()

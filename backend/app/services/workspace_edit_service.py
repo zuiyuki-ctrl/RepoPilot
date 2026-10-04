@@ -1,10 +1,11 @@
+import ast
 import stat
 import os
 import tempfile
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from dataclasses import dataclass
 
-from ..core.exceptions import InvalidWorkspacePathError, WorkspaceWriteError
+from ..core.exceptions import InvalidWorkspacePathError, WorkspaceWriteError, InvalidWorkspaceContentError
 
 import logging
 
@@ -300,6 +301,11 @@ def write_workspace_file(
 
     # 4. 调用 resolve_workspace_target。
     target = resolve_workspace_target(workspace_path, file_path)
+    if target.suffix == ".py":
+        _validate_python_source(
+            file_path=file_path,
+            content_bytes=encoded_content,
+        )
 
     # 5. 本轮不创建父目录。
     #    target.parent 必须已经存在并且是目录。
@@ -376,3 +382,20 @@ def write_workspace_file(
         created=created,
         bytes_written=len(encoded_content),
     )
+
+
+def _validate_python_source(
+    *,
+    file_path: str,
+    content_bytes: bytes,
+) -> None:
+    # 1. 使用 ast.parse 解析 content_bytes。
+    #    filename 传入 file_path，便于定位解析错误。
+    try:
+        ast.parse(content_bytes, filename=file_path)
+    # 2. 捕获 SyntaxError、ValueError，
+    #    转为 InvalidWorkspaceContentError，并保留异常原因。
+    except (SyntaxError, ValueError) as exc:
+        raise InvalidWorkspaceContentError("Python source is invalid") from exc
+
+    # 3. 解析成功正常返回，不执行源码、不修改内容。

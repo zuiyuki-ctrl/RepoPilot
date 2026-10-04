@@ -18,7 +18,7 @@ from ...core.exceptions import (
     InvalidAnswerCitationError,
     FileSkippedError,
 )
-from ...schemas.repository import RepositoryCreate, RepositoryRead
+from ...schemas.repository import RepositoryCreate, RepositoryRead, RepositoryTestProfileUpdate
 from ...services import (
     repository_service,
     repository_indexing_service,
@@ -381,3 +381,34 @@ def ask_repository_agent(
         tool_trace=result["tool_trace"],
         sources=result["sources"],
     )
+
+
+@router.patch(
+    "/{repository_id}/test-profile",
+    response_model=RepositoryRead,
+)
+def update_repository_test_profile(
+    repository_id: UUID,
+    data: RepositoryTestProfileUpdate,
+):
+    # 1. 调用 repository_service.update_repository_test_profile。
+    try:
+        result = repository_service.update_repository_test_profile(repository_id, test_profile=data.test_profile)
+
+    except InvalidRepositoryInputError as exc:
+        raise HTTPException(status_code=422, detail="Unknown test profile") from exc
+
+    except RepositoryBusyError as exc:
+        raise HTTPException(status_code=409, detail="Repository busy") from exc
+
+    except SQLAlchemyError as exc:
+        logger.exception(
+            "Database unavailable; repository_id=%s",
+            repository_id,
+        )
+        raise HTTPException(status_code=503, detail="Database unavailable") from exc
+
+    if result is None:
+        raise HTTPException(status_code=404, detail="Repository not found")
+
+    return result

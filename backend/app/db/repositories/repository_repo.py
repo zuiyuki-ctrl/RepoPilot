@@ -64,3 +64,15 @@ def get_repository_for_update(
 
     # 4. 执行查询，返回唯一仓库对象或 None
     return session.execute(statement).scalar_one_or_none()
+
+
+def update_test_profile(
+    session: Session,
+    repository: Repository,
+    *,
+    test_profile: str,
+) -> None:
+
+    repository.test_profile = test_profile
+
+    session.flush()

@@ -57,3 +57,8 @@ class Repository(Base):
         DateTime(timezone=True),
         nullable=True
     )
+
+    test_profile: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+    )

@@ -6,10 +6,11 @@ from dataclasses import dataclass
 
 from sqlalchemy.exc import DBAPIError
 
+from ..core.test_profiles import get_test_profile
 from .sandbox_snapshot_service import SandboxSnapshot, prepare_python_test_snapshot
 from ..core.exceptions import (
     TaskExecutionError,
-    TaskStateConflictError, RepositoryBusyError,
+    TaskStateConflictError, RepositoryBusyError, TestEnvironmentNotConfiguredError, InvalidRepositoryInputError,
 )
 from ..db.session import SessionLocal
 from .docker_test_service import (
@@ -35,6 +36,7 @@ class TaskTestContext:
     repository_id: UUID
     workspace_path: Path
     test_run_id: UUID
+    image: str
 
 
 # 协调任务测试：领取测试权、复制工作副本快照、在 Docker 中运行 pytest，最后保存测试结果。
@@ -42,7 +44,6 @@ class TaskTestContext:
 def run_task_pytest(
     task_id: UUID,
     *,
-    image: str = DEFAULT_TEST_IMAGE,
     timeout_seconds: int = DEFAULT_TEST_TIMEOUT_SECONDS,
     max_output_chars: int = MAX_TEST_OUTPUT_CHARS,
 ) -> SandboxTestResult | None:
@@ -53,7 +54,6 @@ def run_task_pytest(
 
     context = _begin_task_pytest(
         task_id,
-        image=image,
         timeout_seconds=timeout_seconds,
     )
 
@@ -76,7 +76,7 @@ def run_task_pytest(
             #    把返回值保存为 result。
             result = run_pytest_in_docker(
                 snapshot,
-                image=image,
+                image=context.image,
                 timeout_seconds=timeout_seconds,
                 max_output_chars=max_output_chars,
             )
@@ -111,7 +111,6 @@ def run_task_pytest(
 def _begin_task_pytest(
     task_id: UUID,
     *,
-    image: str,
     timeout_seconds: int,
 ) -> TaskTestContext | None:
     with SessionLocal.begin() as session:
@@ -136,11 +135,19 @@ def _begin_task_pytest(
         if repository is None or not repository.workspace_path:
             raise TaskExecutionError("Task workspace is unavailable")
 
+        if repository.test_profile is None:
+            raise TestEnvironmentNotConfiguredError
+        try:
+            profile = get_test_profile(repository.test_profile)
+            
+        except InvalidRepositoryInputError as exc:
+            raise TaskExecutionError("Stored test profile is invalid") from exc
+
         test_run = test_run_repo.create_test_run(
             session,
             task_id=task_id,
-            image=image,
             timeout_seconds=timeout_seconds,
+            image=profile.image
         )
 
         if test_run is None:
@@ -172,6 +179,7 @@ def _begin_task_pytest(
             repository_id=repository.id,
             workspace_path=Path(repository.workspace_path),
             test_run_id=test_run.id,
+            image=profile.image,
         )
 
     return context

@@ -66,3 +66,9 @@ class RetryBudgetExceededError(RuntimeError):
 
 class InvalidReflectionError(ValueError):
     """模型返回的 Reflection 决策不合法。"""
+
+class TestEnvironmentNotConfiguredError(Exception):
+    """当前仓库还没有选择测试环境，暂时不能运行测试。"""
+
+class InvalidWorkspaceContentError(ValueError):
+    """待写入的文件内容不符合要求。"""

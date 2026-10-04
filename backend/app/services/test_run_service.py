@@ -3,7 +3,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from sqlalchemy.exc import DBAPIError
+from sqlalchemy.orm import Session
 
+from ..db.models import TestRun
 from ..db.session import SessionLocal
 
 from ..core.exceptions import (
@@ -102,72 +104,77 @@ def get_task_test_run_validity(
     task_id: UUID,
     test_run_id: UUID,
 ) -> TestRunValidityRead | None:
+    with SessionLocal.begin() as session:
+        # 1. 查询任务；不存在返回 None。
+        task = task_repo.get_task(session, task_id=task_id)
+
+        if task is None:
+            return None
+
+        # 2. 使用 task_id 和 test_run_id 查询 TestRun。
+        test_run = test_run_repo.get_test_run(
+            session,
+            task_id=task_id,
+            test_run_id=test_run_id,
+        )
+
+        if test_run is None:
+            return None
+
+        return check_test_run_snapshot(session, repository_id=task.repository_id, test_run=test_run)
+
+
+# 在现有事务中检查快照
+# 回答源码是否一致
+def check_test_run_snapshot(
+    session: Session,
+    *,
+    repository_id: UUID,
+    test_run: TestRun,
+) -> TestRunValidityRead:
+    # 1. 读取 test_run.snapshot_hash。
+    #    为 None 时直接返回 is_current=None，两个 hash 均为 None。
+    snapshot_hash = test_run.snapshot_hash
+    if snapshot_hash is None:
+        return TestRunValidityRead(
+            task_id=test_run.task_id,
+            test_run_id=test_run.id,
+            recorded_snapshot_hash=None,
+            current_snapshot_hash=None,
+            is_current=None,
+        )
+
+    # 2. 使用传入的 session 调用 get_repository_for_update。
+    #    SQLSTATE 55P03 转成 RepositoryBusyError；其他数据库异常原样抛出。
     try:
-        with TemporaryDirectory(
-            prefix="repopilot-validity-"
-        ) as temporary_directory:
-            with SessionLocal.begin() as session:
-                # 1. 查询任务；不存在返回 None。
-                task = task_repo.get_task(session, task_id=task_id)
+        repository = repository_repo.get_repository_for_update(session, repository_id)
 
-                if task is None:
-                    return None
+    except DBAPIError as exc:
+        if getattr(exc.orig, "sqlstate", None) == "55P03":
+            raise RepositoryBusyError("Repository is busy") from exc
+        raise
 
-                # 2. 使用 task_id 和 test_run_id 查询 TestRun。
-                test_run = test_run_repo.get_test_run(
-                    session,
-                    task_id=task_id,
-                    test_run_id=test_run_id,
-                )
+    # 3. 仓库不存在或 workspace_path 为空，抛 TaskExecutionError。
+    if repository is None or not repository.workspace_path:
+        raise TaskExecutionError("Task workspace is unavailable")
 
-                if test_run is None:
-                    return None
+    # 4. 创建 TemporaryDirectory。
+    #    调用 prepare_python_test_snapshot，获取 current_hash。
+    try:
+        with TemporaryDirectory() as temporary_directory:
+            snapshot = prepare_python_test_snapshot(Path(repository.workspace_path), Path(temporary_directory))
 
-                recorded_hash = test_run.snapshot_hash
+            current_hash = snapshot.snapshot_hash
 
-                # 3. 旧记录或快照准备失败的记录没有 hash，
-                #    不扫描当前工作区，直接返回“无法判断”。
-                if recorded_hash is None:
-                    return TestRunValidityRead(
-                        task_id=task_id,
-                        test_run_id=test_run_id,
-                        recorded_snapshot_hash=None,
-                        current_snapshot_hash=None,
-                        is_current=None,
-                    )
+            # 5. 返回 TestRunValidityRead：
+            return TestRunValidityRead(
+                task_id=test_run.task_id,
+                test_run_id=test_run.id,
+                recorded_snapshot_hash=test_run.snapshot_hash,
+                current_snapshot_hash=current_hash,
+                is_current=(snapshot_hash == current_hash),
+            )
 
-                # 4. 锁定关联 Repository。
-                #    SQLSTATE 55P03 表示 NOWAIT 行锁冲突。
-                try:
-                    repository = repository_repo.get_repository_for_update(
-                        session,
-                        repository_id=task.repository_id,
-                    )
-                except DBAPIError as exc:
-                    if getattr(exc.orig, "sqlstate", None) == "55P03":
-                        raise RepositoryBusyError("Repository is busy") from exc
-                    raise
-
-                # 5. 仓库不存在或没有 workspace_path 时，
-                #    无法重新计算当前源码 hash。
-                if repository is None or not repository.workspace_path:
-                    raise TaskExecutionError("Task workspace is unavailable")
-
-                # 6. 使用与真实测试完全相同的快照函数，
-                #    防止比较算法与测试算法逐渐产生差异。
-                current_snapshot = prepare_python_test_snapshot(
-                    Path(repository.workspace_path),
-                    Path(temporary_directory),
-                )
-
-                current_hash = current_snapshot.snapshot_hash
-
-                return TestRunValidityRead(
-                    task_id=task_id,
-                    test_run_id=test_run_id,
-                    recorded_snapshot_hash=recorded_hash,
-                    current_snapshot_hash=current_hash,
-                    is_current=(recorded_hash == current_hash),
-                )
+    # 6. 临时目录创建、清理等 OSError 转成 SandboxPreparationError。
     except OSError as exc:
         raise SandboxPreparationError("Cannot prepare validity snapshot") from exc

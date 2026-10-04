@@ -9,6 +9,7 @@ from backend.app.api.routes import tasks
 from backend.app.core.exceptions import (
     SandboxExecutionError,
     TaskStateConflictError,
+    TestEnvironmentNotConfiguredError,
 )
 from backend.app.services import task_test_service
 from backend.app.services.docker_test_service import SandboxTestResult
@@ -36,6 +37,7 @@ class TaskSandboxExecutionTests(unittest.TestCase):
         self.repository = SimpleNamespace(
             id=self.repository_id,
             workspace_path=str(self.workspace_path),
+            test_profile="repopilot-dev",
         )
         self.test_run_id = UUID(
             "00000000-0000-0000-0000-000000000401"
@@ -186,7 +188,7 @@ class TaskSandboxExecutionTests(unittest.TestCase):
         self.create_test_run.assert_called_once_with(
             self.session,
             task_id=self.task_id,
-            image=task_test_service.DEFAULT_TEST_IMAGE,
+            image="repopilot-pytest:repopilot-v1",
             timeout_seconds=task_test_service.DEFAULT_TEST_TIMEOUT_SECONDS,
         )
         self.finish_test_run.assert_called_once()
@@ -203,7 +205,7 @@ class TaskSandboxExecutionTests(unittest.TestCase):
         self.prepare_snapshot.assert_called_once()
         run_docker.assert_called_once_with(
             self.prepare_snapshot.return_value,
-            image=task_test_service.DEFAULT_TEST_IMAGE,
+            image="repopilot-pytest:repopilot-v1",
             timeout_seconds=task_test_service.DEFAULT_TEST_TIMEOUT_SECONDS,
             max_output_chars=task_test_service.MAX_TEST_OUTPUT_CHARS,
         )
@@ -307,6 +309,24 @@ class TaskSandboxExecutionTests(unittest.TestCase):
         self.prepare_snapshot.assert_not_called()
         run_docker.assert_not_called()
         self.append_task_event.assert_not_called()
+
+    # 未配置测试环境时，在创建记录、改变状态和准备快照之前拒绝启动。
+    def test_missing_profile_does_not_start_test_run(self):
+        self.repository.test_profile = None
+
+        with patch.object(
+                task_test_service,
+                "run_pytest_in_docker",
+        ) as run_docker:
+            with self.assertRaises(TestEnvironmentNotConfiguredError):
+                task_test_service.run_task_pytest(self.task_id)
+
+        self.create_test_run.assert_not_called()
+        self.mark_task_testing.assert_not_called()
+        self.append_task_event.assert_not_called()
+        self.prepare_snapshot.assert_not_called()
+        run_docker.assert_not_called()
+        self.assertEqual(self.task.status, "executing")
 
     def test_route_returns_200_style_result_for_failed_tests(self):
         result = SandboxTestResult(

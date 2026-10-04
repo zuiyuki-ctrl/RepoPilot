@@ -1056,7 +1056,7 @@ success / tests_passed / token / cost 的未知或不适用值为 NULL，不伪�
 事务与事件关联：
 
 1. 开始时，在同一事务内创建 TestRun(running)、将任务改为 testing、追加 TEST_EXECUTION_STARTED。
-2. 在数据库事务外准备快照并计算 snapshot_hash；随后开启短事务，将 hash 写入仍处于 running 的 TestRun。
+2. 在持有任务锁与仓库锁的事务内准备快照并计算 snapshot_hash；事务结束后，开启另一个短事务保存 hash。Docker 测试在数据库事务外运行
 3. 结束时，在同一事务内更新对应 TestRun、将任务恢复为 executing、追加 TEST_EXECUTION_FINISHED 或 TEST_EXECUTION_FAILED。
 4. 三类测试事件的 payload 均携带字符串形式的 test_run_id，指向本次记录；sequence 继续表示任务内事件顺序。TEST_EXECUTION_FINISHED 的 passed 区分测试通过与失败，TEST_EXECUTION_FAILED 表示执行流程异常。
 5. 数据库故障或进程中断可能留下 running/testing 记录；独立建表不代表已经实现自动恢复。

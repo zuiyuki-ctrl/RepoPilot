@@ -5,13 +5,16 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 
+from ...schemas.task_report import TaskExecutionReport
+from ...services import task_report_service
 from ...services import (
     edit_proposal_service,
     plan_execution_service,
     task_service,
     task_test_service,
     reflection_service,
-    test_run_service
+    test_run_service,
+    task_completion_service,
 )
 from ...schemas.edit import TaskFileEditRead, TaskFileEditRequest, TaskFileEditApplyRequest
 from ...schemas.workspace import TaskWorkspaceDiffRead, TaskWorkspaceWriteRead, TaskWorkspaceWriteRequest
@@ -21,8 +24,9 @@ from ...core.exceptions import InvalidTaskInputError, TaskStateConflictError, In
     TaskExecutionError, InvalidPlanError, InsufficientPlanEvidenceError, WorkspaceDiffError, InvalidWorkspacePathError, \
     RepositoryBusyError, PlanScopeViolationError, WorkspaceWriteError, WorkspaceWritePersistenceError, \
     RepositoryScanError, InvalidEditProposalError, WorkspaceFileConflictError, SandboxPreparationError, \
-    SandboxExecutionError, RetryBudgetExceededError, InvalidReflectionError
-from ...schemas.task import TaskRead, TaskCreate, TaskPlanReviewRequest
+    SandboxExecutionError, RetryBudgetExceededError, InvalidReflectionError, TestEnvironmentNotConfiguredError, \
+    InvalidWorkspaceContentError
+from ...schemas.task import TaskRead, TaskCreate, TaskPlanReviewRequest, TaskCompleteRequest
 from ...schemas.testing import (
     TaskTestRead,
     TestRunRead,
@@ -363,6 +367,13 @@ def write_task_workspace_file(
         ) from e
 
         # 3. 返回 None 时，抛出 404 HTTPException
+
+    except InvalidWorkspaceContentError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail="Python source is invalid",
+        ) from exc
+
     if result is None:
         raise HTTPException(
             status_code=404,
@@ -593,6 +604,12 @@ def apply_task_file_edit(
             detail="Stored task data is invalid",
         ) from exc
 
+    except InvalidWorkspaceContentError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail="Python source is invalid",
+        ) from exc
+
     if result is None:
         raise HTTPException(
             status_code=404,
@@ -719,6 +736,12 @@ def run_task_tests(task_id: UUID):
             detail="Repository is busy; retry after the current operation finishes",
         ) from exc
 
+    except TestEnvironmentNotConfiguredError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="Configure the repository test profile before running tests",
+        ) from exc
+
     # 服务返回 None 表示任务不存在。
     if result is None:
         raise HTTPException(
@@ -790,6 +813,13 @@ def reflect_task(task_id: UUID):
             status_code=500,
             detail="Stored task or test data is invalid",
         ) from exc
+
+    except RepositoryBusyError as exc:
+        raise HTTPException(status_code=409, detail="Repository is busy")
+
+    except SandboxPreparationError as exc:
+        logger.exception("Sandbox preparation failed; task_id=%s", task_id)
+        raise HTTPException(status_code=503, detail="Current workspace snapshot is unavailable")
 
     except ValueError as exc:
         logger.exception("Reflection processing failed; task_id=%s", task_id)
@@ -1065,5 +1095,92 @@ def get_task_test_run_validity(
             status_code=404,
             detail="Test run not found",
         )
+
+    return result
+
+
+@router.post(
+    "/{task_id}/complete",
+    response_model=TaskRead,
+)
+# 根据指定的测试运行确认计划任务完成，并将完成条件和基础设施异常转换为 HTTP 响应。
+def complete_plan_task(
+    task_id: UUID,
+    data: TaskCompleteRequest,
+):
+    try:
+        result = task_completion_service.complete_plan_task(
+            task_id,
+            test_run_id=data.test_run_id,
+        )
+
+    except TaskStateConflictError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="Task state or test result does not allow completion",
+        ) from exc
+
+    except RepositoryBusyError as exc:
+        raise HTTPException(status_code=409, detail="Repository is busy") from exc
+
+    except SandboxPreparationError as exc:
+        logger.exception("Cannot check completion snapshot; task_id=%s", task_id)
+        raise HTTPException(
+            status_code=503,
+            detail="Current workspace snapshot is unavailable",
+        ) from exc
+
+    except SQLAlchemyError as exc:
+        logger.exception("Database unavailable during task completion; task_id=%s", task_id)
+        raise HTTPException(status_code=503, detail="Database unavailable") from exc
+
+    except TaskExecutionError as exc:
+        logger.exception("Stored task completion data is invalid; task_id=%s", task_id)
+        raise HTTPException(
+            status_code=500,
+            detail="Stored plan, test or event data is invalid",
+        ) from exc
+
+    except WorkspaceDiffError as exc:
+        logger.exception(
+            "Cannot capture completion diff; task_id=%s",
+            task_id,
+        )
+        raise HTTPException(status_code=503, detail="Completion diff is unavailable") from exc
+
+    except InvalidWorkspacePathError as exc:
+        logger.exception(
+            "Cannot capture completion diff; task_id=%s",
+            task_id,
+        )
+        raise HTTPException(status_code=503, detail="Invalid workspace path") from exc
+
+    if result is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    return result
+
+
+@router.get(
+    "/{task_id}/report",
+    response_model=TaskExecutionReport,
+)
+# 返回完成时保存的测试与差异报告，不重新运行测试或读取当前工作区。
+def get_task_execution_report(task_id: UUID):
+    try:
+        result = task_report_service.get_task_execution_report(task_id)
+    except TaskStateConflictError as exc:
+        raise HTTPException(
+            status_code=409, detail="Only completed or failed plan tasks have execution reports",
+        ) from exc
+    except SQLAlchemyError as exc:
+        logger.exception("Database unavailable while reading task report; task_id=%s", task_id)
+        raise HTTPException(status_code=503, detail="Database unavailable") from exc
+    except TaskExecutionError as exc:
+        logger.exception("Stored task report data is invalid; task_id=%s", task_id)
+        raise HTTPException(status_code=500, detail="Stored task report data is invalid") from exc
+
+    if result is None:
+        raise HTTPException(status_code=404, detail="Task not found")
 
     return result

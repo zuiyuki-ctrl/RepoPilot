@@ -2,14 +2,16 @@ from dataclasses import dataclass
 from uuid import UUID
 
 from pydantic import ValidationError
+from sqlalchemy.orm import Session
 
+from .test_run_service import check_test_run_snapshot
 from ..schemas.reflection import ReflectionDecision
 from ..core.exceptions import (
     RetryBudgetExceededError,
     TaskExecutionError,
     TaskStateConflictError,
 )
-from ..db.repositories import task_event_repo, task_repo
+from ..db.repositories import task_event_repo, task_repo, test_run_repo
 from ..db.session import SessionLocal
 from ..schemas.task import TaskPlanResult
 from ..schemas.testing import TestExecutionEventPayload
@@ -37,14 +39,18 @@ class ReflectionContext:
 
 # 为失败测试领取一次反思机会：锁定任务，确认选中的是最新一轮完整测试结果，并校验事件数据。
 # 校验通过后在同一事务内增加重试次数、切换为 reflecting、记录 REFLECTION_STARTED。
+# 预算耗尽时保留计划并提交失败终态，再在事务外抛出预算异常。
 # 返回脱离会话的上下文，供后续模型分析使用；这里不调用模型，也不执行修复。
 def begin_task_reflection(
-    task_id: UUID,
+        task_id: UUID,
 ) -> ReflectionContext | None:
     """
     原子领取一次 Reflection 重试额度，并返回脱离 ORM 会话后
     仍可安全使用的上下文。任务不存在时返回 None。
     """
+
+    context: ReflectionContext | None = None
+    budget_exhausted = False
 
     with SessionLocal.begin() as session:
         # 使用 get_task_for_update 锁定任务。
@@ -58,9 +64,9 @@ def begin_task_reflection(
         # - status == "executing"
         # - review_decision == "approved"
         if (
-                task.task_type != "plan"
-                or task.status != "executing"
-                or task.review_decision != "approved"
+            task.task_type != "plan"
+            or task.status != "executing"
+            or task.review_decision != "approved"
         ):
             raise TaskStateConflictError("Task is not ready for reflection")
 
@@ -85,9 +91,9 @@ def begin_task_reflection(
             raise TaskStateConflictError("Task has no completed test result")
 
         for event_type in (
-            "TEST_EXECUTION_STARTED",
-            "TEST_EXECUTION_FAILED",
-            "FILE_MODIFIED",
+                "TEST_EXECUTION_STARTED",
+                "TEST_EXECUTION_FAILED",
+                "FILE_MODIFIED",
         ):
             newer_event = task_event_repo.get_latest_task_event_by_type(
                 session,
@@ -111,12 +117,6 @@ def begin_task_reflection(
         if test_payload.passed:
             raise TaskStateConflictError("Passed tests do not require reflection")
 
-        # 没有剩余预算时抛 RetryBudgetExceededError。
-        if task.retry_count >= task.max_retries:
-            raise RetryBudgetExceededError("Task retry budget is exhausted")
-
-        # 调用 mark_task_reflecting。
-        # 该方法会同时 retry_count += 1。
         previous_reflection = task_event_repo.get_latest_task_event_by_type(
             session,
             task_id=task_id,
@@ -125,48 +125,71 @@ def begin_task_reflection(
         if previous_reflection and previous_reflection.sequence > test_event.sequence:
             raise TaskStateConflictError("Run tests again before starting another reflection")
 
-        task_repo.mark_task_reflecting(session, task)
-
-        # 此处必须在 mark_task_reflecting 之后读取 retry_count，
-        # 它表示即将执行的修复轮次。
-        reflection_attempt = task.retry_count
-
-        # 记录 REFLECTION_STARTED。
-        task_event_repo.append_task_event(
+        _require_current_failed_test(
             session,
             task_id=task.id,
-            event_type="REFLECTION_STARTED",
-            node_name="reflection_service",
-            message="Reflection started",
-            payload={
-                "step_id": "reflect",
-                "attempt": reflection_attempt,
-                "retry_count": reflection_attempt,
-                "max_retries": task.max_retries,
-                "test_event_sequence": test_event.sequence,
-            },
+            repository_id=task.repository_id,
+            test_payload=test_payload,
         )
 
-        # 在事务内提取普通值和 Pydantic 对象，
-        # 不把 task/test_event ORM 对象带出会话。
-        context = ReflectionContext(
-            task_id=task.id,
-            repository_id=task.repository_id,
-            user_request=task.user_request,
-            plan=plan_result,
-            test_result=test_payload,
-            retry_count=reflection_attempt,
-            max_retries=task.max_retries,
-            test_event_sequence=test_payload.sequence,
-        )
+        if task.retry_count >= task.max_retries:
+            error = "Task retry budget is exhausted"
+            task_repo.mark_plan_task_failed(session, task=task, error=error)
+            task_event_repo.append_task_event(
+                session,
+                task_id=task.id,
+                event_type="TASK_FAILED",
+                node_name="reflection_service",
+                message=error,
+                payload={
+                    "step_id": "reflect",
+                    "attempt": task.retry_count + 1,
+                    "reason_code": "retry_budget_exhausted",
+                    "retry_count": task.retry_count,
+                    "max_retries": task.max_retries,
+                    "test_event_sequence": test_event.sequence,
+                    "error": error,
+                },
+            )
+            budget_exhausted = True
+        else:
+            task_repo.mark_task_reflecting(session, task)
+            reflection_attempt = task.retry_count
+            task_event_repo.append_task_event(
+                session,
+                task_id=task.id,
+                event_type="REFLECTION_STARTED",
+                node_name="reflection_service",
+                message="Reflection started",
+                payload={
+                    "step_id": "reflect",
+                    "attempt": reflection_attempt,
+                    "retry_count": reflection_attempt,
+                    "max_retries": task.max_retries,
+                    "test_event_sequence": test_event.sequence,
+                },
+            )
+            context = ReflectionContext(
+                task_id=task.id,
+                repository_id=task.repository_id,
+                user_request=task.user_request,
+                plan=plan_result,
+                test_result=test_payload,
+                retry_count=reflection_attempt,
+                max_retries=task.max_retries,
+                test_event_sequence=test_payload.sequence,
+            )
+
+    if budget_exhausted:
+        raise RetryBudgetExceededError("Task retry budget is exhausted")
 
     return context
 
 
 # 成功收尾函数
 def _finish_task_reflection(
-    context: ReflectionContext,
-    decision: ReflectionDecision,
+        context: ReflectionContext,
+        decision: ReflectionDecision,
 ) -> None:
     with SessionLocal.begin() as session:
         # 1. 锁定任务
@@ -224,8 +247,8 @@ def _finish_task_reflection(
 
 # 失败收尾函数
 def _fail_task_reflection(
-    context: ReflectionContext,
-    error: Exception,
+        context: ReflectionContext,
+        error: Exception,
 ) -> None:
     with SessionLocal.begin() as session:
         # 1. 锁定任务。
@@ -257,7 +280,7 @@ def _fail_task_reflection(
             event_type="REFLECTION_FAILED",
             node_name="reflection_service",
             message="Reflection generation failed",
-            payload = {
+            payload={
                 "step_id": "reflect",
                 "attempt": context.retry_count,
                 "test_event_sequence": context.test_event_sequence,
@@ -268,7 +291,7 @@ def _fail_task_reflection(
 
 
 def run_task_reflection(
-    task_id: UUID,
+        task_id: UUID,
 ) -> ReflectionDecision | None:
     # 1. 调用 begin_task_reflection(task_id)，保存为 context。
     context = begin_task_reflection(task_id)
@@ -315,3 +338,56 @@ def run_task_reflection(
 
     # 9. 返回 decision。
     return decision
+
+
+# 在 Reflection 调用模型之前，检查它准备分析的失败测试是否仍然适用于当前源码
+def _require_current_failed_test(
+        session: Session,
+        *,
+        task_id: UUID,
+        repository_id: UUID,
+        test_payload: TestExecutionEventPayload,
+) -> None:
+    if test_payload.test_run_id is None:
+        raise TaskStateConflictError("Test result has no run reference; run tests again")
+
+    try:
+        test_run_id = UUID(test_payload.test_run_id)
+    except ValueError as exc:
+        raise TaskExecutionError("Stored test run ID is invalid") from exc
+
+    test_run = test_run_repo.get_test_run(
+        session,
+        task_id=task_id,
+        test_run_id=test_run_id,
+    )
+
+    if test_run is None:
+        raise TaskExecutionError("Referenced test run is missing")
+
+    # 这条记录对应的是 TEST_EXECUTION_FINISHED，因此：
+    # - test_run.status 必须为 "finished"；
+    # - exit_code、timed_out 必须与事件相同；
+    # - 根据记录计算的通过状态，必须与 test_payload.passed 相同。
+    if not (
+        test_run.status == "finished"
+        and test_run.exit_code == test_payload.exit_code
+        and test_run.timed_out == test_payload.timed_out
+    ):
+        raise TaskExecutionError("Stored test run and event results disagree")
+
+    passed = not test_run.timed_out and test_run.exit_code == 0
+    if passed != test_payload.passed:
+        raise TaskExecutionError("Stored test run and event results disagree")
+
+    validity = check_test_run_snapshot(
+        session,
+        repository_id=repository_id,
+        test_run=test_run,
+    )
+
+    if validity.is_current is None:
+        raise TaskStateConflictError("Test snapshot is unavailable; run tests again")
+
+    if not validity.is_current:
+        raise TaskStateConflictError("Workspace changed after testing; run tests again")

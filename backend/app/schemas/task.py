@@ -53,3 +53,10 @@ class TaskPlanReviewRequest(BaseModel):
 
     decision: Literal["approved", "rejected"]
     comment: str | None = Field(default=None, max_length=1000)
+
+
+# 负责接收用户选中的测试 ID
+class TaskCompleteRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    test_run_id: UUID

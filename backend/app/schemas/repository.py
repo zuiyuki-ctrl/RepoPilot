@@ -26,3 +26,9 @@ class RepositoryRead(BaseModel):
     created_at: datetime
     updated_at: datetime
     indexed_at: datetime | None
+    test_profile: str | None
+
+class RepositoryTestProfileUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    test_profile: str = Field(min_length=1, max_length=64)
