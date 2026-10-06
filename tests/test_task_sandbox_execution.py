@@ -184,7 +184,8 @@ class TaskSandboxExecutionTests(unittest.TestCase):
         ) as run_docker:
             actual = task_test_service.run_task_pytest(self.task_id)
 
-        self.assertIs(actual, result)
+        self.assertIs(actual.sandbox_result, result)
+        self.assertEqual(actual.test_run_id, self.test_run_id)
         self.create_test_run.assert_called_once_with(
             self.session,
             task_id=self.task_id,
@@ -244,8 +245,9 @@ class TaskSandboxExecutionTests(unittest.TestCase):
         ):
             actual = task_test_service.run_task_pytest(self.task_id)
 
-        self.assertIs(actual, result)
-        self.assertEqual(actual.exit_code, 1)
+        self.assertIs(actual.sandbox_result, result)
+        self.assertEqual(actual.test_run_id, self.test_run_id)
+        self.assertEqual(actual.sandbox_result.exit_code, 1)
         finish_event = self.append_task_event.call_args_list[-1]
         self.assertEqual(
             finish_event.kwargs["event_type"],
@@ -253,6 +255,22 @@ class TaskSandboxExecutionTests(unittest.TestCase):
         )
         self.assertIs(finish_event.kwargs["payload"]["passed"], False)
         self.assertEqual(self.task.status, "executing")
+
+    # 测试进程成功不代表持久化成功；收尾异常必须继续抛出，不能返回运行结果。
+    def test_finish_persistence_failure_does_not_return_execution_result(self):
+        result = SandboxTestResult(
+            exit_code=0, stdout="1 passed", stderr="", timed_out=False,
+            stdout_truncated=False, stderr_truncated=False,
+        )
+        error = RuntimeError("commit failed")
+        with patch.object(task_test_service, "run_pytest_in_docker", return_value=result), \
+             patch.object(task_test_service, "_finish_task_pytest", side_effect=error) as finish:
+            with self.assertRaises(RuntimeError) as raised:
+                task_test_service.run_task_pytest(self.task_id)
+        self.assertIs(raised.exception, error)
+        finish.assert_called_once()
+        self.assertEqual(finish.call_args.args[0].test_run_id, self.test_run_id)
+        self.assertIs(finish.call_args.args[1], result)
 
     def test_sandbox_error_restores_task_and_records_failure(self):
         error = SandboxExecutionError("Docker unavailable")
@@ -341,9 +359,12 @@ class TaskSandboxExecutionTests(unittest.TestCase):
         with patch.object(
                 tasks.task_test_service,
                 "run_task_pytest",
-                return_value=result,
+                return_value=task_test_service.TaskTestExecutionResult(
+                    test_run_id=self.test_run_id, sandbox_result=result,
+                ),
         ):
             response = tasks.run_task_tests(self.task_id)
 
         self.assertFalse(response.passed)
+        self.assertEqual(response.test_run_id, self.test_run_id)
         self.assertEqual(response.exit_code, 1)

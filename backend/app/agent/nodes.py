@@ -349,6 +349,10 @@ def tools_node(
             duration_ms = int((perf_counter() - started_at) * 1000)
 
             if error_type is None:
+                search_metadata = {}
+                if function_name == "search_code":
+                    search_metadata["retrieval_strategy"] = result["strategy"]
+                    search_metadata["hit_count"] = len(result["hits"])
                 emit_agent_event(
                     runtime,
                     event_type="TOOL_CALL_COMPLETED",
@@ -357,6 +361,7 @@ def tools_node(
                     payload={
                         **base_payload,
                         "duration_ms": duration_ms,
+                        **search_metadata,
                     }
                 )
 

@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from ..schemas.tools import SearchCodeArgs, ReadSourceArgs
-from .retrieval_service import semantic_search
+from .retrieval_service import semantic_search, keyword_search, hybrid_search_with_diagnostics
 from .source_service import read_repository_source
 
 
@@ -17,16 +17,27 @@ def execute_readonly_tool(
         # 1. SearchCodeArgs.model_validate(arguments) 校验参数。
         search_model = SearchCodeArgs.model_validate(arguments)
 
-        # 2. 调用 semantic_search，传入校验后的 query、top_k。
-        # 返回 None 时抛 ValueError("Repository not found")。
-        hits = semantic_search(repository_id, query=search_model.query, top_k=search_model.top_k)
+        diagnostics = None
+        if search_model.strategy == "vector":
+            hits = semantic_search(repository_id, query=search_model.query, top_k=search_model.top_k)
+        elif search_model.strategy == "keyword":
+            hits = keyword_search(repository_id, query=search_model.query, top_k=search_model.top_k)
+        else:
+            details = hybrid_search_with_diagnostics(
+                repository_id, query=search_model.query, top_k=search_model.top_k,
+            )
+            if details is None:
+                raise ValueError("Repository not found")
+            hits = details.hits
+            diagnostics = details.diagnostics.model_dump(mode="json")
         if hits is None:
             raise ValueError("Repository not found")
 
-        # 3. 返回 {"hits": [...]}。
-        # 每条结果使用 hit.model_dump(mode="json")。
+        # 保留各策略原有评分字段，空命中列表是正常结果。
         return {
+            "strategy": search_model.strategy,
             "hits": [hit.model_dump(mode="json") for hit in hits],
+            "diagnostics": diagnostics,
         }
 
     elif tool_name == "read_source":

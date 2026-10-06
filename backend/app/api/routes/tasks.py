@@ -750,18 +750,20 @@ def run_task_tests(task_id: UUID):
         )
 
     # 只有未超时且 exit_code == 0 才算通过。
-    passed = not result.timed_out and result.exit_code == 0
+    sandbox_result = result.sandbox_result
+    passed = not sandbox_result.timed_out and sandbox_result.exit_code == 0
 
     # 将结果转换为 API 响应。
     return TaskTestRead(
         task_id=task_id,
+        test_run_id=result.test_run_id,
         passed=passed,
-        exit_code=result.exit_code,
-        stdout=result.stdout,
-        stderr=result.stderr,
-        timed_out=result.timed_out,
-        stdout_truncated=result.stdout_truncated,
-        stderr_truncated=result.stderr_truncated,
+        exit_code=sandbox_result.exit_code,
+        stdout=sandbox_result.stdout,
+        stderr=sandbox_result.stderr,
+        timed_out=sandbox_result.timed_out,
+        stdout_truncated=sandbox_result.stdout_truncated,
+        stderr_truncated=sandbox_result.stderr_truncated,
     )
 
 

@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class TaskTestRead(BaseModel):
     task_id: UUID
+    test_run_id: UUID
     passed: bool
     exit_code: int | None
     stdout: str

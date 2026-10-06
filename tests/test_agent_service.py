@@ -81,8 +81,23 @@ class ReadonlyAgentTests(unittest.TestCase):
 
     def test_empty_search_is_not_evidence(self):
         self.model.side_effect = [tool_turn("search_code"), answer_turn()]
-        self.tool.return_value = {"hits": []}
+        self.tool.return_value = {"strategy": "vector", "hits": [], "diagnostics": None}
         self.assertEqual(self.run_agent()["answer"], policy.NO_EVIDENCE_ANSWER)
+
+    def test_search_completion_records_actual_strategy(self):
+        for strategy in ("vector", "keyword", "hybrid"):
+            with self.subTest(strategy=strategy):
+                sink = Mock()
+                self.model.side_effect = [tool_turn("search_code"), answer_turn()]
+                self.tool.return_value = {"strategy": strategy, "hits": [], "diagnostics": None}
+                self.tool.reset_mock()
+                self.run_agent(event_sink=sink, max_tool_calls=1)
+                self.tool.assert_called_once()
+                completed = [event for event in self.tool_events(sink)
+                             if event["event_type"] == "TOOL_CALL_COMPLETED"]
+                self.assertEqual(len(completed), 1)
+                self.assertEqual(completed[0]["payload"]["retrieval_strategy"], strategy)
+                self.assertEqual(completed[0]["payload"]["hit_count"], 0)
 
     def test_whitespace_source_is_not_evidence(self):
         self.model.side_effect = [tool_turn("read_source"), answer_turn()]
@@ -102,7 +117,7 @@ class ReadonlyAgentTests(unittest.TestCase):
 
     def test_search_and_read_have_distinct_valid_sources(self):
         self.model.side_effect = [tool_turn("search_code", "read_source"), answer_turn("依据 [S1] 和 [S2]。")]
-        self.tool.side_effect = [{"hits": [{"chunk": source_result(), "distance": 0.1}]}, source_result()]
+        self.tool.side_effect = [{"strategy": "vector", "hits": [{"chunk": source_result(), "distance": 0.1}], "diagnostics": None}, source_result()]
         result = self.run_agent()
         self.assertEqual([source["source_id"] for source in result["sources"]], ["S1", "S2"])
         messages = self.tool_messages()

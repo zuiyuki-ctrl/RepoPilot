@@ -39,6 +39,13 @@ class TaskTestContext:
     image: str
 
 
+# 将本次持久化测试运行与 Docker 执行结果关联，不让沙箱结果依赖数据库。
+@dataclass(frozen=True)
+class TaskTestExecutionResult:
+    test_run_id: UUID
+    sandbox_result: SandboxTestResult
+
+
 # 协调任务测试：领取测试权、复制工作副本快照、在 Docker 中运行 pytest，最后保存测试结果。
 # 快照准备或运行抛异常时尝试记录失败事件；临时快照由上下文管理器清理。
 def run_task_pytest(
@@ -46,7 +53,7 @@ def run_task_pytest(
     *,
     timeout_seconds: int = DEFAULT_TEST_TIMEOUT_SECONDS,
     max_output_chars: int = MAX_TEST_OUTPUT_CHARS,
-) -> SandboxTestResult | None:
+) -> TaskTestExecutionResult | None:
     """
     原子领取任务测试权，在数据库事务外运行 Docker，
     最后记录测试结果并恢复任务状态。
@@ -103,7 +110,7 @@ def run_task_pytest(
     # 正常执行完成时记录结果。
     _finish_task_pytest(context, result)
 
-    return result
+    return TaskTestExecutionResult(test_run_id=context.test_run_id, sandbox_result=result)
 
 
 # 在短事务内锁定已批准且 executing 的计划任务，切换为 testing 并记录测试开始事件。
