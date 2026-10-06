@@ -104,7 +104,9 @@ def render_markdown(report: TaskExecutionReport) -> str:
         append_field(lines, "是否超时", run.timed_out)
         append_field(lines, "运行镜像", run.image)
         append_field(lines, "快照哈希", run.snapshot_hash)
+        lines.extend(["", "### 标准输出", ""])
         append_literal(lines, run.stdout)
+        lines.extend(["", "### 错误输出", ""])
         append_literal(lines, run.stderr)
         append_field(lines, "输出已截断", run.stdout_truncated)
         append_field(lines, "错误输出已截断", run.stderr_truncated)
@@ -122,12 +124,15 @@ def render_markdown(report: TaskExecutionReport) -> str:
         append_field(lines, "差异范围", report.diff_scope)
         append_field(lines, "差异已截断", diff.truncated)
 
+        lines.extend(["", "### 已跟踪的修改文件", ""])
         for file in diff.changed_files:
             append_literal(lines, file)
 
+        lines.extend(["", "### 未跟踪文件（仅记录路径）", ""])
         for file in diff.untracked_files:
             append_literal(lines, file)
 
+        lines.extend(["", "### 保存的 Diff", ""])
         append_literal(lines, diff.diff)
     else:
         # 10. 失败报告或旧成功报告可能没有保存 final_diff。

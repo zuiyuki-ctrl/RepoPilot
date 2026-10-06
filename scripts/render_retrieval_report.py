@@ -3,6 +3,47 @@ import json
 from pathlib import Path
 
 
+def append_retrieval_diagnostics(
+    lines: list[str],
+    case: dict,
+) -> None:
+    lines.extend(["", "#### 混合检索诊断", ""])
+
+    if case["status"] == "error":
+        lines.append("执行失败，未获得完整诊断。")
+        return
+
+    diagnostics = case.get("retrieval_diagnostics")
+    if diagnostics is None:
+        lines.append("本报告未记录检索诊断。")
+        return
+
+    fields = (
+        ("向量候选数", "vector_candidate_count"),
+        ("关键词候选数", "keyword_candidate_count"),
+        ("两路共同候选数", "overlap_count"),
+        ("最终结果中有关键词贡献的条目数", "final_keyword_hit_count"),
+    )
+    for label, key in fields:
+        lines.append(f"- {label}: {diagnostics[key]}")
+
+    lines.append(
+        "- 说明: 候选数是各路候选上限截取后的数量，不是全部匹配数量。"
+    )
+
+    keyword_candidate_count = diagnostics["keyword_candidate_count"]
+    final_keyword_hit_count = diagnostics["final_keyword_hit_count"]
+    if keyword_candidate_count == 0:
+        lines.append("本次关键词检索未返回候选。")
+    elif final_keyword_hit_count == 0:
+        lines.append("关键词存在候选，但未进入最终返回结果。")
+    else:
+        lines.append(
+            "关键词参与了部分最终结果的融合评分，"
+            "不代表已经证明检索效果提升。"
+        )
+
+
 # 将已有检索评估报告整理成 Markdown，展示总体指标、逐题结果和未命中目标，不重新检索。
 def render_report(report: dict) -> str:
     lines: list[str] = []
@@ -66,18 +107,55 @@ def render_report(report: dict) -> str:
         # 空列表时显示“无返回结果”。
         hits = case["hits"]
         if hits:
-            top_chunk = hits[0]["chunk"]
-            distance = hits[0].get("distance", "N/A")
-            dist_str = f"{distance:.4f}" if isinstance(distance, (int, float)) else str(distance)
-            lines.append(
-                f"- Top 1 结果: {top_chunk['file_path']} :: {top_chunk['symbol_name']} (距离: {dist_str})"
-            )
+            top_hit = hits[0]
+            top_chunk = top_hit["chunk"]
+
+            if "rrf_score" in top_hit:
+                rrf_score = top_hit["rrf_score"]
+                score_text = (
+                    f"{rrf_score:.4f}"
+                    if isinstance(rrf_score, (int, float))
+                    else str(rrf_score)
+                )
+                vector_rank = top_hit.get("vector_rank")
+                keyword_rank = top_hit.get("keyword_rank")
+                vector_rank_text = (
+                    f"第 {vector_rank} 名"
+                    if vector_rank is not None
+                    else "未进入该路候选列表"
+                )
+                keyword_rank_text = (
+                    f"第 {keyword_rank} 名"
+                    if keyword_rank is not None
+                    else "未进入该路候选列表"
+                )
+                lines.append(
+                    f"- Top 1 结果: {top_chunk['file_path']} :: "
+                    f"{top_chunk['symbol_name']} "
+                    f"(RRF 分数: {score_text}; "
+                    f"向量排名: {vector_rank_text}; "
+                    f"关键词排名: {keyword_rank_text})"
+                )
+            else:
+                distance = top_hit.get("distance", "N/A")
+                dist_str = (
+                    f"{distance:.4f}"
+                    if isinstance(distance, (int, float))
+                    else str(distance)
+                )
+                lines.append(
+                    f"- Top 1 结果: {top_chunk['file_path']} :: "
+                    f"{top_chunk['symbol_name']} (距离: {dist_str})"
+                )
         else:
             lines.append("- Top 1 结果: 无返回结果")
 
         # 6. status 为 error 时，展示 case["error"]。
         if case["status"] == "error":
             lines.append(f"- 错误信息: {case.get('error', '未知错误')}")
+
+        if report.get("strategy") == "hybrid_rrf_top5":
+            append_retrieval_diagnostics(lines, case)
 
         lines.append("")
 
@@ -95,6 +173,132 @@ def render_report(report: dict) -> str:
 
     return "\n".join(lines) + "\n"
 
+
+def render_comparison_report(report: dict) -> str:
+    vector = report["reports"]["vector"]
+    hybrid = report["reports"]["hybrid"]
+
+    vector_cases = {
+        case["id"]: case
+        for case in vector["cases"]
+    }
+    hybrid_cases = {
+        case["id"]: case
+        for case in hybrid["cases"]
+    }
+
+    lines = [
+        "# Vector / Hybrid 检索对比",
+        "",
+        f"- 数据集版本: {vector.get('dataset_version', 'N/A')}",
+        f"- 仓库 ID: {vector.get('repository_id', 'N/A')}",
+        f"- 仓库 Commit: {vector.get('repository_commit', 'N/A')}",
+        f"- Embedding 模型: {vector.get('embedding_model', 'N/A')}",
+        f"- 向量维度: {vector.get('embedding_dimensions', 'N/A')}",
+        "- Vector 策略配置: "
+        + json.dumps(vector.get("strategy_config", {}), ensure_ascii=False, sort_keys=True),
+        "- Hybrid 策略配置: "
+        + json.dumps(hybrid.get("strategy_config", {}), ensure_ascii=False, sort_keys=True),
+        "",
+        "## Recall 汇总",
+        "",
+        "| 指标 | Vector | Hybrid | 差值（Hybrid - Vector） |",
+        "| :--- | ---: | ---: | ---: |",
+    ]
+
+    metrics = (
+        ("Recall@1", "macro_recall_at_1", "recall_at_1"),
+        ("Recall@3", "macro_recall_at_3", "recall_at_3"),
+        ("Recall@5", "macro_recall_at_5", "recall_at_5"),
+    )
+    for label, report_key, delta_key in metrics:
+        lines.append(
+            f"| {label} | {vector[report_key]:.3f} | "
+            f"{hybrid[report_key]:.3f} | "
+            f"{report['macro_delta'][delta_key]:+.3f} |"
+        )
+
+    lines.extend([
+        "",
+        f"- Vector 异常数量: {vector.get('error_count', 0)}",
+        f"- Hybrid 异常数量: {hybrid.get('error_count', 0)}",
+        "",
+        "## 逐例对比",
+        "",
+    ])
+
+    def target_rank(case: dict, target: dict) -> str:
+        if case["status"] == "error":
+            return "执行失败"
+
+        for position, hit in enumerate(case["hits"], start=1):
+            chunk = hit["chunk"]
+            if (
+                chunk["file_path"] == target["file_path"]
+                and chunk["symbol_name"] == target["symbol_name"]
+            ):
+                return f"第 {position} 名"
+
+        return "未进入 Top 5"
+
+    for comparison in report["case_comparisons"]:
+        case_id = comparison["id"]
+        vector_case = vector_cases[case_id]
+        hybrid_case = hybrid_cases[case_id]
+
+        lines.extend([
+            f"### 用例: {case_id}",
+            f"- 问题: {comparison['query']}",
+            f"- Vector 状态: {comparison['vector_status']}",
+            f"- Hybrid 状态: {comparison['hybrid_status']}",
+            "",
+            "| 指标 | Vector | Hybrid | 差值（Hybrid - Vector） |",
+            "| :--- | ---: | ---: | ---: |",
+        ])
+
+        delta = comparison["delta"]
+        for label, _, delta_key in metrics:
+            delta_text = (
+                f"{delta[delta_key]:+.3f}"
+                if delta is not None
+                else "执行异常，不比较排序差值"
+            )
+            lines.append(
+                f"| {label} | {vector_case[delta_key]:.3f} | "
+                f"{hybrid_case[delta_key]:.3f} | {delta_text} |"
+            )
+
+        if vector_case["status"] == "error":
+            lines.append(f"- Vector 错误: {vector_case.get('error', '未知错误')}")
+        if hybrid_case["status"] == "error":
+            lines.append(f"- Hybrid 错误: {hybrid_case.get('error', '未知错误')}")
+
+        lines.extend([
+            "- 预期目标排名:",
+            "",
+            "| 目标 | Vector | Hybrid |",
+            "| :--- | :--- | :--- |",
+        ])
+        for target in vector_case["expected_targets"]:
+            target_name = f"{target['file_path']} :: {target['symbol_name']}"
+            lines.append(
+                f"| {target_name} | {target_rank(vector_case, target)} | "
+                f"{target_rank(hybrid_case, target)} |"
+            )
+
+        append_retrieval_diagnostics(lines, hybrid_case)
+        lines.append("")
+
+    lines.extend([
+        "## 说明",
+        "",
+        "1. 执行错误在宏平均中按零分计入。",
+        "2. 本报告结果只代表当前数据集。",
+        "3. Hybrid 检索不保证一定优于 Vector 检索。",
+    ])
+
+    return "\n".join(lines) + "\n"
+
 # 读取命令行指定的 JSON 报告并生成同名 Markdown，供人工复盘检索效果。
 def main() -> None:
     parser = argparse.ArgumentParser()
@@ -107,14 +311,16 @@ def main() -> None:
     # 2. 读取 args.report，并通过 json.loads 解析。
     args_json = json.loads(args.report.read_text(encoding="utf-8"))
 
-    # 3. 调用 render_report，得到 Markdown 字符串。
-    markdown_str = render_report(args_json)
+    # 3. 根据报告类型选择渲染函数，得到 Markdown 字符串。
+    if args_json.get("report_type") == "retrieval_comparison":
+        markdown_str = render_comparison_report(args_json)
+    else:
+        markdown_str = render_report(args_json)
 
     # 4. 生成同名 .md 路径。
-    # 提示：args.report.with_suffix(".md")
     path = args.report.with_suffix(".md")
 
-    # 5. 使用 write_text(..., encoding="utf-8") 保存并打印路径。
+    # 5. 保存并打印路径。
     path.write_text(markdown_str, encoding="utf-8")
     print(f"Report: {path}")
 

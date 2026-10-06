@@ -40,3 +40,39 @@ class CodeChunkRead(BaseModel):
 class CodeChunkSearchHit(BaseModel):
     chunk: CodeChunkRead
     distance: float
+
+# 按关键词搜索的响应结构
+class CodeChunkKeywordSearchHit(BaseModel):
+    chunk: CodeChunkRead
+    score: float = Field(ge=0)
+
+
+# 混合检索响应结构
+class CodeChunkHybridSearchHit(BaseModel):
+    chunk: CodeChunkRead
+    rrf_score: float = Field(ge=0)
+
+    vector_rank: int | None = Field(default=None, ge=1)
+    keyword_rank: int | None = Field(default=None, ge=1)
+
+    vector_distance: float | None = None
+    keyword_score: float | None = Field(default=None, ge=0)
+
+
+class HybridSearchDiagnostics(BaseModel):
+    # 本次向量候选中不同代码块 ID 的数量
+    vector_candidate_count: int = Field(ge=0)
+
+    # 本次关键词候选中不同代码块 ID 的数量
+    keyword_candidate_count: int = Field(ge=0)
+
+    # 两路候选 ID 的交集数量
+    overlap_count: int = Field(ge=0)
+
+    # 最终返回结果中，keyword_rank 非空的条目数量
+    final_keyword_hit_count: int = Field(ge=0)
+
+
+class HybridSearchResult(BaseModel):
+    hits: list[CodeChunkHybridSearchHit]
+    diagnostics: HybridSearchDiagnostics

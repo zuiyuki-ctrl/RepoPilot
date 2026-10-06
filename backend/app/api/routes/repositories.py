@@ -7,7 +7,10 @@ from fastapi import APIRouter, HTTPException, Query
 
 from ...schemas.source import SourceRead
 from ...schemas.qa import QuestionResponse, QuestionRequest
-from ...schemas.code_chunk import RepositoryChunkIndexRead, CodeChunkRead, CodeChunkSearchHit
+from ...schemas.code_chunk import (
+    RepositoryChunkIndexRead, CodeChunkRead,
+    CodeChunkSearchHit, CodeChunkKeywordSearchHit, CodeChunkHybridSearchHit
+)
 from ...schemas.repository_file import RepositoryFileRead, RepositoryScanRead, SkippedFileRead
 from ...core.exceptions import (
     InvalidRepositoryInputError,
@@ -407,6 +410,88 @@ def update_repository_test_profile(
             repository_id,
         )
         raise HTTPException(status_code=503, detail="Database unavailable") from exc
+
+    if result is None:
+        raise HTTPException(status_code=404, detail="Repository not found")
+
+    return result
+
+
+@router.get(
+    "/{repository_id}/keyword-search",
+    response_model=list[CodeChunkKeywordSearchHit],
+)
+def keyword_search_repository(
+    repository_id: UUID,
+    query: str = Query(min_length=1, max_length=1000),
+    top_k: int = Query(default=5, ge=1, le=20),
+):
+    # 1. query.strip() 为空时，返回 HTTP 422。
+    #    Query 的 min_length 无法拦截全是空格的字符串。
+    if query.strip() == "":
+        raise HTTPException(status_code=422, detail="Query cannot be blank")
+
+    try:
+        result = retrieval_service.keyword_search(
+            repository_id,
+            query=query,
+            top_k=top_k,
+        )
+    except SQLAlchemyError as exc:
+        logger.exception(
+            "Keyword search unavailable; repository_id=%s",
+            repository_id,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Keyword search unavailable",
+        ) from exc
+
+    # 2. result is None 时，返回 HTTP 404
+    if result is None:
+        raise HTTPException(status_code=404, detail="Repository not found")
+
+    # 3. 返回 result
+    return result
+
+
+@router.get(
+    "/{repository_id}/hybrid-search",
+    response_model=list[CodeChunkHybridSearchHit],
+)
+def hybrid_search_repository(
+    repository_id: UUID,
+    query: str = Query(min_length=1, max_length=1000),
+    top_k: int = Query(default=5, ge=1, le=20),
+):
+    if query.strip() == "":
+        raise HTTPException(status_code=422, detail="Query cannot be blank")
+
+    try:
+        result = retrieval_service.hybrid_search(
+            repository_id,
+            query=query,
+            top_k=top_k,
+        )
+    except httpx.HTTPError as exc:
+        logger.exception(
+            "Hybrid embedding request failed; repository_id=%s",
+            repository_id,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Embedding service unavailable",
+        ) from exc
+    except SQLAlchemyError as exc:
+        logger.exception(
+            "Hybrid database query failed; repository_id=%s",
+            repository_id,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Hybrid search unavailable",
+        ) from exc
+
 
     if result is None:
         raise HTTPException(status_code=404, detail="Repository not found")

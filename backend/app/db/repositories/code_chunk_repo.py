@@ -3,7 +3,7 @@ from uuid import UUID
 from typing import Any
 
 from sqlalchemy.orm import Session
-from sqlalchemy import delete, select, or_
+from sqlalchemy import delete, select, or_, func, literal_column
 
 from ..models.code_chunk import CodeChunk
 
@@ -198,5 +198,77 @@ def search_code_chunks(
 
     for chunk, distance_value in rows:
         result.append((chunk, float(distance_value)))
+
+    return result
+
+
+def search_code_chunks_by_keyword(
+    session: Session,
+    *,
+    repository_id: UUID,
+    query: str,
+    top_k: int = 5,
+) -> list[tuple[CodeChunk, float]]:
+    # 1. query 去掉首尾空白。
+    #    要求长度为 1～1000，且 1 <= top_k <= 20。
+    #    不满足时抛 ValueError。
+    query = query.strip()
+    if not (1 <= top_k <= 20 and 1 <= len(query) <= 1000):
+        raise ValueError("top_k must be between 1 and 20, query must be between 1 and 1000")
+
+    # 固定的数据库配置，不包含用户输入。
+    search_config = literal_column("'simple'::regconfig")
+
+    # 路径、符号名和源码正文共同参与搜索。
+    document = func.concat_ws(
+        " ",
+        CodeChunk.file_path,
+        CodeChunk.symbol_name,
+        CodeChunk.content,
+    )
+
+    # 查询和文档使用同样的分隔符处理规则。
+    normalized_document = func.regexp_replace(
+        document, r"[_./\\]+", " ", "g"
+    )
+    normalized_query = func.regexp_replace(
+        query, r"[_./\\]+", " ", "g"
+    )
+
+    search_vector = func.to_tsvector(
+        search_config, normalized_document
+    )
+    search_query = func.plainto_tsquery(
+        search_config, normalized_query
+    )
+    score = func.ts_rank_cd(
+        search_vector, search_query
+    ).label("score")
+
+    statement = select(CodeChunk, score)
+
+    # 2. @@ 表示全文检索是否匹配。
+    #    不限制 embedding 或 embedding_model：
+    #    没有生成向量的代码块也应当可以被关键词搜索到。
+    statement = statement.where(
+        CodeChunk.repository_id == repository_id,
+        search_vector.op("@@")(search_query)
+    )
+
+
+    # 3. 设置稳定排序，然后 limit(top_k)
+    statement = statement.order_by(
+        score.desc(),
+        CodeChunk.file_path,
+        CodeChunk.start_line,
+        CodeChunk.id
+    ).limit(top_k)
+
+    # 4. session.execute(statement).all()。
+    #    将每一行转换为 (chunk, float(score_value))。
+    #    没有命中返回 []，本函数不提交事务。
+    result = []
+    for chunk, score_value in session.execute(statement).all():
+        result.append((chunk, float(score_value)))
 
     return result
