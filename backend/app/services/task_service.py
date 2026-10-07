@@ -10,6 +10,8 @@ from ..core.exceptions import InvalidTaskInputError, TaskStateConflictError, Tas
 from ..db.repositories.repository_repo import get_repository
 from ..db.session import SessionLocal
 from ..schemas.task import TaskCreate, TaskRead, TaskPlanResult, TaskPlanReviewRequest
+from ..schemas.run_config import AgentRunConfig
+from ..agent.policy import MAX_TOOL_RESULT_CHARS
 from ..db.repositories import task_repo, task_event_repo
 
 import logging
@@ -38,7 +40,8 @@ def create_task(data: TaskCreate) -> TaskRead | None:
             session,
             repository_id=data.repository_id,
             user_request=user_request,
-            task_type=data.task_type
+            task_type=data.task_type,
+            run_config=data.run_config.model_dump(mode="json"),
         )
         # 6. 会话内转换为 TaskRead，保存为 result。
         result = TaskRead.model_validate(task)
@@ -81,6 +84,12 @@ def run_task(task_id: UUID) -> TaskRead | None:
         user_request = task.user_request.strip()
         task_type = task.task_type
 
+        if task.run_config is None:
+            run_config = AgentRunConfig()
+            task.run_config = run_config.model_dump(mode="json")
+        else:
+            run_config = AgentRunConfig.model_validate(task.run_config)
+
         # 4. mark_task_running，退出事务并提交。
         mark_task_running(session, task)
         task_event_repo.append_task_event(
@@ -93,6 +102,9 @@ def run_task(task_id: UUID) -> TaskRead | None:
                 "attempt": 1,
                 "step_id": "task",
                 "started_at": task.started_at.isoformat(),
+                "run_config": run_config.model_dump(mode="json"),
+                "max_tool_result_chars": MAX_TOOL_RESULT_CHARS,
+                "max_retries": task.max_retries,
             }
         )
 
@@ -136,8 +148,8 @@ def run_task(task_id: UUID) -> TaskRead | None:
             result = run_readonly_agent(
                 repository_id,
                 question=user_request,
-                max_tool_calls=4,
-                event_sink=persist_agent_event
+                run_config=run_config,
+                event_sink=persist_agent_event,
             )
 
             if result is None:
@@ -154,8 +166,8 @@ def run_task(task_id: UUID) -> TaskRead | None:
             plan = run_planning_agent(
                 repository_id,
                 user_request=user_request,
-                max_tool_calls=4,
-                event_sink=persist_agent_event
+                run_config=run_config,
+                event_sink=persist_agent_event,
             )
             #     # 2. 返回 None 时抛 TaskExecutionError。
             if plan is None:

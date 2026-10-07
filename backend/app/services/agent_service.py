@@ -4,14 +4,35 @@ from ..agent.context import AgentEventSink, AgentRunContext
 from ..agent.state import ReadonlyAgentState, PlanningAgentState
 from ..agent.graph import READONLY_AGENT_GRAPH, PLANNING_AGENT_GRAPH
 from ..schemas.plan import ChangePlan
+from ..schemas.run_config import AgentRunConfig
 
 from .repository_service import get_repository
 
 from ..agent.policy import (
     AGENT_SYSTEM_PROMPT,
     MAX_TOOL_RESULT_CHARS,
-    PLAN_RESEARCH_SYSTEM_PROMPT
+    PLAN_RESEARCH_SYSTEM_PROMPT,
+    build_run_system_prompt,
 )
+
+
+def _resolve_run_config(
+    *,
+    run_config: AgentRunConfig | None,
+    max_tool_calls: int | None,
+) -> AgentRunConfig:
+    if run_config is None:
+        if max_tool_calls is None:
+            return AgentRunConfig()
+        return AgentRunConfig(max_tool_calls=max_tool_calls)
+
+    if (
+        max_tool_calls is not None
+        and max_tool_calls != run_config.max_tool_calls
+    ):
+        raise ValueError("max_tool_calls conflicts with run_config")
+
+    return run_config
 
 
 
@@ -22,8 +43,9 @@ def run_readonly_agent(
     repository_id: UUID,
     *,
     question: str,
-    max_tool_calls: int = 4,
-    event_sink: AgentEventSink | None = None
+    max_tool_calls: int | None = None,
+    event_sink: AgentEventSink | None = None,
+    run_config: AgentRunConfig | None = None,
 ) -> dict | None:
     # 1. question 去掉首尾空白，要求长度为 1～1000。
     # max_tool_calls 要求为 1～8。
@@ -31,8 +53,10 @@ def run_readonly_agent(
     if not 1 <= len(question) <= 1000:
         raise ValueError("question must be between 1 and 1000 characters")
 
-    if not 1 <= max_tool_calls <= 8:
-        raise ValueError("max_tool_calls must be between 1 and 8")
+    effective_config = _resolve_run_config(
+        run_config=run_config,
+        max_tool_calls=max_tool_calls,
+    )
 
     # 2. 使用 get_repository(repository_id) 检查仓库。
     # 不存在返回 None，避免先花费模型调用。
@@ -42,10 +66,16 @@ def run_readonly_agent(
 
     initial_state: ReadonlyAgentState = {
         "repository_id": repository_id,
-        "max_tool_calls": max_tool_calls,
+        "max_tool_calls": effective_config.max_tool_calls,
 
         "messages": [
-            {"role": "system", "content": AGENT_SYSTEM_PROMPT},
+            {
+                "role": "system",
+                "content": build_run_system_prompt(
+                    AGENT_SYSTEM_PROMPT,
+                    effective_config,
+                ),
+            },
             {"role": "user", "content": question},
         ],
         "tool_trace": [],
@@ -64,7 +94,10 @@ def run_readonly_agent(
         config={
             "recursion_limit": 32
         },
-        context=AgentRunContext(event_sink=event_sink),
+        context=AgentRunContext(
+            event_sink=event_sink,
+            run_config=effective_config,
+        ),
     )
     result = final_state["result"]
 
@@ -80,8 +113,9 @@ def run_planning_agent(
     repository_id: UUID,
     *,
     user_request: str,
-    max_tool_calls: int = 4,
+    max_tool_calls: int | None = None,
     event_sink: AgentEventSink | None = None,
+    run_config: AgentRunConfig | None = None,
 ) -> ChangePlan | None:
     # 1. 清理并校验 user_request。
     #    strip 后长度必须为 1～1000。
@@ -89,9 +123,10 @@ def run_planning_agent(
     if not 1 <= len(normalized_request) <= 1000:
         raise ValueError("user_request must be between 1 and 1000 characters")
 
-    # 2. 校验 max_tool_calls 为 1～8。
-    if not 1 <= max_tool_calls <= 8:
-        raise ValueError("max_tool_calls must be between 1 and 8")
+    effective_config = _resolve_run_config(
+        run_config=run_config,
+        max_tool_calls=max_tool_calls,
+    )
 
     # 3. 调用 get_repository(repository_id)
     repository = get_repository(repository_id)
@@ -101,11 +136,17 @@ def run_planning_agent(
     # 4. 创建 PlanningAgentState。
     initial_state: PlanningAgentState = {
         "repository_id": repository_id,
-        "max_tool_calls": max_tool_calls,
+        "max_tool_calls": effective_config.max_tool_calls,
 
         # 研究阶段仍使用现有只读系统提示。
         "messages": [
-            {"role": "system", "content": PLAN_RESEARCH_SYSTEM_PROMPT },
+            {
+                "role": "system",
+                "content": build_run_system_prompt(
+                    PLAN_RESEARCH_SYSTEM_PROMPT,
+                    effective_config,
+                ),
+            },
             {"role": "user", "content": normalized_request},
         ],
         "tool_trace": [],
@@ -130,7 +171,10 @@ def run_planning_agent(
         config={
             "recursion_limit": 32,
         },
-        context=AgentRunContext(event_sink=event_sink),
+        context=AgentRunContext(
+            event_sink=event_sink,
+            run_config=effective_config,
+        ),
     )
 
     # 6. 取得最终计划。

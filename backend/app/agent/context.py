@@ -1,5 +1,7 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Protocol
+
+from ..schemas.run_config import AgentRunConfig
 
 
 class AgentEventSink(Protocol):
@@ -23,3 +25,4 @@ class AgentRunContext:
     """一次 Graph 运行期间不会变化的外部依赖。"""
 
     event_sink: AgentEventSink | None = None
+    run_config: AgentRunConfig = field(default_factory=AgentRunConfig)

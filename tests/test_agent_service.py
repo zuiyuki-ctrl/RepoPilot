@@ -89,7 +89,12 @@ class ReadonlyAgentTests(unittest.TestCase):
             with self.subTest(strategy=strategy):
                 sink = Mock()
                 self.model.side_effect = [tool_turn("search_code"), answer_turn()]
-                self.tool.return_value = {"strategy": strategy, "hits": [], "diagnostics": None}
+                self.tool.return_value = {
+                    "requested_strategy": strategy,
+                    "strategy": strategy,
+                    "hits": [],
+                    "diagnostics": None,
+                }
                 self.tool.reset_mock()
                 self.run_agent(event_sink=sink, max_tool_calls=1)
                 self.tool.assert_called_once()
@@ -97,6 +102,8 @@ class ReadonlyAgentTests(unittest.TestCase):
                              if event["event_type"] == "TOOL_CALL_COMPLETED"]
                 self.assertEqual(len(completed), 1)
                 self.assertEqual(completed[0]["payload"]["retrieval_strategy"], strategy)
+                self.assertEqual(completed[0]["payload"]["requested_strategy"], strategy)
+                self.assertFalse(completed[0]["payload"]["strategy_overridden"])
                 self.assertEqual(completed[0]["payload"]["hit_count"], 0)
 
     def test_whitespace_source_is_not_evidence(self):

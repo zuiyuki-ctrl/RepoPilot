@@ -14,6 +14,7 @@ def create_task(
     repository_id: UUID,
     user_request: str,
     task_type: str,
+    run_config: dict | None = None,
 ) -> AgentTask:
 
     task = AgentTask(
@@ -21,6 +22,7 @@ def create_task(
         user_request=user_request,
         task_type=task_type,
         status="created",
+        run_config=run_config,
     )
 
     session.add(task)

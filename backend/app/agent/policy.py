@@ -1,3 +1,6 @@
+from ..schemas.run_config import AgentRunConfig
+
+
 # 移动现有系统提示和预算常量。
 
 # 工具预算耗尽时，仍需为每个调用返回完整的错误消息。
@@ -121,3 +124,19 @@ Python 文件路径，不得改变大小写、添加空白或改写路径；inst
 可执行的修复指导，不能只写“修复错误”等笼统描述。
 所有操作的 file_path 不得重复，并遵守 Schema 中的长度和数量限制。
 """
+
+
+def build_run_system_prompt(
+    base_prompt: str,
+    run_config: AgentRunConfig,
+) -> str:
+    if run_config.retrieval_policy == "auto":
+        return base_prompt
+
+    return base_prompt + (
+        "\n本次运行使用固定检索策略："
+        f"{run_config.retrieval_policy}。"
+        "\n上述允许自由选择或切换检索策略的说明不适用于本次运行。"
+        "\n可以调整查询并读取源码，但 search_code "
+        "将由服务端始终按本次固定策略执行。"
+    )

@@ -1,6 +1,6 @@
 import json
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import ANY, Mock, patch
 from uuid import UUID
 
 from backend.app.services import agent_service as agent
@@ -82,6 +82,7 @@ class PlanningAgentTests(unittest.TestCase):
             self.repository_id,
             tool_name="read_source",
             arguments={"file_path": "example.py", "start_line": 1, "end_line": 2},
+            run_config=ANY,
         )
         self.plan_model.assert_called_once()
         request = self.plan_model.call_args

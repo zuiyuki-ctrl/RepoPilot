@@ -102,3 +102,8 @@ class AgentTask(Base):
         default=1,
         server_default="1",
     )
+
+    run_config: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB,
+        nullable=True,
+    )

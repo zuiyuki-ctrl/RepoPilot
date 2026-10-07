@@ -1,5 +1,6 @@
 from uuid import UUID
 
+from ..schemas.run_config import AgentRunConfig
 from ..schemas.tools import SearchCodeArgs, ReadSourceArgs
 from .retrieval_service import semantic_search, keyword_search, hybrid_search_with_diagnostics
 from .source_service import read_repository_source
@@ -12,15 +13,24 @@ def execute_readonly_tool(
     *,
     tool_name: str,
     arguments: dict,
+    run_config: AgentRunConfig | None = None,
 ) -> dict:
+    effective_config = (
+        run_config if run_config is not None else AgentRunConfig()
+    )
+
     if tool_name == "search_code":
         # 1. SearchCodeArgs.model_validate(arguments) 校验参数。
         search_model = SearchCodeArgs.model_validate(arguments)
+        requested_strategy = search_model.strategy
+        effective_strategy = effective_config.resolve_retrieval_strategy(
+            requested_strategy
+        )
 
         diagnostics = None
-        if search_model.strategy == "vector":
+        if effective_strategy == "vector":
             hits = semantic_search(repository_id, query=search_model.query, top_k=search_model.top_k)
-        elif search_model.strategy == "keyword":
+        elif effective_strategy == "keyword":
             hits = keyword_search(repository_id, query=search_model.query, top_k=search_model.top_k)
         else:
             details = hybrid_search_with_diagnostics(
@@ -35,7 +45,8 @@ def execute_readonly_tool(
 
         # 保留各策略原有评分字段，空命中列表是正常结果。
         return {
-            "strategy": search_model.strategy,
+            "requested_strategy": requested_strategy,
+            "strategy": effective_strategy,
             "hits": [hit.model_dump(mode="json") for hit in hits],
             "diagnostics": diagnostics,
         }

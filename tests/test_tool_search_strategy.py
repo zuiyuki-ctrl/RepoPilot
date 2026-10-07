@@ -24,7 +24,8 @@ class ToolSearchStrategyTests(unittest.TestCase):
     def test_old_arguments_default_to_vector(self):
         self.searches["vector"].return_value = []
         self.assertEqual(self.execute(query="哪里校验仓库路径"),
-                         dict(strategy="vector", hits=[], diagnostics=None))
+                         dict(requested_strategy="vector", strategy="vector",
+                              hits=[], diagnostics=None))
         self.searches["vector"].assert_called_once_with(self.repository_id, query="哪里校验仓库路径", top_k=5)
         self.searches["keyword"].assert_not_called()
         self.searches["hybrid"].assert_not_called()
@@ -43,7 +44,8 @@ class ToolSearchStrategyTests(unittest.TestCase):
                 self.searches[strategy].return_value = (
                     SimpleNamespace(hits=[hit], diagnostics=diagnostics) if strategy == "hybrid" else [hit])
                 result = self.execute(query="validate_source_path", strategy=strategy, top_k=3)
-                self.assertEqual(result, dict(strategy=strategy, hits=[serialized],
+                self.assertEqual(result, dict(requested_strategy=strategy,
+                    strategy=strategy, hits=[serialized],
                     diagnostics={"overlap_count": 1} if strategy == "hybrid" else None))
                 hit.model_dump.assert_called_once_with(mode="json")
                 if strategy == "hybrid":

@@ -5,6 +5,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, ConfigDict, Field
 
 from .plan import ChangePlan
+from .run_config import AgentRunConfig
 from ..schemas.agent import AgentQuestionResponse
 
 
@@ -14,6 +15,7 @@ class TaskCreate(BaseModel):
     repository_id: UUID
     user_request: str = Field(min_length=1, max_length=1000)
     task_type: Literal["question", "plan"] = Field(default="question")
+    run_config: AgentRunConfig = Field(default_factory=AgentRunConfig)
 
 class TaskPlanResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -41,6 +43,7 @@ class TaskRead(BaseModel):
 
     retry_count: int = Field(default=0, ge=0)
     max_retries: int = Field(default=1, ge=0, le=3)
+    run_config: AgentRunConfig | None = None
 
 
 # 用户的审核决定

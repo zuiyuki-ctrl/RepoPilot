@@ -300,6 +300,7 @@ def tools_node(
                     state["repository_id"],
                     tool_name=function_name,
                     arguments=args,
+                    run_config=runtime.context.run_config,
                 )
 
             except RepositoryScanError as exc:
@@ -352,6 +353,10 @@ def tools_node(
                 search_metadata = {}
                 if function_name == "search_code":
                     search_metadata["retrieval_strategy"] = result["strategy"]
+                    search_metadata["requested_strategy"] = result["requested_strategy"]
+                    search_metadata["strategy_overridden"] = (
+                        result["strategy"] != result["requested_strategy"]
+                    )
                     search_metadata["hit_count"] = len(result["hits"])
                 emit_agent_event(
                     runtime,
