@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "case_id": "statistics",
+  "case_version": "v1",
+  "task_type": "feature",
+  "user_request": "为 summarize_tasks 增加可选的关键字参数 status，默认值为 None。不指定时保持现有行为；指定时只统计状态相等的任务。返回结构仍为 count 和 total_duration，其中 total_duration 是纳入统计的任务 duration 之和。没有匹配项时返回零计数和零总时长。不修改输入列表或记录，保留现有字段访问的异常行为。只修改 statistics.py，不修改固定验收测试。",
+  "repository_commit": "2890105ac01d778cb853c033ad34d839f5f8dfd7",
+  "editable_files": ["statistics.py"],
+  "protected_test_files": ["tests/test_statistics.py"],
+  "test_profile": "python-basic"
+}

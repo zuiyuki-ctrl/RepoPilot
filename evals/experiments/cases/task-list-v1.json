@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "case_id": "task-list",
+  "case_version": "v1",
+  "task_type": "bug_fix",
+  "user_request": "list_tasks 同时使用状态筛选和分页时，部分结果数量及偏移不符合预期。请定位并修复，保持原顺序、不修改输入列表；非法分页参数仍抛 ValueError。只修改 task_list.py，不修改固定验收测试。",
+  "repository_commit": "4629a3a98cb62c989ed4e1e67be9514703b3d346",
+  "editable_files": ["task_list.py"],
+  "protected_test_files": ["tests/test_task_list.py"],
+  "test_profile": "python-basic"
+}

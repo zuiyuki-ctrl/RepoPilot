@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "case_id": "deduplicate",
+  "case_version": "v1",
+  "task_type": "bug_fix",
+  "user_request": "deduplicate_by_key 按指定字段去重时，没有保留第一次出现的记录。请定位并修复：相同键值只保留首次出现的完整记录，结果按这些记录在输入中的先后顺序排列，不修改输入列表或记录。空列表返回空列表；记录缺少指定字段时仍抛 KeyError。只修改 deduplicate.py，不修改固定验收测试。",
+  "repository_commit": "38093c2aca961bcaebbffcd864fc1859844829fd",
+  "editable_files": ["deduplicate.py"],
+  "protected_test_files": ["tests/test_deduplicate.py"],
+  "test_profile": "python-basic"
+}
