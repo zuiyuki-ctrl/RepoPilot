@@ -6,7 +6,16 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .run_config import AgentRunConfig
 from .task import TaskRead
+from .edit import TaskFileEditRead
 
+
+class ExperimentEditCandidate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal[1] = 1
+    experiment_id: UUID
+    created_at: datetime
+    candidate: TaskFileEditRead
 
 # 固定实验用例的文件格式；task_type 是实验分类，不是业务 TaskCreate 的任务类型。
 class ExperimentCase(BaseModel):
