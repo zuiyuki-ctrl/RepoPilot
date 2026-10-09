@@ -67,6 +67,9 @@ class ExperimentPreparation(BaseModel):
     workspace_path: str | None = None
     task_id: UUID | None = None
     protected_test_file_hashes: dict[str, str]
+    # 准备时源仓库的原始 hash；执行保护使用上方工作副本的原始 hash。
+    # 旧记录可能没有该字段，不根据当前文件补造历史值。
+    source_protected_test_file_hashes: dict[str, str] = Field(default_factory=dict)
     error_type: str | None = None
 
 

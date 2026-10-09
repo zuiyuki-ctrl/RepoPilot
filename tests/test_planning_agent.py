@@ -104,6 +104,8 @@ class PlanningAgentTests(unittest.TestCase):
             "MODEL_CALL_STARTED", "MODEL_CALL_COMPLETED", "PLAN_CREATED",
         ])
         started, completed, created = [event["payload"] for event in events]
+        from backend.app.agent.retrieval_trace import model_tool_context
+        self.assertEqual(started["tool_context"], model_tool_context(messages))
         self.assertEqual(str(UUID(started["call_id"])), started["call_id"])
         for payload in (completed, created):
             self.assertEqual(payload["call_id"], started["call_id"])

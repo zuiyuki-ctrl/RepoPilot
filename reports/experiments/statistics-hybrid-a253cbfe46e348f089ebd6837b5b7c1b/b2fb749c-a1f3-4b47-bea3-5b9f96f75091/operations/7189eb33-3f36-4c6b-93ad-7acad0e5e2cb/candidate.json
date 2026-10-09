@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "experiment_id": "b2fb749c-a1f3-4b47-bea3-5b9f96f75091",
+  "created_at": "2026-10-09T03:37:01.887901Z",
+  "candidate": {
+    "task_id": "67540362-f4aa-4d68-b034-d6d640964a27",
+    "repository_id": "caafaee0-3662-45da-80db-112a1881a8c1",
+    "base_file_hash": "96fb804cd72ad01c2b153d6c3f40577687833269e2428070a9088025cff3149d",
+    "proposal": {
+      "file_path": "statistics.py",
+      "summary": "为 summarize_tasks 新增可选关键字参数 status（默认 None）。status 为 None 时保持原有全量聚合逻辑；指定时按 task['status'] 相等筛选后再统计 count 与 total_duration，不修改输入列表或记录。",
+      "content": "def summarize_tasks(tasks: list[dict], status: str | None = None) -> dict:\n    if status is None:\n        selected_tasks = tasks\n    else:\n        selected_tasks = [task for task in tasks if task[\"status\"] == status]\n    return {\n        \"count\": len(selected_tasks),\n        \"total_duration\": sum(task[\"duration\"] for task in selected_tasks),\n    }\n"
+    }
+  }
+}

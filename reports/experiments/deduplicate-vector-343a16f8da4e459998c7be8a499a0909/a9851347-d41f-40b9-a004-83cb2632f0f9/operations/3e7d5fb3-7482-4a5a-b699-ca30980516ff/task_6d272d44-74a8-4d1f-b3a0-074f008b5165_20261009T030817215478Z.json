@@ -1,0 +1,85 @@
+{
+  "task": {
+    "id": "6d272d44-74a8-4d1f-b3a0-074f008b5165",
+    "repository_id": "dcfdceeb-ef84-41df-b66a-3402985af94d",
+    "user_request": "deduplicate_by_key 按指定字段去重时，没有保留第一次出现的记录。请定位并修复：相同键值只保留首次出现的完整记录，结果按这些记录在输入中的先后顺序排列，不修改输入列表或记录。空列表返回空列表；记录缺少指定字段时仍抛 KeyError。只修改 deduplicate.py，不修改固定验收测试。",
+    "task_type": "plan",
+    "status": "completed",
+    "created_at": "2026-10-09T02:52:52.123496Z",
+    "started_at": "2026-10-09T02:52:53.306936Z",
+    "completed_at": "2026-10-09T03:08:06.657275Z",
+    "result": {
+      "repository_id": "dcfdceeb-ef84-41df-b66a-3402985af94d",
+      "plan": {
+        "summary": "deduplicate_by_key 在 deduplicate.py 第 1–5 行使用 by_key[record[key]] = record 无条件覆盖，导致重复键保留最后一条记录，与需求（保留首次出现）冲突。修复为仅当键首次出现时写入，从而保留首次出现的完整记录并保持输入先后顺序；只读取记录不修改输入；空列表自然返回空列表；缺少字段时 record[key] 仍抛 KeyError。仅修改 deduplicate.py。",
+        "steps": [
+          {
+            "id": 1,
+            "description": "在 deduplicate.py 中重写 deduplicate_by_key 的去重循环：对每条记录先读取 record[key]（保持缺少指定字段时抛 KeyError 的行为），仅当该键尚未出现过时才写入结果映射（如使用 if record[key] not in by_key 守卫，或用 setdefault 不覆盖已有值），从而相同键值只保留首次出现的完整记录，并因插入顺序而保持这些记录在输入中的先后顺序。保持不修改输入列表或记录（只做读取与新建集合）。",
+            "files": [
+              "deduplicate.py"
+            ],
+            "source_ids": [
+              "S16"
+            ],
+            "verification": "deduplicate.py 中 deduplicate_by_key 不再无条件覆盖同键值：读代码可见写入受“键未出现过”条件保护；运行固定验收测试时 test_custom_key_keeps_first_record 与 test_keeps_first_complete_record 断言相同键返回首条记录（含其全部字段）通过，test_distinct_records_keep_input_order 断言无重复时输出顺序与输入一致通过。"
+          },
+          {
+            "id": 2,
+            "description": "核对去重实现的边界行为与输入不可变性：空列表经循环后返回空列表；对缺少指定字段的记录，record[key] 的读取仍触发 KeyError 而不被吞掉；全程不修改传入的列表或字典记录（不调用 pop/del/赋值到记录，不改动列表本身）。",
+            "files": [
+              "deduplicate.py"
+            ],
+            "source_ids": [
+              "S5",
+              "S6",
+              "S4"
+            ],
+            "verification": "运行固定验收测试时 test_empty_list 断言空列表返回 [] 通过，test_missing_key_raises 断言记录缺少指定字段时抛 KeyError 通过，test_input_is_not_modified 断言调用后输入列表与原始深拷贝相等通过。"
+          }
+        ]
+      }
+    },
+    "error": null,
+    "review_decision": "approved",
+    "review_comment": "已检查计划与证据，批准在声明范围内执行，不修改固定验收测试。",
+    "reviewed_at": "2026-10-09T03:01:15.690782Z",
+    "retry_count": 0,
+    "max_retries": 1,
+    "run_config": {
+      "schema_version": 1,
+      "retrieval_policy": "vector",
+      "max_tool_calls": 4
+    }
+  },
+  "completion_event_sequence": 33,
+  "test_run": {
+    "id": "7bba202b-cc52-4eda-a580-f2745c228982",
+    "task_id": "6d272d44-74a8-4d1f-b3a0-074f008b5165",
+    "status": "finished",
+    "image": "repopilot-pytest:py311",
+    "timeout_seconds": 120,
+    "started_at": "2026-10-09T03:06:45.900345Z",
+    "completed_at": "2026-10-09T03:06:47.516556Z",
+    "exit_code": 0,
+    "timed_out": false,
+    "stdout": "......                                                                   [100%]\n6 passed in 0.09s\n",
+    "stderr": "",
+    "stdout_truncated": false,
+    "stderr_truncated": false,
+    "error": null,
+    "snapshot_hash": "3e21b655464ae48529c86c0e705acbda566af96c7909f69efdd175149e1048ce"
+  },
+  "final_diff": {
+    "task_id": "6d272d44-74a8-4d1f-b3a0-074f008b5165",
+    "repository_id": "dcfdceeb-ef84-41df-b66a-3402985af94d",
+    "diff": "diff --git a/deduplicate.py b/deduplicate.py\nindex d6beb80..ab287ca 100644\n--- a/deduplicate.py\n+++ b/deduplicate.py\n@@ -1,5 +1,7 @@\n def deduplicate_by_key(records: list[dict], *, key: str) -> list[dict]:\n     by_key = {}\n     for record in records:\n-        by_key[record[key]] = record\n+        record_key = record[key]\n+        if record_key not in by_key:\n+            by_key[record_key] = record\n     return list(by_key.values())\n",
+    "changed_files": [
+      "deduplicate.py"
+    ],
+    "untracked_files": [],
+    "truncated": false
+  },
+  "failure": null,
+  "diff_scope": "workspace_against_head"
+}

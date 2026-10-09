@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "experiment_id": "d3c43986-e97b-42ca-a631-f599ee76bd4f",
+  "created_at": "2026-10-08T12:00:28.550292Z",
+  "case": {
+    "schema_version": 1,
+    "case_id": "task-list",
+    "case_version": "v1",
+    "task_type": "bug_fix",
+    "user_request": "list_tasks 同时使用状态筛选和分页时，部分结果数量及偏移不符合预期。请定位并修复，保持原顺序、不修改输入列表；非法分页参数仍抛 ValueError。只修改 task_list.py，不修改固定验收测试。",
+    "repository_commit": "4629a3a98cb62c989ed4e1e67be9514703b3d346",
+    "editable_files": [
+      "task_list.py"
+    ],
+    "protected_test_files": [
+      "tests/test_task_list.py"
+    ],
+    "test_profile": "python-basic"
+  },
+  "run_config": {
+    "schema_version": 1,
+    "retrieval_policy": "vector",
+    "max_tool_calls": 4
+  },
+  "status": "error",
+  "stage": "inspect_workspace",
+  "repository_id": "d95dcade-448f-4c64-8d9c-9411773a932f",
+  "workspace_path": "D:\\RepoPilot-workspaces\\bcd0616cd2104a189e3bbed7d2a0d868",
+  "task_id": null,
+  "protected_test_file_hashes": {
+    "tests/test_task_list.py": "85b9659858ae990a2399a3277b611c8963f1b6f78784bce6368ac52566e1a2c4"
+  },
+  "error_type": "ValueError"
+}

@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "experiment_id": "6ce17de7-ad33-4232-bac6-5c1d673d326d",
+  "created_at": "2026-10-09T03:10:30.234834Z",
+  "case": {
+    "schema_version": 1,
+    "case_id": "deduplicate",
+    "case_version": "v1",
+    "task_type": "bug_fix",
+    "user_request": "deduplicate_by_key 按指定字段去重时，没有保留第一次出现的记录。请定位并修复：相同键值只保留首次出现的完整记录，结果按这些记录在输入中的先后顺序排列，不修改输入列表或记录。空列表返回空列表；记录缺少指定字段时仍抛 KeyError。只修改 deduplicate.py，不修改固定验收测试。",
+    "repository_commit": "38093c2aca961bcaebbffcd864fc1859844829fd",
+    "editable_files": [
+      "deduplicate.py"
+    ],
+    "protected_test_files": [
+      "tests/test_deduplicate.py"
+    ],
+    "test_profile": "python-basic"
+  },
+  "run_config": {
+    "schema_version": 1,
+    "retrieval_policy": "hybrid",
+    "max_tool_calls": 4
+  },
+  "status": "prepared",
+  "stage": "create_task",
+  "repository_id": "45e1d17d-bab1-44ef-b053-b268f67c27f9",
+  "workspace_path": "D:\\RepoPilot-workspaces\\1501d4db66db474ea1f22e310f1ba735",
+  "task_id": "a2574e05-f9a8-4257-94b9-c6d4153d4f61",
+  "protected_test_file_hashes": {
+    "tests/test_deduplicate.py": "cbc9724b0faa9ccb8bae8dcc562f7b40b2728cbc3eeb6a2e9c68f3d1de5cafdb"
+  },
+  "source_protected_test_file_hashes": {
+    "tests/test_deduplicate.py": "7f21b03ba3a2973769e587d50294a05cc693c383ea81c9fedd4660d36ef52d62"
+  },
+  "error_type": null
+}

@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "experiment_id": "1d1733ce-fa0c-4590-a548-3eb118acd784",
+  "task_id": "1e9054f1-4ac4-4889-a587-81160e5fc4fb",
+  "inspected_at": "2026-10-08T16:00:50.174075Z",
+  "task_status": "approved",
+  "scope_status": "valid",
+  "outside_scope_files": [],
+  "task": {
+    "id": "1e9054f1-4ac4-4889-a587-81160e5fc4fb",
+    "repository_id": "3e42f873-e95b-4881-a3d2-ad36b4d396d2",
+    "user_request": "list_tasks 同时使用状态筛选和分页时，部分结果数量及偏移不符合预期。请定位并修复，保持原顺序、不修改输入列表；非法分页参数仍抛 ValueError。只修改 task_list.py，不修改固定验收测试。",
+    "task_type": "plan",
+    "status": "approved",
+    "created_at": "2026-10-08T15:54:20.249203Z",
+    "started_at": "2026-10-08T15:54:43.437852Z",
+    "completed_at": null,
+    "result": {
+      "repository_id": "3e42f873-e95b-4881-a3d2-ad36b4d396d2",
+      "plan": {
+        "summary": "list_tasks 当前先在原始列表上做 offset/limit 切片，再对切片结果按 status 过滤，导致状态筛选与分页组合时结果数量与偏移不符合预期。改为先按 status 过滤生成新列表（保持原顺序、不修改输入），再对过滤结果切片分页，同时保留原有的 limit<1 或 offset<0 抛 ValueError 校验。仅修改 task_list.py，固定验收测试保持不变。",
+        "steps": [
+          {
+            "id": 1,
+            "description": "在 task_list.py 的 list_tasks 中调整筛选与分页顺序：保留函数签名与第 9-10 行对 limit<1 或 offset<0 抛 ValueError 的校验；先基于 tasks 用列表推导按 status 过滤（status 为 None 时不改变顺序，直接使用原序列），得到新的候选列表，再对该候选列表执行 tasks_filtered[offset:offset + limit] 切片返回。整个实现不得对输入 tasks 做任何原地修改（不调用 sort、append、pop、切片赋值等）。",
+            "files": [
+              "task_list.py"
+            ],
+            "source_ids": [
+              "S1",
+              "S3",
+              "S5"
+            ],
+            "verification": "以 tests/test_task_list.py 中的 tasks 夹具为输入，list_tasks(tasks, status='completed', limit=2, offset=0) 返回的 id 依次为 [2, 4]；status='completed', limit=2, offset=1 返回 [4, 5]；status=None, limit=2, offset=1 返回 [2, 3]；status='running', limit=2, offset=0 返回 []；status='completed', limit=2, offset=10 返回 []。"
+          },
+          {
+            "id": 2,
+            "description": "确认筛选与分页不修改输入列表且非法分页参数行为不变：list_tasks 内部只通过列表推导和切片生成新列表返回，tasks 本身在调用前后完全相等；limit=0 或 offset=-1 时仍然在进入筛选/分页前抛出 ValueError。",
+            "files": [
+              "task_list.py"
+            ],
+            "source_ids": [
+              "S2",
+              "S4",
+              "S1"
+            ],
+            "verification": "对夹具列表的深拷贝做比较，调用 list_tasks(tasks, status='completed', limit=2, offset=0) 后 tasks 与调用前完全相等；调用 list_tasks(tasks, limit=0, offset=0) 与 list_tasks(tasks, limit=2, offset=-1) 均抛出 ValueError。"
+          }
+        ]
+      }
+    },
+    "error": null,
+    "review_decision": "approved",
+    "review_comment": "计划仅修改 task_list.py，先筛选后分页，保留输入不变及参数校验，不修改测试。",
+    "reviewed_at": "2026-10-08T16:00:50.161053Z",
+    "retry_count": 0,
+    "max_retries": 1,
+    "run_config": {
+      "schema_version": 1,
+      "retrieval_policy": "hybrid",
+      "max_tool_calls": 4
+    }
+  }
+}

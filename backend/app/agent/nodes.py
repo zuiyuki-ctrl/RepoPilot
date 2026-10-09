@@ -9,10 +9,11 @@ from langgraph.runtime import Runtime
 from ..core import config
 from .context import AgentRunContext
 from .evidence import finish_answer, prepare_evidence
+from .retrieval_trace import retrieval_summary, context_summary, model_tool_context, text_hash, TRACE_VERSION
 from ..agent.state import ReadonlyAgentState, PlanningAgentState
 from ..core.exceptions import RepositoryScanError, FileSkippedError, InsufficientPlanEvidenceError
 from ..rag.generation import request_tool_turn
-from .policy import BUDGET_ERROR, MAX_TOOL_ERROR_CHARS
+from .policy import BUDGET_ERROR, MAX_TOOL_ERROR_CHARS, PLAN_SYSTEM_PROMPT
 from ..services.tool_service import execute_readonly_tool
 
 from .plan_generation import generate_change_plan
@@ -88,6 +89,9 @@ def model_node(
             "attempt": attempt,
             "allow_tools": allow_tools,
             "model": config.CHAT_MODEL,
+            "trace_version": TRACE_VERSION,
+            "tool_context": model_tool_context(state["messages"]),
+            "system_prompt_sha256": [text_hash(m["content"]) for m in state["messages"] if m.get("role") == "system"],
         },
     )
 
@@ -251,8 +255,12 @@ def tools_node(
             "attempt": attempt,
         }
 
+        disposition = "accepted"
+        attempted = False
+
         # 第一阶段：决定是否真正执行工具
         if used_calls >= state["max_tool_calls"] or output_exhausted:
+            disposition = "skipped"
             # 跳过是预算决策，不是一次实际执行，不能发出 TOOL_CALL_STARTED/FAILED。
             emit_agent_event(
                 runtime,
@@ -271,6 +279,7 @@ def tools_node(
             )
             result = dict(BUDGET_ERROR)
         else:
+            attempted = True
             # 一旦开始处理这次调用，即使参数错误，也要消耗调用次数
             used_calls += 1
 
@@ -369,8 +378,17 @@ def tools_node(
                         **search_metadata,
                     }
                 )
+                if function_name == "search_code":
+                    emit_agent_event(
+                        runtime,
+                        event_type="RETRIEVAL_COMPLETED",
+                        node_name="tools",
+                        message="Retrieval results returned before context budget check",
+                        payload={**base_payload, **retrieval_summary(state["repository_id"], args, result)},
+                    )
 
             else:
+                disposition = "tool_error"
                 emit_agent_event(
                     runtime,
                     event_type="TOOL_CALL_FAILED",
@@ -392,12 +410,15 @@ def tools_node(
         )
 
         result_text = json.dumps(result, ensure_ascii=False)
+        prepared_result_chars = len(result_text)
+        remaining_chars_before = remaining_chars
 
         # 第三阶段：检查字符预算
         calls_after_current = len(tool_calls) - call_index - 1
         reserved_chars = calls_after_current * budget_error_size
 
         if len(result_text) > remaining_chars - reserved_chars:
+            disposition = "discarded"
 
             emit_agent_event(
                 runtime,
@@ -408,7 +429,7 @@ def tools_node(
                     **base_payload,
                     "action": "discard_result",
                     "reason": "tool_result_chars",
-                    "attempted": True,
+                    "attempted": attempted,
                     "result_chars": len(result_text),
                     "remaining_chars": remaining_chars,
                     "reserved_chars": reserved_chars,
@@ -430,7 +451,7 @@ def tools_node(
 
         remaining_chars -= len(result_text)
 
-        # 只有实际发给模型的证据才能进入 sources
+        # 只有通过预算、加入待提交工具消息的证据才能进入 sources。
         sources.extend(pending_sources)
 
         # 第四阶段：添加协议要求的 tool 消息
@@ -442,7 +463,27 @@ def tools_node(
             }
         )
 
-        # 第五阶段：记录实际发送给模型的结果
+        # 这里只能证明结果已加入节点消息；下一次 MODEL_CALL_STARTED 的 hash 清单
+        # 才能说明该调用尝试包含了它。若事件落库失败则传播异常，不继续模型调用。
+        emit_agent_event(
+            runtime,
+            event_type="TOOL_CONTEXT_PREPARED",
+            node_name="tools",
+            message="Budgeted tool message prepared for a subsequent model call",
+            payload={
+                **base_payload,
+                **context_summary(function_name, result, result_text),
+                "tool_message_index": sum(m.get("role") == "tool" for m in messages) - 1,
+                "disposition": disposition,
+                "attempted": attempted,
+                "prepared_result_chars": prepared_result_chars,
+                "remaining_chars_before": remaining_chars_before,
+                "reserved_chars": reserved_chars,
+                "remaining_chars_after": remaining_chars,
+            },
+        )
+
+        # 第五阶段：记录已准备的工具消息结果；后续模型调用事件标识提交尝试。
         tool_trace.append(
             {
                 "tool_call_id": call["id"],
@@ -510,7 +551,11 @@ def plan_node(
         payload={
             **base_payload,
             "model": config.CHAT_MODEL,
-            "allow_tools": False
+            "allow_tools": False,
+            "trace_version": TRACE_VERSION,
+            # generate_change_plan 保留全部 tool 消息，仅替换 system 并追加用户指令。
+            "tool_context": model_tool_context(state["messages"]),
+            "system_prompt_sha256": [text_hash(PLAN_SYSTEM_PROMPT)],
         },
     )
 

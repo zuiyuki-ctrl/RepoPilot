@@ -1,0 +1,55 @@
+{
+  "experiment_id": "6ce17de7-ad33-4232-bac6-5c1d673d326d",
+  "task_id": "a2574e05-f9a8-4257-94b9-c6d4153d4f61",
+  "operation_id": "eae856bc-4be8-4796-bbaa-f58ce3112b2d",
+  "test_run_id": "ef9d2f9c-a41b-4e78-92e4-6a526c8c668a",
+  "result": {
+    "id": "a2574e05-f9a8-4257-94b9-c6d4153d4f61",
+    "repository_id": "45e1d17d-bab1-44ef-b053-b268f67c27f9",
+    "user_request": "deduplicate_by_key 按指定字段去重时，没有保留第一次出现的记录。请定位并修复：相同键值只保留首次出现的完整记录，结果按这些记录在输入中的先后顺序排列，不修改输入列表或记录。空列表返回空列表；记录缺少指定字段时仍抛 KeyError。只修改 deduplicate.py，不修改固定验收测试。",
+    "task_type": "plan",
+    "status": "completed",
+    "created_at": "2026-10-09T03:10:38.180355Z",
+    "started_at": "2026-10-09T03:10:39.279747Z",
+    "completed_at": "2026-10-09T03:20:11.216757Z",
+    "result": {
+      "repository_id": "45e1d17d-bab1-44ef-b053-b268f67c27f9",
+      "plan": {
+        "summary": "deduplicate.py 中的 deduplicate_by_key 使用 by_key[record[key]] = record 无条件赋值，导致相同键值时后出现的记录覆盖先出现的记录，保留的是最后一条而非第一条。修复方式：遍历时仅在该键尚未出现过时写入字典，从而保留首次出现的完整记录；因 dict 保持插入顺序，list(by_key.values()) 的输出顺序即为这些记录在输入中的先后顺序。继续使用 record[key] 下标访问，确保缺少指定字段时仍抛 KeyError；过程中只读取输入，不修改输入列表或记录。仅修改 deduplicate.py，不修改 tests/test_deduplicate.py。",
+        "steps": [
+          {
+            "id": 1,
+            "description": "修改 deduplicate.py 中的 deduplicate_by_key：在将记录写入 by_key 前先判断该键是否已存在，仅当 record[key] 不在 by_key 中时才赋值，使相同键值只保留首次出现的完整记录；保持 record[key] 下标访问以维持缺字段抛 KeyError 的语义，并保持 dict 插入顺序驱动的输出顺序，全程不修改输入列表或记录。",
+            "files": [
+              "deduplicate.py"
+            ],
+            "source_ids": [
+              "S4",
+              "S8",
+              "S11",
+              "S1",
+              "S3",
+              "S10",
+              "S7",
+              "S2",
+              "S5",
+              "S9"
+            ],
+            "verification": "运行测试文件 tests/test_deduplicate.py：test_keeps_first_complete_record 通过，键为 2 的重复记录保留首次出现且带 extra 字段的完整记录，结果顺序为键 2、键 1；test_custom_key_keeps_first_record 通过，保留 code 为 a 的首条记录（value 为 1）；test_distinct_records_keep_input_order 通过，结果与输入顺序一致；test_empty_list 通过返回空列表；test_missing_key_raises 通过抛 KeyError；test_input_is_not_modified 通过，调用后输入列表与 deepcopy 结果相等。所有原有测试均保持通过且未修改测试文件。"
+          }
+        ]
+      }
+    },
+    "error": null,
+    "review_decision": "approved",
+    "review_comment": "已检查计划与证据，批准在声明范围内执行，不修改固定验收测试。",
+    "reviewed_at": "2026-10-09T03:15:44.793167Z",
+    "retry_count": 0,
+    "max_retries": 1,
+    "run_config": {
+      "schema_version": 1,
+      "retrieval_policy": "hybrid",
+      "max_tool_calls": 4
+    }
+  }
+}

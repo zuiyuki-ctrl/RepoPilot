@@ -12,10 +12,13 @@ from backend.app.core.exceptions import (
     WorkspaceFileConflictError, InvalidWorkspacePathError, RepositoryScanError,
 )
 from backend.app.schemas.edit import TaskFileEditRead, FileEditProposal
-from backend.app.schemas.experiment import ExperimentCase, ExperimentPreparation
+from backend.app.schemas.experiment import ExperimentCase, ExperimentPreparation, ExperimentEditCandidate
 from backend.app.schemas.run_config import AgentRunConfig
 from backend.app.schemas.task import TaskRead, TaskPlanResult
+from backend.app.schemas.testing import TestRunRead
+from backend.app.schemas.task_report import TaskExecutionReport
 from backend.app.services import experiment_execution_service as service
+from backend.app.services.workspace_edit_service import WorkspaceWriteResult
 
 
 class ExperimentExecutionTests(unittest.TestCase):
@@ -58,6 +61,156 @@ class ExperimentExecutionTests(unittest.TestCase):
 
     def generate_edit(self):
         return service.generate_experiment_file_edit(self.preparation, file_path="task_list.py")
+
+    def make_artifact(self):
+        return ExperimentEditCandidate(
+            experiment_id=self.preparation.experiment_id,
+            created_at=datetime.now(timezone.utc),
+            candidate=self.candidate.model_copy(deep=True),
+        )
+
+    def make_test_run(self):
+        return TestRunRead(
+            id=uuid4(), task_id=self.task.id, status="finished",
+            image="test-image", timeout_seconds=120,
+            started_at=datetime.now(timezone.utc), completed_at=datetime.now(timezone.utc),
+            exit_code=1, timed_out=False, stdout="1 failed", stderr="",
+            stdout_truncated=False, stderr_truncated=False, error=None, snapshot_hash="c" * 64,
+        )
+
+    def test_apply_rejects_each_wrong_association_before_write(self):
+        self.task.status = "executing"
+        with patch.object(service.plan_execution_service, "apply_task_file_edit") as write:
+            for field in ("experiment_id", "task_id", "repository_id"):
+                artifact = self.make_artifact()
+                if field == "experiment_id":
+                    artifact.experiment_id = uuid4()
+                else:
+                    setattr(artifact.candidate, field, uuid4())
+                with self.subTest(field=field), self.assertRaises(TaskExecutionError):
+                    service.apply_experiment_file_edit(self.preparation, artifact=artifact)
+            write.assert_not_called()
+        self.get_task.assert_not_called()
+
+    def test_apply_preserves_hash_and_never_retries_conflict(self):
+        self.task.status = "executing"
+        artifact = self.make_artifact()
+        result = WorkspaceWriteResult(file_path="task_list.py", created=False, bytes_written=10)
+        with patch.object(service.plan_execution_service, "apply_task_file_edit", return_value=result) as write:
+            self.assertIs(service.apply_experiment_file_edit(self.preparation, artifact=artifact), result)
+            write.assert_called_once_with(self.task.id, base_file_hash=artifact.candidate.base_file_hash,
+                                          proposal=artifact.candidate.proposal)
+            write.reset_mock()
+            conflict = WorkspaceFileConflictError("stale hash")
+            write.side_effect = conflict
+            with self.assertRaises(WorkspaceFileConflictError) as raised:
+                service.apply_experiment_file_edit(self.preparation, artifact=artifact)
+            self.assertIs(raised.exception, conflict)
+            write.assert_called_once()
+
+    def test_execution_operations_reject_unstarted_task_and_changed_tests(self):
+        artifact = self.make_artifact()
+        operations = (
+            lambda: service.apply_experiment_file_edit(self.preparation, artifact=artifact),
+            lambda: service.run_experiment_tests(self.preparation),
+            lambda: service.complete_experiment(self.preparation, test_run_id=uuid4()),
+        )
+        with patch.object(service.plan_execution_service, "apply_task_file_edit") as write, \
+                patch.object(service.task_test_service, "run_task_pytest") as run, \
+                patch.object(service.task_completion_service, "complete_plan_task") as complete:
+            for operation in operations:
+                with self.assertRaises(TaskStateConflictError):
+                    operation()
+            self.task.status = "executing"
+            self.test_path.write_bytes(b"changed test\n")
+            for operation in operations:
+                with self.assertRaises(WorkspaceFileConflictError):
+                    operation()
+            for dependency in (write, run, complete, self.begin):
+                dependency.assert_not_called()
+
+    def test_tests_return_failed_run_and_query_exact_execution_id(self):
+        self.task.status = "executing"
+        run = self.make_test_run()
+        with patch.object(service.task_test_service, "run_task_pytest",
+                          return_value=SimpleNamespace(test_run_id=run.id)) as execute, \
+                patch.object(service.test_run_service, "get_task_test_run", return_value=run) as get_run:
+            self.assertIs(service.run_experiment_tests(self.preparation), run)
+            execute.assert_called_once_with(self.task.id)
+            get_run.assert_called_once_with(self.task.id, run.id)
+
+    def test_tests_reject_wrong_or_missing_execution_record(self):
+        self.task.status = "executing"
+        run = self.make_test_run()
+        with patch.object(service.task_test_service, "run_task_pytest",
+                          return_value=SimpleNamespace(test_run_id=run.id)) as execute, \
+                patch.object(service.test_run_service, "get_task_test_run") as get_run:
+            for record in (None, run.model_copy(update={"id": uuid4()}),
+                           run.model_copy(update={"task_id": uuid4()}),
+                           run.model_copy(update={"status": "running"})):
+                get_run.return_value = record
+                with self.subTest(record=record), self.assertRaises(TaskExecutionError):
+                    service.run_experiment_tests(self.preparation)
+            get_run.reset_mock()
+            execute.return_value = None
+            with self.assertRaises(TaskExecutionError):
+                service.run_experiment_tests(self.preparation)
+            get_run.assert_not_called()
+
+    def test_complete_uses_requested_run_without_retesting(self):
+        self.task.status = "executing"
+        run_id = uuid4()
+        completed = self.task.model_copy(update={"status": "completed"})
+        with patch.object(service.task_completion_service, "complete_plan_task", return_value=completed) as complete, \
+                patch.object(service.task_test_service, "run_task_pytest") as run:
+            self.assertIs(service.complete_experiment(self.preparation, test_run_id=run_id), completed)
+            complete.assert_called_once_with(self.task.id, test_run_id=run_id)
+            complete.reset_mock()
+            conflict = TaskStateConflictError("test snapshot is stale")
+            complete.side_effect = conflict
+            with self.assertRaises(TaskStateConflictError) as raised:
+                service.complete_experiment(self.preparation, test_run_id=run_id)
+            self.assertIs(raised.exception, conflict)
+            complete.assert_called_once()
+            run.assert_not_called()
+
+    def test_complete_rejects_wrong_returned_task(self):
+        self.task.status = "executing"
+        completed = self.task.model_copy(update={"status": "completed"})
+        invalid = [None] + [completed.model_copy(update=update) for update in (
+            {"id": uuid4()}, {"repository_id": uuid4()}, {"status": "executing"},
+            {"run_config": AgentRunConfig(retrieval_policy="hybrid")},
+        )]
+        with patch.object(service.task_completion_service, "complete_plan_task") as complete:
+            for result in invalid:
+                complete.return_value = result
+                with self.subTest(result=result), self.assertRaises(TaskExecutionError):
+                    service.complete_experiment(self.preparation, test_run_id=uuid4())
+
+    def test_report_uses_history_and_checks_task_and_test_run_identity(self):
+        report = TaskExecutionReport(
+            task=self.task.model_copy(update={"status": "completed"}),
+            completion_event_sequence=10, test_run=self.make_test_run(), final_diff=None,
+        )
+        # 删除测试文件后仍应能读取历史报告，不以当前工作区替代历史证据。
+        self.test_path.unlink()
+        with patch.object(service.task_report_service, "get_task_execution_report", return_value=report) as get_report, \
+                patch.object(service, "check_experiment_execution", side_effect=AssertionError("not a live operation")), \
+                patch.object(service, "check_protected_test_files", side_effect=AssertionError("no workspace reads")):
+            self.assertIs(service.read_experiment_report(self.preparation), report)
+            get_report.assert_called_once_with(self.task.id)
+            for update in ({"id": uuid4()}, {"repository_id": uuid4()}, {"user_request": "different"},
+                           {"task_type": "bug_fix"}, {"run_config": AgentRunConfig(retrieval_policy="hybrid")}):
+                get_report.return_value = report.model_copy(update={"task": report.task.model_copy(update=update)})
+                with self.subTest(update=update), self.assertRaises(TaskExecutionError):
+                    service.read_experiment_report(self.preparation)
+            get_report.return_value = report.model_copy(update={
+                "test_run": report.test_run.model_copy(update={"task_id": uuid4()})})
+            with self.assertRaises(TaskExecutionError):
+                service.read_experiment_report(self.preparation)
+            get_report.return_value = None
+            with self.assertRaises(TaskExecutionError):
+                service.read_experiment_report(self.preparation)
 
     def test_approved_starts_once_and_executing_does_not_restart(self):
         self.assertIs(self.generate_edit(), self.candidate)
@@ -136,6 +289,13 @@ class ExperimentExecutionTests(unittest.TestCase):
         with self.assertRaisesRegex(WorkspaceFileConflictError, "tests/test_task_list.py"):
             self.generate_edit()
         self.assertEqual(self.preparation.protected_test_file_hashes, before)
+        self.begin.assert_not_called()
+        self.generate.assert_not_called()
+
+    def test_execution_rejects_even_line_ending_changes_to_frozen_tests(self):
+        self.test_path.write_bytes(self.test_path.read_bytes().replace(b"\n", b"\r\n"))
+        with self.assertRaises(WorkspaceFileConflictError):
+            self.generate_edit()
         self.begin.assert_not_called()
         self.generate.assert_not_called()
 

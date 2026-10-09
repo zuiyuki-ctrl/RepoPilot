@@ -1,0 +1,460 @@
+{
+  "schema_version": 1,
+  "task_id": "f58111a3-4d12-49d9-8d04-665fd512f53a",
+  "exported_at": "2026-10-08T15:32:28.779170+00:00",
+  "snapshot_scope": "events_observed_until_empty_page",
+  "last_sequence": 25,
+  "event_count": 25,
+  "trace_status": "not_recorded",
+  "warnings": [],
+  "tool_calls": [
+    {
+      "call_id": "d82d88a0-425d-470e-9ddc-9145abec3b16",
+      "tool_call_id": "call_090c0b99b4504acea0d31a04",
+      "tool_name": "search_code",
+      "event_sequences": [
+        4,
+        5
+      ],
+      "retrieval": null,
+      "context": null,
+      "model_calls": []
+    },
+    {
+      "call_id": "f0972285-b9bd-4ce1-baa4-e400e17ab575",
+      "tool_call_id": "call_e44016e6fb1a44778d704d98",
+      "tool_name": "search_code",
+      "event_sequences": [
+        6,
+        7
+      ],
+      "retrieval": null,
+      "context": null,
+      "model_calls": []
+    },
+    {
+      "call_id": "e7ab2e43-44a2-4c64-81cf-eebb2f9cc1ba",
+      "tool_call_id": "call_2367146f14474be392b536fb",
+      "tool_name": "read_source",
+      "event_sequences": [
+        10,
+        11
+      ],
+      "retrieval": null,
+      "context": null,
+      "model_calls": []
+    },
+    {
+      "call_id": "7c1c8fd5-0fa4-41fc-af01-49fc56d1bfa2",
+      "tool_call_id": "call_0837c41a0e4b4df596ca46a0",
+      "tool_name": "read_source",
+      "event_sequences": [
+        12,
+        13
+      ],
+      "retrieval": null,
+      "context": null,
+      "model_calls": []
+    }
+  ],
+  "model_calls": [
+    {
+      "call_id": "37157ddb-4133-4aea-b984-18226f65fed2",
+      "node_name": "model",
+      "started_sequence": 2,
+      "payload": {
+        "model": "deepseek-v4.1-flash",
+        "attempt": 1,
+        "call_id": "37157ddb-4133-4aea-b984-18226f65fed2",
+        "step_id": "model",
+        "sequence": 2,
+        "allow_tools": true,
+        "schema_version": 1
+      },
+      "outcome": "completed",
+      "finished_sequence": 3,
+      "unmatched_tool_context": [],
+      "context_recorded": false
+    },
+    {
+      "call_id": "38218d65-9a49-487c-ac1d-ea5f08b59f2d",
+      "node_name": "model",
+      "started_sequence": 8,
+      "payload": {
+        "model": "deepseek-v4.1-flash",
+        "attempt": 1,
+        "call_id": "38218d65-9a49-487c-ac1d-ea5f08b59f2d",
+        "step_id": "model",
+        "sequence": 8,
+        "allow_tools": true,
+        "schema_version": 1
+      },
+      "outcome": "completed",
+      "finished_sequence": 9,
+      "unmatched_tool_context": [],
+      "context_recorded": false
+    },
+    {
+      "call_id": "eb25d4ae-fa6e-4c51-bc71-af48cd5d6cdd",
+      "node_name": "model",
+      "started_sequence": 14,
+      "payload": {
+        "model": "deepseek-v4.1-flash",
+        "attempt": 1,
+        "call_id": "eb25d4ae-fa6e-4c51-bc71-af48cd5d6cdd",
+        "step_id": "model",
+        "sequence": 14,
+        "allow_tools": false,
+        "schema_version": 1
+      },
+      "outcome": "completed",
+      "finished_sequence": 15,
+      "unmatched_tool_context": [],
+      "context_recorded": false
+    },
+    {
+      "call_id": "c1eb47f2-b4d7-497c-8b5c-3aa36c3f8261",
+      "node_name": "plan",
+      "started_sequence": 16,
+      "payload": {
+        "model": "deepseek-v4.1-flash",
+        "attempt": 1,
+        "call_id": "c1eb47f2-b4d7-497c-8b5c-3aa36c3f8261",
+        "step_id": "plan",
+        "sequence": 16,
+        "allow_tools": false,
+        "schema_version": 1
+      },
+      "outcome": "completed",
+      "finished_sequence": 17,
+      "unmatched_tool_context": [],
+      "context_recorded": false
+    }
+  ],
+  "events": [
+    {
+      "id": "75ecf24e-b237-4550-9443-919b89ac3c81",
+      "task_id": "f58111a3-4d12-49d9-8d04-665fd512f53a",
+      "sequence": 2,
+      "event_type": "MODEL_CALL_STARTED",
+      "node_name": "model",
+      "message": "Model call started",
+      "payload": {
+        "model": "deepseek-v4.1-flash",
+        "attempt": 1,
+        "call_id": "37157ddb-4133-4aea-b984-18226f65fed2",
+        "step_id": "model",
+        "sequence": 2,
+        "allow_tools": true,
+        "schema_version": 1
+      },
+      "created_at": "2026-10-08T12:31:32.257923Z"
+    },
+    {
+      "id": "8d1933e5-04c0-4e85-bf6a-9e948e2e4a38",
+      "task_id": "f58111a3-4d12-49d9-8d04-665fd512f53a",
+      "sequence": 3,
+      "event_type": "MODEL_CALL_COMPLETED",
+      "node_name": "model",
+      "message": "Model call completed",
+      "payload": {
+        "attempt": 1,
+        "call_id": "37157ddb-4133-4aea-b984-18226f65fed2",
+        "step_id": "model",
+        "sequence": 3,
+        "duration_ms": 4466,
+        "response_type": "tool_calls",
+        "schema_version": 1,
+        "tool_call_count": 2
+      },
+      "created_at": "2026-10-08T12:31:36.739282Z"
+    },
+    {
+      "id": "11ef326b-9fad-441c-8ffb-3097708523cd",
+      "task_id": "f58111a3-4d12-49d9-8d04-665fd512f53a",
+      "sequence": 4,
+      "event_type": "TOOL_CALL_STARTED",
+      "node_name": "tools",
+      "message": "Tool call started",
+      "payload": {
+        "attempt": 1,
+        "call_id": "d82d88a0-425d-470e-9ddc-9145abec3b16",
+        "step_id": "tools",
+        "sequence": 4,
+        "tool_name": "search_code",
+        "tool_call_id": "call_090c0b99b4504acea0d31a04",
+        "schema_version": 1,
+        "arguments_chars": 78
+      },
+      "created_at": "2026-10-08T12:31:36.758563Z"
+    },
+    {
+      "id": "c2dfafd4-cf31-46ee-a635-76021f446f8a",
+      "task_id": "f58111a3-4d12-49d9-8d04-665fd512f53a",
+      "sequence": 5,
+      "event_type": "TOOL_CALL_COMPLETED",
+      "node_name": "tools",
+      "message": "Tool call completed",
+      "payload": {
+        "attempt": 1,
+        "call_id": "d82d88a0-425d-470e-9ddc-9145abec3b16",
+        "step_id": "tools",
+        "sequence": 5,
+        "hit_count": 5,
+        "tool_name": "search_code",
+        "duration_ms": 1221,
+        "tool_call_id": "call_090c0b99b4504acea0d31a04",
+        "schema_version": 1,
+        "requested_strategy": "vector",
+        "retrieval_strategy": "vector",
+        "strategy_overridden": false
+      },
+      "created_at": "2026-10-08T12:31:37.992363Z"
+    },
+    {
+      "id": "b014f8ec-c309-4647-9c89-06df40d51af0",
+      "task_id": "f58111a3-4d12-49d9-8d04-665fd512f53a",
+      "sequence": 6,
+      "event_type": "TOOL_CALL_STARTED",
+      "node_name": "tools",
+      "message": "Tool call started",
+      "payload": {
+        "attempt": 1,
+        "call_id": "f0972285-b9bd-4ce1-baa4-e400e17ab575",
+        "step_id": "tools",
+        "sequence": 6,
+        "tool_name": "search_code",
+        "tool_call_id": "call_e44016e6fb1a44778d704d98",
+        "schema_version": 1,
+        "arguments_chars": 106
+      },
+      "created_at": "2026-10-08T12:31:38.003051Z"
+    },
+    {
+      "id": "9d512728-cb7a-4bdb-8b4e-60142d6b4a7c",
+      "task_id": "f58111a3-4d12-49d9-8d04-665fd512f53a",
+      "sequence": 7,
+      "event_type": "TOOL_CALL_COMPLETED",
+      "node_name": "tools",
+      "message": "Tool call completed",
+      "payload": {
+        "attempt": 1,
+        "call_id": "f0972285-b9bd-4ce1-baa4-e400e17ab575",
+        "step_id": "tools",
+        "sequence": 7,
+        "hit_count": 5,
+        "tool_name": "search_code",
+        "duration_ms": 1165,
+        "tool_call_id": "call_e44016e6fb1a44778d704d98",
+        "schema_version": 1,
+        "requested_strategy": "vector",
+        "retrieval_strategy": "vector",
+        "strategy_overridden": false
+      },
+      "created_at": "2026-10-08T12:31:39.177961Z"
+    },
+    {
+      "id": "caf66602-1a43-41e2-8752-90c6c0477059",
+      "task_id": "f58111a3-4d12-49d9-8d04-665fd512f53a",
+      "sequence": 8,
+      "event_type": "MODEL_CALL_STARTED",
+      "node_name": "model",
+      "message": "Model call started",
+      "payload": {
+        "model": "deepseek-v4.1-flash",
+        "attempt": 1,
+        "call_id": "38218d65-9a49-487c-ac1d-ea5f08b59f2d",
+        "step_id": "model",
+        "sequence": 8,
+        "allow_tools": true,
+        "schema_version": 1
+      },
+      "created_at": "2026-10-08T12:31:39.194058Z"
+    },
+    {
+      "id": "b98dee4a-da41-45d4-ab33-37776ae3a2e1",
+      "task_id": "f58111a3-4d12-49d9-8d04-665fd512f53a",
+      "sequence": 9,
+      "event_type": "MODEL_CALL_COMPLETED",
+      "node_name": "model",
+      "message": "Model call completed",
+      "payload": {
+        "attempt": 1,
+        "call_id": "38218d65-9a49-487c-ac1d-ea5f08b59f2d",
+        "step_id": "model",
+        "sequence": 9,
+        "duration_ms": 2873,
+        "response_type": "tool_calls",
+        "schema_version": 1,
+        "tool_call_count": 2
+      },
+      "created_at": "2026-10-08T12:31:42.076845Z"
+    },
+    {
+      "id": "b2209323-00be-49c1-b0db-8d3f4040eeb8",
+      "task_id": "f58111a3-4d12-49d9-8d04-665fd512f53a",
+      "sequence": 10,
+      "event_type": "TOOL_CALL_STARTED",
+      "node_name": "tools",
+      "message": "Tool call started",
+      "payload": {
+        "attempt": 1,
+        "call_id": "e7ab2e43-44a2-4c64-81cf-eebb2f9cc1ba",
+        "step_id": "tools",
+        "sequence": 10,
+        "tool_name": "read_source",
+        "tool_call_id": "call_2367146f14474be392b536fb",
+        "schema_version": 1,
+        "arguments_chars": 62
+      },
+      "created_at": "2026-10-08T12:31:42.089990Z"
+    },
+    {
+      "id": "7fc86c47-3395-485b-b1dd-b4f9fb03085a",
+      "task_id": "f58111a3-4d12-49d9-8d04-665fd512f53a",
+      "sequence": 11,
+      "event_type": "TOOL_CALL_COMPLETED",
+      "node_name": "tools",
+      "message": "Tool call completed",
+      "payload": {
+        "attempt": 1,
+        "call_id": "e7ab2e43-44a2-4c64-81cf-eebb2f9cc1ba",
+        "step_id": "tools",
+        "sequence": 11,
+        "tool_name": "read_source",
+        "duration_ms": 7,
+        "tool_call_id": "call_2367146f14474be392b536fb",
+        "schema_version": 1
+      },
+      "created_at": "2026-10-08T12:31:42.107498Z"
+    },
+    {
+      "id": "cb513a82-d534-45ba-94b3-e9c311010645",
+      "task_id": "f58111a3-4d12-49d9-8d04-665fd512f53a",
+      "sequence": 12,
+      "event_type": "TOOL_CALL_STARTED",
+      "node_name": "tools",
+      "message": "Tool call started",
+      "payload": {
+        "attempt": 1,
+        "call_id": "7c1c8fd5-0fa4-41fc-af01-49fc56d1bfa2",
+        "step_id": "tools",
+        "sequence": 12,
+        "tool_name": "read_source",
+        "tool_call_id": "call_0837c41a0e4b4df596ca46a0",
+        "schema_version": 1,
+        "arguments_chars": 73
+      },
+      "created_at": "2026-10-08T12:31:42.119746Z"
+    },
+    {
+      "id": "5d1e40d8-b903-4696-9a91-5624819d0380",
+      "task_id": "f58111a3-4d12-49d9-8d04-665fd512f53a",
+      "sequence": 13,
+      "event_type": "TOOL_CALL_COMPLETED",
+      "node_name": "tools",
+      "message": "Tool call completed",
+      "payload": {
+        "attempt": 1,
+        "call_id": "7c1c8fd5-0fa4-41fc-af01-49fc56d1bfa2",
+        "step_id": "tools",
+        "sequence": 13,
+        "tool_name": "read_source",
+        "duration_ms": 6,
+        "tool_call_id": "call_0837c41a0e4b4df596ca46a0",
+        "schema_version": 1
+      },
+      "created_at": "2026-10-08T12:31:42.135200Z"
+    },
+    {
+      "id": "7ff11a44-5b53-446c-b983-666378c42ec3",
+      "task_id": "f58111a3-4d12-49d9-8d04-665fd512f53a",
+      "sequence": 14,
+      "event_type": "MODEL_CALL_STARTED",
+      "node_name": "model",
+      "message": "Model call started",
+      "payload": {
+        "model": "deepseek-v4.1-flash",
+        "attempt": 1,
+        "call_id": "eb25d4ae-fa6e-4c51-bc71-af48cd5d6cdd",
+        "step_id": "model",
+        "sequence": 14,
+        "allow_tools": false,
+        "schema_version": 1
+      },
+      "created_at": "2026-10-08T12:31:42.145178Z"
+    },
+    {
+      "id": "83d37ce1-60f8-4ba9-aec0-6e0176627ae5",
+      "task_id": "f58111a3-4d12-49d9-8d04-665fd512f53a",
+      "sequence": 15,
+      "event_type": "MODEL_CALL_COMPLETED",
+      "node_name": "model",
+      "message": "Model call completed",
+      "payload": {
+        "attempt": 1,
+        "call_id": "eb25d4ae-fa6e-4c51-bc71-af48cd5d6cdd",
+        "step_id": "model",
+        "sequence": 15,
+        "duration_ms": 7167,
+        "response_type": "answer",
+        "schema_version": 1,
+        "tool_call_count": 0
+      },
+      "created_at": "2026-10-08T12:31:49.318501Z"
+    },
+    {
+      "id": "cfba3528-9c8d-4b8d-81a0-d0fe40e12b29",
+      "task_id": "f58111a3-4d12-49d9-8d04-665fd512f53a",
+      "sequence": 16,
+      "event_type": "MODEL_CALL_STARTED",
+      "node_name": "plan",
+      "message": "Plan generation started",
+      "payload": {
+        "model": "deepseek-v4.1-flash",
+        "attempt": 1,
+        "call_id": "c1eb47f2-b4d7-497c-8b5c-3aa36c3f8261",
+        "step_id": "plan",
+        "sequence": 16,
+        "allow_tools": false,
+        "schema_version": 1
+      },
+      "created_at": "2026-10-08T12:31:49.331237Z"
+    },
+    {
+      "id": "098ec70d-2064-4e0a-947f-67afae579a59",
+      "task_id": "f58111a3-4d12-49d9-8d04-665fd512f53a",
+      "sequence": 17,
+      "event_type": "MODEL_CALL_COMPLETED",
+      "node_name": "plan",
+      "message": "Plan generation completed",
+      "payload": {
+        "attempt": 1,
+        "call_id": "c1eb47f2-b4d7-497c-8b5c-3aa36c3f8261",
+        "step_id": "plan",
+        "sequence": 17,
+        "duration_ms": 7183,
+        "response_type": "plan",
+        "schema_version": 1,
+        "tool_call_count": 0
+      },
+      "created_at": "2026-10-08T12:31:56.530272Z"
+    }
+  ],
+  "task_snapshot_before_event_fetch": {
+    "id": "f58111a3-4d12-49d9-8d04-665fd512f53a",
+    "repository_id": "201f4e6b-18f8-446d-9a07-c99036190f99",
+    "status": "completed",
+    "run_config": {
+      "schema_version": 1,
+      "retrieval_policy": "vector",
+      "max_tool_calls": 4
+    }
+  },
+  "experiment": {
+    "experiment_id": "1050c45d-458e-41bf-a4d7-cd5ce1f897b2",
+    "case_id": "task-list",
+    "case_version": "v1",
+    "repository_commit": "4629a3a98cb62c989ed4e1e67be9514703b3d346"
+  }
+}

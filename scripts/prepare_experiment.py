@@ -1,4 +1,5 @@
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import sys
@@ -45,12 +46,17 @@ def inspect_experiment_source(case: ExperimentCase, *, source_path: Path) -> dic
         raise ValueError(f"Unknown test profile: {case.test_profile}") from exc
 
     protected_hashes = {}
+    protected_lf_hashes = {}
     for file_path in case.editable_files + case.protected_test_files:
         require_tracked_file(root, file_path=file_path)
         target = resolve_workspace_target(root, file_path)
         snapshot = read_file_snapshot(root, target)
         if file_path in case.protected_test_files:
             protected_hashes[file_path] = snapshot.metadata.file_hash
+            # 仅用于首次源仓库与检出副本对照；执行期保护仍使用原始字节 hash。
+            protected_lf_hashes[file_path] = hashlib.sha256(
+                snapshot.content.replace(b"\r\n", b"\n")
+            ).hexdigest()
 
     return {
         "case_id": case.case_id,
@@ -59,6 +65,7 @@ def inspect_experiment_source(case: ExperimentCase, *, source_path: Path) -> dic
         "source_path": str(root),
         "editable_files": case.editable_files,
         "protected_test_file_hashes": protected_hashes,
+        "protected_test_lf_hashes": protected_lf_hashes,
         "test_profile": profile.name,
         "image": profile.image,
     }

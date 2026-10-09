@@ -21,7 +21,8 @@ class StartExperimentTests(unittest.TestCase):
             test_profile="python-basic",
         )
         self.summary = dict(source_path=str(self.root / "source"),
-                            protected_test_file_hashes={"tests/test_example.py": "hash"})
+                            protected_test_file_hashes={"tests/test_example.py": "hash"},
+                            protected_test_lf_hashes={"tests/test_example.py": "normalized"})
         self.repository = SimpleNamespace(id=uuid4(), workspace_path=str(self.root / "copy"),
                                           commit_hash=self.case.repository_commit)
         self.inspect = self.enterContext(patch.object(script, "inspect_experiment_source", return_value=self.summary))
@@ -94,6 +95,23 @@ class StartExperimentTests(unittest.TestCase):
             self.prepare()
         self.assertEqual(self.saved().stage, "inspect_workspace")
         self.profile.assert_not_called()
+
+    def test_initial_line_endings_freeze_workspace_raw_hash_and_keep_source_hash(self):
+        workspace = {**self.summary, "protected_test_file_hashes": {"tests/test_example.py": "workspace-hash"}}
+        self.inspect.side_effect = [self.summary, workspace]
+        record = self.prepare()
+        self.assertEqual(record.protected_test_file_hashes, workspace["protected_test_file_hashes"])
+        self.assertEqual(record.source_protected_test_file_hashes, self.summary["protected_test_file_hashes"])
+        self.assertEqual(self.saved(), record)
+
+    def test_content_change_is_not_accepted_as_line_ending_conversion(self):
+        workspace = {**self.summary, "protected_test_lf_hashes": {"tests/test_example.py": "changed"}}
+        self.inspect.side_effect = [self.summary, workspace]
+        with redirect_stderr(io.StringIO()), self.assertRaisesRegex(ValueError, "content mismatch"):
+            self.prepare()
+        self.profile.assert_not_called()
+        self.embed.assert_not_called()
+        self.task.assert_not_called()
 
     def test_embedding_failure_retains_ids_and_original_error_when_save_fails(self):
         original = TimeoutError("timeout")

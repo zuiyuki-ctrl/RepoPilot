@@ -1,0 +1,22 @@
+{
+  "experiment_id": "6ce17de7-ad33-4232-bac6-5c1d673d326d",
+  "task_id": "a2574e05-f9a8-4257-94b9-c6d4153d4f61",
+  "operation_id": "2c654f19-9005-41eb-a9cc-cd4c98b441f7",
+  "test_run": {
+    "id": "ef9d2f9c-a41b-4e78-92e4-6a526c8c668a",
+    "task_id": "a2574e05-f9a8-4257-94b9-c6d4153d4f61",
+    "status": "finished",
+    "image": "repopilot-pytest:py311",
+    "timeout_seconds": 120,
+    "started_at": "2026-10-09T03:19:47.368468Z",
+    "completed_at": "2026-10-09T03:19:48.896699Z",
+    "exit_code": 0,
+    "timed_out": false,
+    "stdout": "......                                                                   [100%]\n6 passed in 0.08s\n",
+    "stderr": "",
+    "stdout_truncated": false,
+    "stderr_truncated": false,
+    "error": null,
+    "snapshot_hash": "89c7adc088146b13eb32f959ca8ad0156cff9ba2589e8ebe74c04d0d0182b1b2"
+  }
+}

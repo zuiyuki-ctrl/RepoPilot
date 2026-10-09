@@ -81,7 +81,7 @@ class ReadonlyAgentTests(unittest.TestCase):
 
     def test_empty_search_is_not_evidence(self):
         self.model.side_effect = [tool_turn("search_code"), answer_turn()]
-        self.tool.return_value = {"strategy": "vector", "hits": [], "diagnostics": None}
+        self.tool.return_value = {"requested_strategy": "vector", "strategy": "vector", "hits": [], "diagnostics": None}
         self.assertEqual(self.run_agent()["answer"], policy.NO_EVIDENCE_ANSWER)
 
     def test_search_completion_records_actual_strategy(self):
@@ -124,7 +124,7 @@ class ReadonlyAgentTests(unittest.TestCase):
 
     def test_search_and_read_have_distinct_valid_sources(self):
         self.model.side_effect = [tool_turn("search_code", "read_source"), answer_turn("依据 [S1] 和 [S2]。")]
-        self.tool.side_effect = [{"strategy": "vector", "hits": [{"chunk": source_result(), "distance": 0.1}], "diagnostics": None}, source_result()]
+        self.tool.side_effect = [{"requested_strategy": "vector", "strategy": "vector", "hits": [{"chunk": source_result(), "distance": 0.1}], "diagnostics": None}, source_result()]
         result = self.run_agent()
         self.assertEqual([source["source_id"] for source in result["sources"]], ["S1", "S2"])
         messages = self.tool_messages()

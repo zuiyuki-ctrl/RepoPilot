@@ -50,6 +50,7 @@ def prepare_experiment_run(
         run_config=AgentRunConfig(retrieval_policy=retrieval_policy, max_tool_calls=4),
         status="preparing", stage="initialize",
         protected_test_file_hashes=summary["protected_test_file_hashes"],
+        source_protected_test_file_hashes=summary["protected_test_file_hashes"],
     )
     run_dir = output_dir / str(record.experiment_id)
     run_dir.mkdir(parents=True, exist_ok=False)
@@ -81,8 +82,17 @@ def prepare_experiment_run(
 
         stage("inspect_workspace")
         workspace_summary = inspect_experiment_source(case, source_path=workspace_path)
-        if workspace_summary["protected_test_file_hashes"] != record.protected_test_file_hashes:
-            raise ValueError("Workspace protected test hashes mismatch")
+        expected_files = set(case.protected_test_files)
+        if (
+            set(workspace_summary["protected_test_file_hashes"]) != expected_files
+            or set(summary["protected_test_lf_hashes"]) != expected_files
+            or workspace_summary["protected_test_lf_hashes"] != summary["protected_test_lf_hashes"]
+        ):
+            raise ValueError("Workspace protected test content mismatch (beyond CRLF/LF conversion)")
+        # 初次检出内容确认一致后，冻结实际工作副本原始字节作为执行期基线。
+        # 不修改文件，不在之后的执行检查中归一化换行或更新基线。
+        record.protected_test_file_hashes = dict(workspace_summary["protected_test_file_hashes"])
+        save_preparation(record, output_path=output_path)
 
         stage("update_test_profile")
         if update_repository_test_profile(repository.id, test_profile=case.test_profile) is None:

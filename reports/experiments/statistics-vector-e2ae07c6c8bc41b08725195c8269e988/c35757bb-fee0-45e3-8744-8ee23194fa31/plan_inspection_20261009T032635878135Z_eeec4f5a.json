@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "experiment_id": "c35757bb-fee0-45e3-8744-8ee23194fa31",
+  "task_id": "9532cc66-4349-473d-bdf5-696cbad1a083",
+  "inspected_at": "2026-10-09T03:26:35.878135Z",
+  "task_status": "approved",
+  "scope_status": "valid",
+  "outside_scope_files": [],
+  "task": {
+    "id": "9532cc66-4349-473d-bdf5-696cbad1a083",
+    "repository_id": "ad96cc1f-d57b-472b-bfe2-0f9d04a3cfa2",
+    "user_request": "为 summarize_tasks 增加可选的关键字参数 status，默认值为 None。不指定时保持现有行为；指定时只统计状态相等的任务。返回结构仍为 count 和 total_duration，其中 total_duration 是纳入统计的任务 duration 之和。没有匹配项时返回零计数和零总时长。不修改输入列表或记录，保留现有字段访问的异常行为。只修改 statistics.py，不修改固定验收测试。",
+    "task_type": "plan",
+    "status": "approved",
+    "created_at": "2026-10-09T03:24:48.342277Z",
+    "started_at": "2026-10-09T03:24:49.474021Z",
+    "completed_at": null,
+    "result": {
+      "repository_id": "ad96cc1f-d57b-472b-bfe2-0f9d04a3cfa2",
+      "plan": {
+        "summary": "为 statistics.py 中的 summarize_tasks 增加可选关键字参数 status（默认 None）。status 为 None 时保持现有行为：不访问 status 字段、直接对全部任务取 len 与 duration 之和；status 指定时按 task[\"status\"] == status 惰性筛选后计数并求和匹配项的 duration。返回结构仍为 count 与 total_duration，无匹配返回零计数零总时长，不修改输入列表或记录，缺失字段仍按现有方式抛出 KeyError。仅修改 statistics.py，不动固定验收测试。",
+        "steps": [
+          {
+            "id": 1,
+            "description": "在 statistics.py 中把函数签名改为 summarize_tasks(tasks: list[dict], status=None) -> dict，新增可选关键字参数 status 且默认 None，保持现有调用方式兼容。",
+            "files": [
+              "statistics.py"
+            ],
+            "source_ids": [
+              "S1",
+              "S11",
+              "S12"
+            ],
+            "verification": "无 status 调用时函数签名与返回值与改动前一致，原有调用 summarize_tasks(tasks) 仍返回 {\"count\": 3, \"total_duration\": 16}，不因新参数出现 TypeError。"
+          },
+          {
+            "id": 2,
+            "description": "实现 status 为 None 的分支：完全沿用现有逻辑，对 tasks 取 len 作为 count，并对每个 task 取 task[\"duration\"] 求和，不读取 task[\"status\"]，以保留缺 status 字段元素可用的现有行为。",
+            "files": [
+              "statistics.py"
+            ],
+            "source_ids": [
+              "S1",
+              "S11",
+              "S2",
+              "S3",
+              "S8"
+            ],
+            "verification": "summarize_tasks(tasks) 返回 {\"count\": 3, \"total_duration\": 16}；summarize_tasks([]) 返回 {\"count\": 0, \"total_duration\": 0}；summarize_tasks([{\"duration\": 4}]) 返回 {\"count\": 1, \"total_duration\": 4}，即无 status 时不要求元素含 status 字段。"
+          },
+          {
+            "id": 3,
+            "description": "实现 status 指定时的筛选分支：对任务按 task[\"status\"] == status 惰性判定，只把匹配项纳入计数与 duration 求和；匹配项缺失 duration 时在求和过程中抛出 KeyError，元素缺失 status 时在判定过程中抛出 KeyError，从而保留现有字段访问的异常行为。",
+            "files": [
+              "statistics.py"
+            ],
+            "source_ids": [
+              "S4",
+              "S7",
+              "S9",
+              "S10"
+            ],
+            "verification": "summarize_tasks(tasks, status=\"completed\") 返回 {\"count\": 2, \"total_duration\": 8}；status=\"running\" 返回 {\"count\": 0, \"total_duration\": 0}；summarize_tasks([], status=\"completed\") 返回零值；summarize_tasks([{\"duration\": 4}], status=\"completed\") 抛 KeyError；summarize_tasks([{\"status\": \"completed\"}], status=\"completed\") 抛 KeyError。"
+          },
+          {
+            "id": 4,
+            "description": "确保实现不修改输入：筛选与求和过程只读取任务元素字段，不写入、不删除键、不排序或替换原列表内容，从而保持调用前后输入列表与记录不变。",
+            "files": [
+              "statistics.py"
+            ],
+            "source_ids": [
+              "S11",
+              "S12"
+            ],
+            "verification": "对同一 tasks 列表先 deepcopy 保存原始副本，分别调用 summarize_tasks(tasks) 与 summarize_tasks(tasks, status=\"completed\") 后，tasks 仍等于原始副本，元素的数量、顺序、键与值均未变化。"
+          },
+          {
+            "id": 5,
+            "description": "复核无 status 且缺 duration 的异常行为保持：当未指定 status 时，元素缺少 duration 仍在求和阶段抛出 KeyError，不因新增参数而被吞掉或改写为其他异常。",
+            "files": [
+              "statistics.py"
+            ],
+            "source_ids": [
+              "S5",
+              "S6",
+              "S8"
+            ],
+            "verification": "summarize_tasks([{\"status\": \"completed\"}]) 抛出 KeyError，且无 status 时对含 duration 但无 status 的元素仍能正常返回统计结果。"
+          }
+        ]
+      }
+    },
+    "error": null,
+    "review_decision": "approved",
+    "review_comment": "已检查计划与证据，批准在声明范围内执行，不修改固定验收测试。",
+    "reviewed_at": "2026-10-09T03:26:35.867137Z",
+    "retry_count": 0,
+    "max_retries": 1,
+    "run_config": {
+      "schema_version": 1,
+      "retrieval_policy": "vector",
+      "max_tool_calls": 4
+    }
+  }
+}

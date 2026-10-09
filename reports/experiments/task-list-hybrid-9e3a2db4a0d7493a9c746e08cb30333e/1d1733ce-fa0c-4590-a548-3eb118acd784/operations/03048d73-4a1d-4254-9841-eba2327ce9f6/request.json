@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "operation_id": "03048d73-4a1d-4254-9841-eba2327ce9f6",
+  "experiment_id": "1d1733ce-fa0c-4590-a548-3eb118acd784",
+  "task_id": "1e9054f1-4ac4-4889-a587-81160e5fc4fb",
+  "action": "apply",
+  "started_at": "2026-10-08T16:04:25.334095+00:00",
+  "candidate_path": "D:\\RepoPilot\\reports\\experiments\\task-list-hybrid-9e3a2db4a0d7493a9c746e08cb30333e\\1d1733ce-fa0c-4590-a548-3eb118acd784\\operations\\d0783395-1799-453c-a89e-4156b4e0e6b3\\candidate.json"
+}

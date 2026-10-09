@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "experiment_id": "c35757bb-fee0-45e3-8744-8ee23194fa31",
+  "created_at": "2026-10-09T03:24:39.383683Z",
+  "case": {
+    "schema_version": 1,
+    "case_id": "statistics",
+    "case_version": "v1",
+    "task_type": "feature",
+    "user_request": "为 summarize_tasks 增加可选的关键字参数 status，默认值为 None。不指定时保持现有行为；指定时只统计状态相等的任务。返回结构仍为 count 和 total_duration，其中 total_duration 是纳入统计的任务 duration 之和。没有匹配项时返回零计数和零总时长。不修改输入列表或记录，保留现有字段访问的异常行为。只修改 statistics.py，不修改固定验收测试。",
+    "repository_commit": "2890105ac01d778cb853c033ad34d839f5f8dfd7",
+    "editable_files": [
+      "statistics.py"
+    ],
+    "protected_test_files": [
+      "tests/test_statistics.py"
+    ],
+    "test_profile": "python-basic"
+  },
+  "run_config": {
+    "schema_version": 1,
+    "retrieval_policy": "vector",
+    "max_tool_calls": 4
+  },
+  "status": "prepared",
+  "stage": "create_task",
+  "repository_id": "ad96cc1f-d57b-472b-bfe2-0f9d04a3cfa2",
+  "workspace_path": "D:\\RepoPilot-workspaces\\816206817c53425f9b6ed61c04eacc85",
+  "task_id": "9532cc66-4349-473d-bdf5-696cbad1a083",
+  "protected_test_file_hashes": {
+    "tests/test_statistics.py": "8b46db49f3963c0ea465765aed3f7a2b0e662c3af467d92715b15abc12b90340"
+  },
+  "source_protected_test_file_hashes": {
+    "tests/test_statistics.py": "eb7177dc036e3deabe35f31e97e725610c8288cde475dd210d4432a56967d7fa"
+  },
+  "error_type": null
+}

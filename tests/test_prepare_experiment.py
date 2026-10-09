@@ -92,6 +92,25 @@ class ExperimentInspectionTests(unittest.TestCase):
         self.assertEqual(self.git("status", "--porcelain"), "")
         self.assertEqual(self.git("rev-parse", "HEAD").strip(), self.case.repository_commit)
 
+    def test_line_endings_only_affect_raw_hash(self):
+        self.git("config", "core.autocrlf", "true")
+        (self.root / ".git/info/attributes").write_text("*.py text\n", encoding="utf-8")
+        target = self.root / "tests/test_example.py"
+        lf = b"def test_value():\n    assert True\n"
+        target.write_bytes(lf)
+        # 固定临时仓库的索引换行格式，不依赖开发机的全局 Git 设置。
+        self.git("add", "--renormalize", ".")
+        self.git("-c", "user.name=Experiment Test", "-c", "user.email=test@example.invalid",
+                 "commit", "--allow-empty", "-m", "normalize fixture")
+        self.case.repository_commit = self.git("rev-parse", "HEAD").strip()
+        before = script.inspect_experiment_source(self.case, source_path=self.root)
+        target.write_bytes(lf.replace(b"\n", b"\r\n"))
+        self.git("add", "--", "tests/test_example.py")
+        after = script.inspect_experiment_source(self.case, source_path=self.root)
+        self.assertEqual(before["protected_test_lf_hashes"], after["protected_test_lf_hashes"])
+        self.assertNotEqual(before["protected_test_file_hashes"], after["protected_test_file_hashes"])
+        self.assertEqual(target.read_bytes(), lf.replace(b"\n", b"\r\n"))
+
     def test_wrong_commit_or_profile_stops_before_file_reads(self):
         for field, value in (("repository_commit", "b" * 40), ("test_profile", "unknown")):
             with self.subTest(field=field), patch.object(script, "read_file_snapshot") as read:

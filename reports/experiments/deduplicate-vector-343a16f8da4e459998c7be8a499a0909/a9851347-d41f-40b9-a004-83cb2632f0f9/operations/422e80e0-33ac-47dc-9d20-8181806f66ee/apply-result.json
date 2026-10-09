@@ -1,0 +1,11 @@
+{
+  "experiment_id": "a9851347-d41f-40b9-a004-83cb2632f0f9",
+  "task_id": "6d272d44-74a8-4d1f-b3a0-074f008b5165",
+  "operation_id": "422e80e0-33ac-47dc-9d20-8181806f66ee",
+  "candidate_path": "D:\\RepoPilot\\reports\\experiments\\deduplicate-vector-343a16f8da4e459998c7be8a499a0909\\a9851347-d41f-40b9-a004-83cb2632f0f9\\operations\\3ae1e13d-4c51-4a98-9230-5e33408fd4d7\\candidate.json",
+  "result": {
+    "file_path": "deduplicate.py",
+    "created": false,
+    "bytes_written": 258
+  }
+}

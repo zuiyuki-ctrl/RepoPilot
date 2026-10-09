@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "experiment_id": "c35757bb-fee0-45e3-8744-8ee23194fa31",
+  "created_at": "2026-10-09T03:26:50.114478Z",
+  "candidate": {
+    "task_id": "9532cc66-4349-473d-bdf5-696cbad1a083",
+    "repository_id": "ad96cc1f-d57b-472b-bfe2-0f9d04a3cfa2",
+    "base_file_hash": "96fb804cd72ad01c2b153d6c3f40577687833269e2428070a9088025cff3149d",
+    "proposal": {
+      "file_path": "statistics.py",
+      "summary": "为 summarize_tasks 增加可选关键字参数 status，默认 None 时保持原有对全部任务的计数与 duration 求和逻辑（不访问 status 字段）；指定 status 时惰性筛选 task[\"status\"] == status 的匹配项后再计数和求和，无匹配返回零值，不修改输入，保留原有字段缺失的 KeyError 行为。",
+      "content": "def summarize_tasks(tasks: list[dict], status=None) -> dict:\r\n    if status is None:\r\n        return {\r\n            \"count\": len(tasks),\r\n            \"total_duration\": sum(task[\"duration\"] for task in tasks),\r\n        }\r\n\r\n    matched = [task for task in tasks if task[\"status\"] == status]\r\n    return {\r\n        \"count\": len(matched),\r\n        \"total_duration\": sum(task[\"duration\"] for task in matched),\r\n    }\r\n"
+    }
+  }
+}

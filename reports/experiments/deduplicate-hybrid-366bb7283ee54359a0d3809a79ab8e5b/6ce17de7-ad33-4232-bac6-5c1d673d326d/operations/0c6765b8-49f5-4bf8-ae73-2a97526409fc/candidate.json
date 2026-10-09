@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "experiment_id": "6ce17de7-ad33-4232-bac6-5c1d673d326d",
+  "created_at": "2026-10-09T03:15:57.721489Z",
+  "candidate": {
+    "task_id": "a2574e05-f9a8-4257-94b9-c6d4153d4f61",
+    "repository_id": "45e1d17d-bab1-44ef-b053-b268f67c27f9",
+    "base_file_hash": "24d6a2501a91b044a14a9db0fdbe34614318b7a560231e3be7a46c3558150135",
+    "proposal": {
+      "file_path": "deduplicate.py",
+      "summary": "修复 deduplicate_by_key：仅在键尚未出现时写入记录，从而保留首次出现的完整记录；输出顺序由字典插入顺序决定，保持 record[key] 下标访问以维持 KeyError 语义，且不修改输入。",
+      "content": "def deduplicate_by_key(records: list[dict], *, key: str) -> list[dict]:\r\n    by_key = {}\r\n    for record in records:\r\n        value = record[key]\r\n        if value not in by_key:\r\n            by_key[value] = record\r\n    return list(by_key.values())\r\n"
+    }
+  }
+}

@@ -1,0 +1,674 @@
+# 检索与工具上下文证据
+
+- 任务 ID：9532cc66-4349-473d-bdf5-696cbad1a083
+- 证据状态：已记录
+- 读取事件数：25；末尾序号：25
+
+这是读取时可见事件的快照；运行中的任务可能继续追加事件。
+模型调用成功不等于模型语义上采纳了证据；hash 不能独自重建源码。
+
+实验关联：
+
+    {
+      "experiment_id": "c35757bb-fee0-45e3-8744-8ee23194fa31",
+      "case_id": "statistics",
+      "case_version": "v1",
+      "repository_commit": "2890105ac01d778cb853c033ad34d839f5f8dfd7"
+    }
+
+读取事件前的任务状态与配置快照：
+
+    {
+      "id": "9532cc66-4349-473d-bdf5-696cbad1a083",
+      "repository_id": "ad96cc1f-d57b-472b-bfe2-0f9d04a3cfa2",
+      "status": "awaiting_review",
+      "run_config": {
+        "schema_version": 1,
+        "retrieval_policy": "vector",
+        "max_tool_calls": 4
+      }
+    }
+
+
+## 工具调用 1
+
+
+    {
+      "call_id": "87b798f0-3a50-498d-8e55-a8efcc90b2b8",
+      "tool_call_id": "call_7eba48c7e2684959a7acfe68",
+      "tool_name": "search_code",
+      "event_sequences": [
+        4,
+        5,
+        6,
+        7
+      ]
+    }
+
+检索事件序号：6；结果范围为工具返回 Top-K。
+
+    {
+      "query": "summarize_tasks count total_duration",
+      "effective_query": "summarize_tasks count total_duration",
+      "requested_strategy": "vector",
+      "retrieval_strategy": "vector",
+      "top_k": 5,
+      "retrieval_parameters": {
+        "index_version": null,
+        "embedding_model": "text-embedding-v4",
+        "rrf_rank_constant": null,
+        "embedding_dimensions": 1024,
+        "hybrid_candidate_limit": null
+      },
+      "diagnostics": null
+    }
+
+返回 5 条命中，以下保持原顺序：
+
+    {
+      "rank": 1,
+      "file_id": "eb37cb9a-2715-48cf-a843-d231f395981c",
+      "chunk_id": "a8ea7e9b-3ac6-46c2-b82e-add299392d9c",
+      "distance": 0.15567421913146973,
+      "end_line": 5,
+      "file_hash": null,
+      "file_path": "statistics.py",
+      "source_id": null,
+      "start_line": 1,
+      "symbol_name": "summarize_tasks",
+      "content_chars": 168,
+      "content_sha256": "96fb804cd72ad01c2b153d6c3f40577687833269e2428070a9088025cff3149d"
+    }
+
+
+    {
+      "rank": 2,
+      "file_id": "edfb0051-53d0-43dd-b859-c23a3ed992af",
+      "chunk_id": "078b06da-7c09-4cf7-a9d6-c1d98b9d6e6d",
+      "distance": 0.1583845615386963,
+      "end_line": 27,
+      "file_hash": null,
+      "file_path": "tests/test_statistics.py",
+      "source_id": null,
+      "start_line": 26,
+      "symbol_name": "test_original_behavior",
+      "content_chars": 109,
+      "content_sha256": "f33f038c7c2103f0e386f563790430f0f262936d6903bf38766af52a7ce17094"
+    }
+
+
+    {
+      "rank": 3,
+      "file_id": "edfb0051-53d0-43dd-b859-c23a3ed992af",
+      "chunk_id": "e6ccc6ee-fcdd-4ed1-a4b6-68b2d15b2b6d",
+      "distance": 0.1810211891240232,
+      "end_line": 40,
+      "file_hash": null,
+      "file_path": "tests/test_statistics.py",
+      "source_id": null,
+      "start_line": 39,
+      "symbol_name": "test_empty_original",
+      "content_chars": 97,
+      "content_sha256": "1d4ae1a44ad66966f51417904754a83a2bbac84ebbd7e54fe9f6e64d16fdb5f2"
+    }
+
+
+    {
+      "rank": 4,
+      "file_id": "edfb0051-53d0-43dd-b859-c23a3ed992af",
+      "chunk_id": "0cedae3a-d1cc-4722-9dd9-24464d8f67c4",
+      "distance": 0.2122089989309892,
+      "end_line": 36,
+      "file_hash": null,
+      "file_path": "tests/test_statistics.py",
+      "source_id": null,
+      "start_line": 30,
+      "symbol_name": "test_optional_status",
+      "content_chars": 323,
+      "content_sha256": "b01db22ce858ad77c5a23dbbbb473c3570799c3a27f924dbfaa50b22e32e3b8f"
+    }
+
+
+    {
+      "rank": 5,
+      "file_id": "edfb0051-53d0-43dd-b859-c23a3ed992af",
+      "chunk_id": "a8d30772-5884-4807-b8fc-cc19df8b5e58",
+      "distance": 0.21948188543319702,
+      "end_line": 65,
+      "file_hash": null,
+      "file_path": "tests/test_statistics.py",
+      "source_id": null,
+      "start_line": 63,
+      "symbol_name": "test_missing_duration_still_raises",
+      "content_chars": 130,
+      "content_sha256": "d7255fe55f813452b86b6bd1e10f2d19411ca183df7545a4d45b316ae0c1d95b"
+    }
+
+预算后消息事件序号：7
+
+    {
+      "attempt": 1,
+      "call_id": "87b798f0-3a50-498d-8e55-a8efcc90b2b8",
+      "sources": [
+        {
+          "file_id": "eb37cb9a-2715-48cf-a843-d231f395981c",
+          "chunk_id": "a8ea7e9b-3ac6-46c2-b82e-add299392d9c",
+          "end_line": 5,
+          "file_hash": null,
+          "file_path": "statistics.py",
+          "source_id": "S1",
+          "start_line": 1,
+          "symbol_name": "summarize_tasks",
+          "content_chars": 168,
+          "content_sha256": "96fb804cd72ad01c2b153d6c3f40577687833269e2428070a9088025cff3149d"
+        },
+        {
+          "file_id": "edfb0051-53d0-43dd-b859-c23a3ed992af",
+          "chunk_id": "078b06da-7c09-4cf7-a9d6-c1d98b9d6e6d",
+          "end_line": 27,
+          "file_hash": null,
+          "file_path": "tests/test_statistics.py",
+          "source_id": "S2",
+          "start_line": 26,
+          "symbol_name": "test_original_behavior",
+          "content_chars": 109,
+          "content_sha256": "f33f038c7c2103f0e386f563790430f0f262936d6903bf38766af52a7ce17094"
+        },
+        {
+          "file_id": "edfb0051-53d0-43dd-b859-c23a3ed992af",
+          "chunk_id": "e6ccc6ee-fcdd-4ed1-a4b6-68b2d15b2b6d",
+          "end_line": 40,
+          "file_hash": null,
+          "file_path": "tests/test_statistics.py",
+          "source_id": "S3",
+          "start_line": 39,
+          "symbol_name": "test_empty_original",
+          "content_chars": 97,
+          "content_sha256": "1d4ae1a44ad66966f51417904754a83a2bbac84ebbd7e54fe9f6e64d16fdb5f2"
+        },
+        {
+          "file_id": "edfb0051-53d0-43dd-b859-c23a3ed992af",
+          "chunk_id": "0cedae3a-d1cc-4722-9dd9-24464d8f67c4",
+          "end_line": 36,
+          "file_hash": null,
+          "file_path": "tests/test_statistics.py",
+          "source_id": "S4",
+          "start_line": 30,
+          "symbol_name": "test_optional_status",
+          "content_chars": 323,
+          "content_sha256": "b01db22ce858ad77c5a23dbbbb473c3570799c3a27f924dbfaa50b22e32e3b8f"
+        },
+        {
+          "file_id": "edfb0051-53d0-43dd-b859-c23a3ed992af",
+          "chunk_id": "a8d30772-5884-4807-b8fc-cc19df8b5e58",
+          "end_line": 65,
+          "file_hash": null,
+          "file_path": "tests/test_statistics.py",
+          "source_id": "S5",
+          "start_line": 63,
+          "symbol_name": "test_missing_duration_still_raises",
+          "content_chars": 130,
+          "content_sha256": "d7255fe55f813452b86b6bd1e10f2d19411ca183df7545a4d45b316ae0c1d95b"
+        }
+      ],
+      "step_id": "tools",
+      "sequence": 7,
+      "attempted": true,
+      "has_error": false,
+      "tool_name": "search_code",
+      "disposition": "accepted",
+      "tool_call_id": "call_7eba48c7e2684959a7acfe68",
+      "content_chars": 2855,
+      "trace_version": 1,
+      "content_sha256": "51d55a2dfbced3a8c05f05aff9510e91aba0e7b7598766f8cdfece4d8075c713",
+      "reserved_chars": 34,
+      "schema_version": 1,
+      "tool_message_index": 0,
+      "prepared_result_chars": 2855,
+      "remaining_chars_after": 37145,
+      "remaining_chars_before": 40000
+    }
+
+关联的后续模型调用尝试（completed / failed / unrecorded）：
+
+    [
+      {
+        "call_id": "81e3da3b-9f8d-49d4-9100-026764bd1fde",
+        "node_name": "model",
+        "started_sequence": 12,
+        "finished_sequence": 13,
+        "outcome": "completed"
+      },
+      {
+        "call_id": "ecffb77d-efe2-45de-b218-97844cee209a",
+        "node_name": "model",
+        "started_sequence": 20,
+        "finished_sequence": 21,
+        "outcome": "completed"
+      },
+      {
+        "call_id": "f8d5ad7f-12c0-4909-97b7-3c8e46da1fb9",
+        "node_name": "plan",
+        "started_sequence": 22,
+        "finished_sequence": 23,
+        "outcome": "completed"
+      }
+    ]
+
+
+## 工具调用 2
+
+
+    {
+      "call_id": "fc8514b7-8725-4593-b04e-b8f17eff81ed",
+      "tool_call_id": "call_76328e661b38418894706a4a",
+      "tool_name": "search_code",
+      "event_sequences": [
+        8,
+        9,
+        10,
+        11
+      ]
+    }
+
+检索事件序号：10；结果范围为工具返回 Top-K。
+
+    {
+      "query": "statistics.py task status duration",
+      "effective_query": "statistics.py task status duration",
+      "requested_strategy": "vector",
+      "retrieval_strategy": "vector",
+      "top_k": 5,
+      "retrieval_parameters": {
+        "index_version": null,
+        "embedding_model": "text-embedding-v4",
+        "rrf_rank_constant": null,
+        "embedding_dimensions": 1024,
+        "hybrid_candidate_limit": null
+      },
+      "diagnostics": null
+    }
+
+返回 5 条命中，以下保持原顺序：
+
+    {
+      "rank": 1,
+      "file_id": "edfb0051-53d0-43dd-b859-c23a3ed992af",
+      "chunk_id": "a8d30772-5884-4807-b8fc-cc19df8b5e58",
+      "distance": 0.3107264267532268,
+      "end_line": 65,
+      "file_hash": null,
+      "file_path": "tests/test_statistics.py",
+      "source_id": null,
+      "start_line": 63,
+      "symbol_name": "test_missing_duration_still_raises",
+      "content_chars": 130,
+      "content_sha256": "d7255fe55f813452b86b6bd1e10f2d19411ca183df7545a4d45b316ae0c1d95b"
+    }
+
+
+    {
+      "rank": 2,
+      "file_id": "edfb0051-53d0-43dd-b859-c23a3ed992af",
+      "chunk_id": "58d20d7e-465f-4618-87a7-e15aa239826f",
+      "distance": 0.31585443019865,
+      "end_line": 75,
+      "file_hash": null,
+      "file_path": "tests/test_statistics.py",
+      "source_id": null,
+      "start_line": 73,
+      "symbol_name": "test_filtered_missing_duration_raises",
+      "content_chars": 153,
+      "content_sha256": "e7716306f2a8f6045a3f58099518e814780a133d7f6bca8e4f66305eadc96117"
+    }
+
+
+    {
+      "rank": 3,
+      "file_id": "edfb0051-53d0-43dd-b859-c23a3ed992af",
+      "chunk_id": "5111dfe2-ecb6-43bd-91f9-ad0a2d2b0e37",
+      "distance": 0.3241249339357125,
+      "end_line": 60,
+      "file_hash": null,
+      "file_path": "tests/test_statistics.py",
+      "source_id": null,
+      "start_line": 59,
+      "symbol_name": "test_unfiltered_does_not_require_status",
+      "content_chars": 132,
+      "content_sha256": "91b6f7dcaa81e72695eb488e6fed821482331d3011cb8300b48f5a90953832fa"
+    }
+
+
+    {
+      "rank": 4,
+      "file_id": "edfb0051-53d0-43dd-b859-c23a3ed992af",
+      "chunk_id": "0cedae3a-d1cc-4722-9dd9-24464d8f67c4",
+      "distance": 0.32699022728261906,
+      "end_line": 36,
+      "file_hash": null,
+      "file_path": "tests/test_statistics.py",
+      "source_id": null,
+      "start_line": 30,
+      "symbol_name": "test_optional_status",
+      "content_chars": 323,
+      "content_sha256": "b01db22ce858ad77c5a23dbbbb473c3570799c3a27f924dbfaa50b22e32e3b8f"
+    }
+
+
+    {
+      "rank": 5,
+      "file_id": "edfb0051-53d0-43dd-b859-c23a3ed992af",
+      "chunk_id": "6824dce4-377e-4dfa-a255-ec0fc4594742",
+      "distance": 0.3316939275447066,
+      "end_line": 70,
+      "file_hash": null,
+      "file_path": "tests/test_statistics.py",
+      "source_id": null,
+      "start_line": 68,
+      "symbol_name": "test_filtered_missing_status_raises",
+      "content_chars": 143,
+      "content_sha256": "cc815fa548d012abc9bfa222cd71cf5b503f0c0afa419cbfa4d5b7062155c199"
+    }
+
+预算后消息事件序号：11
+
+    {
+      "attempt": 1,
+      "call_id": "fc8514b7-8725-4593-b04e-b8f17eff81ed",
+      "sources": [
+        {
+          "file_id": "edfb0051-53d0-43dd-b859-c23a3ed992af",
+          "chunk_id": "a8d30772-5884-4807-b8fc-cc19df8b5e58",
+          "end_line": 65,
+          "file_hash": null,
+          "file_path": "tests/test_statistics.py",
+          "source_id": "S6",
+          "start_line": 63,
+          "symbol_name": "test_missing_duration_still_raises",
+          "content_chars": 130,
+          "content_sha256": "d7255fe55f813452b86b6bd1e10f2d19411ca183df7545a4d45b316ae0c1d95b"
+        },
+        {
+          "file_id": "edfb0051-53d0-43dd-b859-c23a3ed992af",
+          "chunk_id": "58d20d7e-465f-4618-87a7-e15aa239826f",
+          "end_line": 75,
+          "file_hash": null,
+          "file_path": "tests/test_statistics.py",
+          "source_id": "S7",
+          "start_line": 73,
+          "symbol_name": "test_filtered_missing_duration_raises",
+          "content_chars": 153,
+          "content_sha256": "e7716306f2a8f6045a3f58099518e814780a133d7f6bca8e4f66305eadc96117"
+        },
+        {
+          "file_id": "edfb0051-53d0-43dd-b859-c23a3ed992af",
+          "chunk_id": "5111dfe2-ecb6-43bd-91f9-ad0a2d2b0e37",
+          "end_line": 60,
+          "file_hash": null,
+          "file_path": "tests/test_statistics.py",
+          "source_id": "S8",
+          "start_line": 59,
+          "symbol_name": "test_unfiltered_does_not_require_status",
+          "content_chars": 132,
+          "content_sha256": "91b6f7dcaa81e72695eb488e6fed821482331d3011cb8300b48f5a90953832fa"
+        },
+        {
+          "file_id": "edfb0051-53d0-43dd-b859-c23a3ed992af",
+          "chunk_id": "0cedae3a-d1cc-4722-9dd9-24464d8f67c4",
+          "end_line": 36,
+          "file_hash": null,
+          "file_path": "tests/test_statistics.py",
+          "source_id": "S9",
+          "start_line": 30,
+          "symbol_name": "test_optional_status",
+          "content_chars": 323,
+          "content_sha256": "b01db22ce858ad77c5a23dbbbb473c3570799c3a27f924dbfaa50b22e32e3b8f"
+        },
+        {
+          "file_id": "edfb0051-53d0-43dd-b859-c23a3ed992af",
+          "chunk_id": "6824dce4-377e-4dfa-a255-ec0fc4594742",
+          "end_line": 70,
+          "file_hash": null,
+          "file_path": "tests/test_statistics.py",
+          "source_id": "S10",
+          "start_line": 68,
+          "symbol_name": "test_filtered_missing_status_raises",
+          "content_chars": 143,
+          "content_sha256": "cc815fa548d012abc9bfa222cd71cf5b503f0c0afa419cbfa4d5b7062155c199"
+        }
+      ],
+      "step_id": "tools",
+      "sequence": 11,
+      "attempted": true,
+      "has_error": false,
+      "tool_name": "search_code",
+      "disposition": "accepted",
+      "tool_call_id": "call_76328e661b38418894706a4a",
+      "content_chars": 2975,
+      "trace_version": 1,
+      "content_sha256": "aefc01e2c28ef436d3d5e850a7434cab8d5437245a36243d44b4fb2b9ca86c0b",
+      "reserved_chars": 0,
+      "schema_version": 1,
+      "tool_message_index": 1,
+      "prepared_result_chars": 2975,
+      "remaining_chars_after": 34170,
+      "remaining_chars_before": 37145
+    }
+
+关联的后续模型调用尝试（completed / failed / unrecorded）：
+
+    [
+      {
+        "call_id": "81e3da3b-9f8d-49d4-9100-026764bd1fde",
+        "node_name": "model",
+        "started_sequence": 12,
+        "finished_sequence": 13,
+        "outcome": "completed"
+      },
+      {
+        "call_id": "ecffb77d-efe2-45de-b218-97844cee209a",
+        "node_name": "model",
+        "started_sequence": 20,
+        "finished_sequence": 21,
+        "outcome": "completed"
+      },
+      {
+        "call_id": "f8d5ad7f-12c0-4909-97b7-3c8e46da1fb9",
+        "node_name": "plan",
+        "started_sequence": 22,
+        "finished_sequence": 23,
+        "outcome": "completed"
+      }
+    ]
+
+
+## 工具调用 3
+
+
+    {
+      "call_id": "7eb2e10a-fec7-43a0-b0f3-4c8e0aa8dfea",
+      "tool_call_id": "call_234d665ec6274f07b89e7411",
+      "tool_name": "read_source",
+      "event_sequences": [
+        14,
+        15,
+        16
+      ]
+    }
+
+检索结果摘要：未记录（源码读取、跳过或失败也可能没有检索事件）。
+预算后消息事件序号：16
+
+    {
+      "attempt": 1,
+      "call_id": "7eb2e10a-fec7-43a0-b0f3-4c8e0aa8dfea",
+      "sources": [
+        {
+          "file_id": null,
+          "chunk_id": null,
+          "end_line": 5,
+          "file_hash": "96fb804cd72ad01c2b153d6c3f40577687833269e2428070a9088025cff3149d",
+          "file_path": "statistics.py",
+          "source_id": "S11",
+          "start_line": 1,
+          "symbol_name": null,
+          "content_chars": 168,
+          "content_sha256": "96fb804cd72ad01c2b153d6c3f40577687833269e2428070a9088025cff3149d"
+        }
+      ],
+      "step_id": "tools",
+      "sequence": 16,
+      "attempted": true,
+      "has_error": false,
+      "tool_name": "read_source",
+      "disposition": "accepted",
+      "tool_call_id": "call_234d665ec6274f07b89e7411",
+      "content_chars": 437,
+      "trace_version": 1,
+      "content_sha256": "9b8276e04005806a8e6c911e591952e695f1f36476939bb772c34c986836dd74",
+      "reserved_chars": 34,
+      "schema_version": 1,
+      "tool_message_index": 2,
+      "prepared_result_chars": 437,
+      "remaining_chars_after": 33733,
+      "remaining_chars_before": 34170
+    }
+
+关联的后续模型调用尝试（completed / failed / unrecorded）：
+
+    [
+      {
+        "call_id": "ecffb77d-efe2-45de-b218-97844cee209a",
+        "node_name": "model",
+        "started_sequence": 20,
+        "finished_sequence": 21,
+        "outcome": "completed"
+      },
+      {
+        "call_id": "f8d5ad7f-12c0-4909-97b7-3c8e46da1fb9",
+        "node_name": "plan",
+        "started_sequence": 22,
+        "finished_sequence": 23,
+        "outcome": "completed"
+      }
+    ]
+
+
+## 工具调用 4
+
+
+    {
+      "call_id": "05e31471-5f2c-47c8-9a30-f4e1b33f9455",
+      "tool_call_id": "call_f96cbd321e5442f0864b13df",
+      "tool_name": "read_source",
+      "event_sequences": [
+        17,
+        18,
+        19
+      ]
+    }
+
+检索结果摘要：未记录（源码读取、跳过或失败也可能没有检索事件）。
+预算后消息事件序号：19
+
+    {
+      "attempt": 1,
+      "call_id": "05e31471-5f2c-47c8-9a30-f4e1b33f9455",
+      "sources": [
+        {
+          "file_id": null,
+          "chunk_id": null,
+          "end_line": 75,
+          "file_hash": "8b46db49f3963c0ea465765aed3f7a2b0e662c3af467d92715b15abc12b90340",
+          "file_path": "tests/test_statistics.py",
+          "source_id": "S12",
+          "start_line": 1,
+          "symbol_name": null,
+          "content_chars": 2120,
+          "content_sha256": "8b46db49f3963c0ea465765aed3f7a2b0e662c3af467d92715b15abc12b90340"
+        }
+      ],
+      "step_id": "tools",
+      "sequence": 19,
+      "attempted": true,
+      "has_error": false,
+      "tool_name": "read_source",
+      "disposition": "accepted",
+      "tool_call_id": "call_f96cbd321e5442f0864b13df",
+      "content_chars": 2612,
+      "trace_version": 1,
+      "content_sha256": "9d7c65d0712ff26115f0b58e0433ea4697b9cdc352780993ae1c455aaf479fd0",
+      "reserved_chars": 0,
+      "schema_version": 1,
+      "tool_message_index": 3,
+      "prepared_result_chars": 2612,
+      "remaining_chars_after": 31121,
+      "remaining_chars_before": 33733
+    }
+
+关联的后续模型调用尝试（completed / failed / unrecorded）：
+
+    [
+      {
+        "call_id": "ecffb77d-efe2-45de-b218-97844cee209a",
+        "node_name": "model",
+        "started_sequence": 20,
+        "finished_sequence": 21,
+        "outcome": "completed"
+      },
+      {
+        "call_id": "f8d5ad7f-12c0-4909-97b7-3c8e46da1fb9",
+        "node_name": "plan",
+        "started_sequence": 22,
+        "finished_sequence": 23,
+        "outcome": "completed"
+      }
+    ]
+
+
+## 模型调用清单
+
+
+    {
+      "call_id": "a9e3bf3c-e108-48b0-a022-c8d08c48ba40",
+      "node_name": "model",
+      "started_sequence": 2,
+      "finished_sequence": 3,
+      "outcome": "completed",
+      "context_recorded": true,
+      "unmatched_tool_context": []
+    }
+
+
+    {
+      "call_id": "81e3da3b-9f8d-49d4-9100-026764bd1fde",
+      "node_name": "model",
+      "started_sequence": 12,
+      "finished_sequence": 13,
+      "outcome": "completed",
+      "context_recorded": true,
+      "unmatched_tool_context": []
+    }
+
+
+    {
+      "call_id": "ecffb77d-efe2-45de-b218-97844cee209a",
+      "node_name": "model",
+      "started_sequence": 20,
+      "finished_sequence": 21,
+      "outcome": "completed",
+      "context_recorded": true,
+      "unmatched_tool_context": []
+    }
+
+
+    {
+      "call_id": "f8d5ad7f-12c0-4909-97b7-3c8e46da1fb9",
+      "node_name": "plan",
+      "started_sequence": 22,
+      "finished_sequence": 23,
+      "outcome": "completed",
+      "context_recorded": true,
+      "unmatched_tool_context": []
+    }
+
