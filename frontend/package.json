@@ -4,12 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "snapshots": "node scripts/build-snapshots.mjs",
+    "snapshots": "node scripts/build-snapshots.mjs && node scripts/build-comparison.mjs",
     "dev": "npm run snapshots && vite --host 127.0.0.1",
     "typecheck": "vue-tsc --noEmit",
     "build": "npm run snapshots && npm run typecheck && vite build",
     "preview": "vite preview --host 127.0.0.1",
-    "test:snapshots": "node --test scripts/build-snapshots.test.mjs scripts/run-detail.test.mjs"
+    "test:snapshots": "node --test scripts/build-snapshots.test.mjs scripts/run-detail.test.mjs scripts/build-comparison.test.mjs"
   },
   "dependencies": {
     "element-plus": "^2.11.0",

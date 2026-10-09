@@ -10,7 +10,7 @@ const route = useRoute()
       <nav aria-label="主导航">
         <RouterLink to="/experiments" :class="route.path === '/experiments' ? 'nav-item' : 'nav-plain'">实验总览</RouterLink>
         <span :class="route.path.startsWith('/runs/') ? 'nav-item' : 'nav-pending'">运行详情 <small v-if="!route.path.startsWith('/runs/')">从总览选择运行</small></span>
-        <span class="nav-pending">策略对比 <small>后续模块</small></span>
+        <RouterLink to="/comparisons" :class="route.path === '/comparisons' ? 'nav-item' : 'nav-plain'">策略对比</RouterLink>
       </nav>
       <div class="sidebar-note">从结果追溯证据<br />从证据理解差异</div>
     </aside>

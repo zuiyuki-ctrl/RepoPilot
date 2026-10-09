@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "runs": [
+    {
+      "role": "primary",
+      "preparation": "../../reports/experiments/1050c45d-458e-41bf-a4d7-cd5ce1f897b2/preparation.json",
+      "report": "../../reports/experiments/1050c45d-458e-41bf-a4d7-cd5ce1f897b2/operations/16a5aac1-0b7d-46ff-9828-0e904a9103ed/task_f58111a3-4d12-49d9-8d04-665fd512f53a_20261008T123957657305Z.json",
+      "evidence": "../../reports/experiments/1050c45d-458e-41bf-a4d7-cd5ce1f897b2/evidence/retrieval_f58111a3-4d12-49d9-8d04-665fd512f53a_2d426355bc0a47a2bf07a14dabcccf3a/evidence.json"
+    },
+    {
+      "role": "additional",
+      "preparation": "../../reports/experiments/4ee78fc6-f4bb-48d8-a5c6-0e85cc1378a7/preparation.json",
+      "report": null,
+      "evidence": null
+    },
+    {
+      "role": "additional",
+      "preparation": "../../reports/experiments/d3c43986-e97b-42ca-a631-f599ee76bd4f/preparation.json",
+      "report": null,
+      "evidence": null
+    },
+    {
+      "role": "primary",
+      "preparation": "../../reports/experiments/deduplicate-hybrid-366bb7283ee54359a0d3809a79ab8e5b/6ce17de7-ad33-4232-bac6-5c1d673d326d/preparation.json",
+      "report": "../../reports/experiments/deduplicate-hybrid-366bb7283ee54359a0d3809a79ab8e5b/6ce17de7-ad33-4232-bac6-5c1d673d326d/operations/d02f3ad3-84c3-4371-8e01-2787faddf321/task_a2574e05-f9a8-4257-94b9-c6d4153d4f61_20261009T032022076141Z.json",
+      "evidence": "../../reports/experiments/deduplicate-hybrid-366bb7283ee54359a0d3809a79ab8e5b/6ce17de7-ad33-4232-bac6-5c1d673d326d/evidence/retrieval_a2574e05-f9a8-4257-94b9-c6d4153d4f61_a5e1ea98c4234f7fba9b4cd74715af9f/evidence.json"
+    },
+    {
+      "role": "primary",
+      "preparation": "../../reports/experiments/deduplicate-vector-343a16f8da4e459998c7be8a499a0909/a9851347-d41f-40b9-a004-83cb2632f0f9/preparation.json",
+      "report": "../../reports/experiments/deduplicate-vector-343a16f8da4e459998c7be8a499a0909/a9851347-d41f-40b9-a004-83cb2632f0f9/operations/3e7d5fb3-7482-4a5a-b699-ca30980516ff/task_6d272d44-74a8-4d1f-b3a0-074f008b5165_20261009T030817215478Z.json",
+      "evidence": "../../reports/experiments/deduplicate-vector-343a16f8da4e459998c7be8a499a0909/a9851347-d41f-40b9-a004-83cb2632f0f9/evidence/retrieval_6d272d44-74a8-4d1f-b3a0-074f008b5165_6b8b89746f19471f844a1abde2c9ac79/evidence.json"
+    },
+    {
+      "role": "primary",
+      "preparation": "../../reports/experiments/statistics-hybrid-a253cbfe46e348f089ebd6837b5b7c1b/b2fb749c-a1f3-4b47-bea3-5b9f96f75091/preparation.json",
+      "report": "../../reports/experiments/statistics-hybrid-a253cbfe46e348f089ebd6837b5b7c1b/b2fb749c-a1f3-4b47-bea3-5b9f96f75091/operations/82bc1ff5-576b-4d52-9eab-cffbc85add34/task_67540362-f4aa-4d68-b034-d6d640964a27_20261009T131845913217Z.json",
+      "evidence": "../../reports/experiments/statistics-hybrid-a253cbfe46e348f089ebd6837b5b7c1b/b2fb749c-a1f3-4b47-bea3-5b9f96f75091/evidence/retrieval_67540362-f4aa-4d68-b034-d6d640964a27_ff678e8312ac4f4ba79d83fcaabd135f/evidence.json"
+    },
+    {
+      "role": "primary",
+      "preparation": "../../reports/experiments/statistics-vector-e2ae07c6c8bc41b08725195c8269e988/c35757bb-fee0-45e3-8744-8ee23194fa31/preparation.json",
+      "report": "../../reports/experiments/statistics-vector-e2ae07c6c8bc41b08725195c8269e988/c35757bb-fee0-45e3-8744-8ee23194fa31/operations/35792bdd-a5b2-4a6f-a6c9-f6e1ec4426c6/task_9532cc66-4349-473d-bdf5-696cbad1a083_20261009T033215561324Z.json",
+      "evidence": "../../reports/experiments/statistics-vector-e2ae07c6c8bc41b08725195c8269e988/c35757bb-fee0-45e3-8744-8ee23194fa31/evidence/retrieval_9532cc66-4349-473d-bdf5-696cbad1a083_2ff54a4e258a44918e8145ad534968f3/evidence.json"
+    },
+    {
+      "role": "primary",
+      "preparation": "../../reports/experiments/task-list-hybrid-9e3a2db4a0d7493a9c746e08cb30333e/1d1733ce-fa0c-4590-a548-3eb118acd784/preparation.json",
+      "report": "../../reports/experiments/task-list-hybrid-9e3a2db4a0d7493a9c746e08cb30333e/1d1733ce-fa0c-4590-a548-3eb118acd784/operations/936953c5-35fa-41a6-b6f6-461e50260a39/task_1e9054f1-4ac4-4889-a587-81160e5fc4fb_20261008T160743527639Z.json",
+      "evidence": "../../reports/experiments/task-list-hybrid-9e3a2db4a0d7493a9c746e08cb30333e/1d1733ce-fa0c-4590-a548-3eb118acd784/evidence/retrieval_1e9054f1-4ac4-4889-a587-81160e5fc4fb_bf681be097fa48869e9e9287731b3091/evidence.json"
+    }
+  ]
+}

@@ -1,0 +1,2697 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-10-09T13:31:09.223593+00:00",
+  "primary_status_counts": {
+    "vector": {
+      "completed": 3,
+      "failed": 0,
+      "report_missing": 0,
+      "preparation_error": 0,
+      "preparation_incomplete": 0
+    },
+    "hybrid": {
+      "completed": 3,
+      "failed": 0,
+      "report_missing": 0,
+      "preparation_error": 0,
+      "preparation_incomplete": 0
+    }
+  },
+  "pairs": [
+    {
+      "case_id": "deduplicate",
+      "case_version": "v1",
+      "runs": {
+        "hybrid": {
+          "experiment_id": "6ce17de7-ad33-4232-bac6-5c1d673d326d",
+          "case": {
+            "schema_version": 1,
+            "case_id": "deduplicate",
+            "case_version": "v1",
+            "task_type": "bug_fix",
+            "user_request": "deduplicate_by_key 按指定字段去重时，没有保留第一次出现的记录。请定位并修复：相同键值只保留首次出现的完整记录，结果按这些记录在输入中的先后顺序排列，不修改输入列表或记录。空列表返回空列表；记录缺少指定字段时仍抛 KeyError。只修改 deduplicate.py，不修改固定验收测试。",
+            "repository_commit": "38093c2aca961bcaebbffcd864fc1859844829fd",
+            "editable_files": [
+              "deduplicate.py"
+            ],
+            "protected_test_files": [
+              "tests/test_deduplicate.py"
+            ],
+            "test_profile": "python-basic"
+          },
+          "strategy": "hybrid",
+          "run_config": {
+            "schema_version": 1,
+            "retrieval_policy": "hybrid",
+            "max_tool_calls": 4
+          },
+          "task_id": "a2574e05-f9a8-4257-94b9-c6d4153d4f61",
+          "preparation_status": "prepared",
+          "preparation_stage": "create_task",
+          "preparation_error_type": null,
+          "protected_test_file_hashes": {
+            "tests/test_deduplicate.py": "cbc9724b0faa9ccb8bae8dcc562f7b40b2728cbc3eeb6a2e9c68f3d1de5cafdb"
+          },
+          "status": "completed",
+          "test": {
+            "id": "ef9d2f9c-a41b-4e78-92e4-6a526c8c668a",
+            "task_id": "a2574e05-f9a8-4257-94b9-c6d4153d4f61",
+            "status": "finished",
+            "image": "repopilot-pytest:py311",
+            "timeout_seconds": 120,
+            "started_at": "2026-10-09T03:19:47.368468Z",
+            "completed_at": "2026-10-09T03:19:48.896699Z",
+            "exit_code": 0,
+            "timed_out": false,
+            "stdout": "......                                                                   [100%]\n6 passed in 0.08s\n",
+            "stderr": "",
+            "stdout_truncated": false,
+            "stderr_truncated": false,
+            "error": null,
+            "snapshot_hash": "89c7adc088146b13eb32f959ca8ad0156cff9ba2589e8ebe74c04d0d0182b1b2",
+            "process_passed": true,
+            "structured_test_counts": null
+          },
+          "retry_count": 0,
+          "completion_event_sequence": 31,
+          "failure": null,
+          "final_diff": {
+            "task_id": "a2574e05-f9a8-4257-94b9-c6d4153d4f61",
+            "repository_id": "45e1d17d-bab1-44ef-b053-b268f67c27f9",
+            "diff": "diff --git a/deduplicate.py b/deduplicate.py\nindex d6beb80..9927b8e 100644\n--- a/deduplicate.py\n+++ b/deduplicate.py\n@@ -1,5 +1,7 @@\n def deduplicate_by_key(records: list[dict], *, key: str) -> list[dict]:\n     by_key = {}\n     for record in records:\n-        by_key[record[key]] = record\n+        value = record[key]\n+        if value not in by_key:\n+            by_key[value] = record\n     return list(by_key.values())\n",
+            "changed_files": [
+              "deduplicate.py"
+            ],
+            "untracked_files": [],
+            "truncated": false
+          },
+          "retrieval": {
+            "trace_status": "recorded",
+            "trace_status_source": "original_export_snapshot",
+            "association_warnings": [],
+            "exported_event_count": 25,
+            "snapshot_last_sequence": 25,
+            "scope": "exported_retrieval_context_events_only",
+            "warnings": [],
+            "queries": [
+              {
+                "event_sequence": 6,
+                "query": "deduplicate_by_key",
+                "requested_strategy": "hybrid",
+                "retrieval_strategy": "hybrid",
+                "top_k": 5,
+                "diagnostics": {
+                  "overlap_count": 7,
+                  "vector_candidate_count": 7,
+                  "final_keyword_hit_count": 5,
+                  "keyword_candidate_count": 7
+                },
+                "retrieval_parameters": {
+                  "index_version": null,
+                  "embedding_model": "text-embedding-v4",
+                  "rrf_rank_constant": 60,
+                  "embedding_dimensions": 1024,
+                  "hybrid_candidate_limit": 20
+                },
+                "hits": [
+                  {
+                    "rank": 1,
+                    "file_id": "891b8973-2094-4c25-b02c-4e5e0d86ccb7",
+                    "chunk_id": "6fa5f86d-2279-4eec-bc38-b5a8bffd6257",
+                    "end_line": 17,
+                    "file_hash": null,
+                    "file_path": "tests/test_deduplicate.py",
+                    "rrf_score": 0.032018442622950824,
+                    "source_id": null,
+                    "start_line": 8,
+                    "symbol_name": "test_keeps_first_complete_record",
+                    "vector_rank": 1,
+                    "keyword_rank": 4,
+                    "content_chars": 339,
+                    "keyword_score": 0.1,
+                    "content_sha256": "51060bf6385ebac47c5d53286735df7c32a2bd1a13ede6860b7763afe230b07e",
+                    "vector_distance": 0.15722415319753114
+                  },
+                  {
+                    "rank": 2,
+                    "file_id": "891b8973-2094-4c25-b02c-4e5e0d86ccb7",
+                    "chunk_id": "388416c6-0302-4a30-a6cd-7f7fc9807310",
+                    "end_line": 43,
+                    "file_hash": null,
+                    "file_path": "tests/test_deduplicate.py",
+                    "rrf_score": 0.03200204813108039,
+                    "source_id": null,
+                    "start_line": 41,
+                    "symbol_name": "test_missing_key_raises",
+                    "vector_rank": 3,
+                    "keyword_rank": 2,
+                    "content_chars": 139,
+                    "keyword_score": 0.11666667,
+                    "content_sha256": "96f3fdc996ed04799ab960f42c4690d128b8b6293cc1f86f2db170bbad87e75f",
+                    "vector_distance": 0.18510536132986433
+                  },
+                  {
+                    "rank": 3,
+                    "file_id": "891b8973-2094-4c25-b02c-4e5e0d86ccb7",
+                    "chunk_id": "5d7cd1c9-7954-4fc4-93c9-a2df6880b09d",
+                    "end_line": 27,
+                    "file_hash": null,
+                    "file_path": "tests/test_deduplicate.py",
+                    "rrf_score": 0.03149801587301587,
+                    "source_id": null,
+                    "start_line": 25,
+                    "symbol_name": "test_custom_key_keeps_first_record",
+                    "vector_rank": 4,
+                    "keyword_rank": 3,
+                    "content_chars": 196,
+                    "keyword_score": 0.10714286,
+                    "content_sha256": "45966c633d46ab0e922ab89113897dc066d68fb999df71f4fbe0f1fa7d76f221",
+                    "vector_distance": 0.18648885569042684
+                  },
+                  {
+                    "rank": 4,
+                    "file_id": "dd0602b1-84ab-49a5-bfd5-bb6b5c535993",
+                    "chunk_id": "d8eced2e-47b8-4c29-9a86-12f0bec1a075",
+                    "end_line": 5,
+                    "file_hash": null,
+                    "file_path": "deduplicate.py",
+                    "rrf_score": 0.03131881575727918,
+                    "source_id": null,
+                    "start_line": 1,
+                    "symbol_name": "deduplicate_by_key",
+                    "vector_rank": 7,
+                    "keyword_rank": 1,
+                    "content_chars": 190,
+                    "keyword_score": 0.3,
+                    "content_sha256": "24d6a2501a91b044a14a9db0fdbe34614318b7a560231e3be7a46c3558150135",
+                    "vector_distance": 0.20019745826721191
+                  },
+                  {
+                    "rank": 5,
+                    "file_id": "891b8973-2094-4c25-b02c-4e5e0d86ccb7",
+                    "chunk_id": "8baeea99-99f3-43dc-bac4-1a39683921b1",
+                    "end_line": 38,
+                    "file_hash": null,
+                    "file_path": "tests/test_deduplicate.py",
+                    "rrf_score": 0.031054405392392875,
+                    "source_id": null,
+                    "start_line": 34,
+                    "symbol_name": "test_input_is_not_modified",
+                    "vector_rank": 2,
+                    "keyword_rank": 7,
+                    "content_chars": 212,
+                    "keyword_score": 0.1,
+                    "content_sha256": "ab8c84ec910dc0e70bb0d7b0869b715765dba5ed43dc29f51b256ea8625f441b",
+                    "vector_distance": 0.1837906727915587
+                  }
+                ]
+              },
+              {
+                "event_sequence": 10,
+                "query": "deduplicate.py",
+                "requested_strategy": "hybrid",
+                "retrieval_strategy": "hybrid",
+                "top_k": 5,
+                "diagnostics": {
+                  "overlap_count": 7,
+                  "vector_candidate_count": 7,
+                  "final_keyword_hit_count": 5,
+                  "keyword_candidate_count": 7
+                },
+                "retrieval_parameters": {
+                  "index_version": null,
+                  "embedding_model": "text-embedding-v4",
+                  "rrf_rank_constant": 60,
+                  "embedding_dimensions": 1024,
+                  "hybrid_candidate_limit": 20
+                },
+                "hits": [
+                  {
+                    "rank": 1,
+                    "file_id": "891b8973-2094-4c25-b02c-4e5e0d86ccb7",
+                    "chunk_id": "388416c6-0302-4a30-a6cd-7f7fc9807310",
+                    "end_line": 43,
+                    "file_hash": null,
+                    "file_path": "tests/test_deduplicate.py",
+                    "rrf_score": 0.032266458495966696,
+                    "source_id": null,
+                    "start_line": 41,
+                    "symbol_name": "test_missing_key_raises",
+                    "vector_rank": 1,
+                    "keyword_rank": 3,
+                    "content_chars": 139,
+                    "keyword_score": 0.10714286,
+                    "content_sha256": "96f3fdc996ed04799ab960f42c4690d128b8b6293cc1f86f2db170bbad87e75f",
+                    "vector_distance": 0.23854728822267524
+                  },
+                  {
+                    "rank": 2,
+                    "file_id": "891b8973-2094-4c25-b02c-4e5e0d86ccb7",
+                    "chunk_id": "394454b9-cbea-4ee7-bd08-18aeea831942",
+                    "end_line": 31,
+                    "file_hash": null,
+                    "file_path": "tests/test_deduplicate.py",
+                    "rrf_score": 0.03225806451612903,
+                    "source_id": null,
+                    "start_line": 30,
+                    "symbol_name": "test_empty_list",
+                    "vector_rank": 2,
+                    "keyword_rank": 2,
+                    "content_chars": 75,
+                    "keyword_score": 0.11111111,
+                    "content_sha256": "c51f5ff695edf1b632acc7a5fc5e0aeca639c11b33bc673c36252a81a678477e",
+                    "vector_distance": 0.25855944331166647
+                  },
+                  {
+                    "rank": 3,
+                    "file_id": "dd0602b1-84ab-49a5-bfd5-bb6b5c535993",
+                    "chunk_id": "d8eced2e-47b8-4c29-9a86-12f0bec1a075",
+                    "end_line": 5,
+                    "file_hash": null,
+                    "file_path": "deduplicate.py",
+                    "rrf_score": 0.03131881575727918,
+                    "source_id": null,
+                    "start_line": 1,
+                    "symbol_name": "deduplicate_by_key",
+                    "vector_rank": 7,
+                    "keyword_rank": 1,
+                    "content_chars": 190,
+                    "keyword_score": 0.2,
+                    "content_sha256": "24d6a2501a91b044a14a9db0fdbe34614318b7a560231e3be7a46c3558150135",
+                    "vector_distance": 0.3180930600845542
+                  },
+                  {
+                    "rank": 4,
+                    "file_id": "891b8973-2094-4c25-b02c-4e5e0d86ccb7",
+                    "chunk_id": "8baeea99-99f3-43dc-bac4-1a39683921b1",
+                    "end_line": 38,
+                    "file_hash": null,
+                    "file_path": "tests/test_deduplicate.py",
+                    "rrf_score": 0.031024531024531024,
+                    "source_id": null,
+                    "start_line": 34,
+                    "symbol_name": "test_input_is_not_modified",
+                    "vector_rank": 3,
+                    "keyword_rank": 6,
+                    "content_chars": 212,
+                    "keyword_score": 0.10416667,
+                    "content_sha256": "ab8c84ec910dc0e70bb0d7b0869b715765dba5ed43dc29f51b256ea8625f441b",
+                    "vector_distance": 0.27610889900054425
+                  },
+                  {
+                    "rank": 5,
+                    "file_id": "891b8973-2094-4c25-b02c-4e5e0d86ccb7",
+                    "chunk_id": "12b4e183-dda4-45de-b895-0fd989d16ccf",
+                    "end_line": 22,
+                    "file_hash": null,
+                    "file_path": "tests/test_deduplicate.py",
+                    "rrf_score": 0.031009615384615385,
+                    "source_id": null,
+                    "start_line": 20,
+                    "symbol_name": "test_distinct_records_keep_input_order",
+                    "vector_rank": 5,
+                    "keyword_rank": 4,
+                    "content_chars": 157,
+                    "keyword_score": 0.10454546,
+                    "content_sha256": "4cbd83d7d5321f14e1bcc6a7e0ce307515aa3cb508ff6b2808eee9afcd58162d",
+                    "vector_distance": 0.28153703455736534
+                  }
+                ]
+              }
+            ],
+            "contexts": [
+              {
+                "tool_name": "search_code",
+                "event_sequence": 7,
+                "disposition": "accepted",
+                "content_chars": 3810,
+                "model_calls": [
+                  {
+                    "call_id": "88268e5b-3d80-4984-88c1-c6d44c338946",
+                    "node_name": "model",
+                    "started_sequence": 12,
+                    "finished_sequence": 13,
+                    "outcome": "completed"
+                  },
+                  {
+                    "call_id": "1c51f955-0ea2-4216-9a65-2f9e529fc36a",
+                    "node_name": "model",
+                    "started_sequence": 20,
+                    "finished_sequence": 21,
+                    "outcome": "completed"
+                  },
+                  {
+                    "call_id": "84f875a6-2eda-4d8c-a64e-456326f06059",
+                    "node_name": "plan",
+                    "started_sequence": 22,
+                    "finished_sequence": 23,
+                    "outcome": "completed"
+                  }
+                ]
+              },
+              {
+                "tool_name": "search_code",
+                "event_sequence": 11,
+                "disposition": "accepted",
+                "content_chars": 3449,
+                "model_calls": [
+                  {
+                    "call_id": "88268e5b-3d80-4984-88c1-c6d44c338946",
+                    "node_name": "model",
+                    "started_sequence": 12,
+                    "finished_sequence": 13,
+                    "outcome": "completed"
+                  },
+                  {
+                    "call_id": "1c51f955-0ea2-4216-9a65-2f9e529fc36a",
+                    "node_name": "model",
+                    "started_sequence": 20,
+                    "finished_sequence": 21,
+                    "outcome": "completed"
+                  },
+                  {
+                    "call_id": "84f875a6-2eda-4d8c-a64e-456326f06059",
+                    "node_name": "plan",
+                    "started_sequence": 22,
+                    "finished_sequence": 23,
+                    "outcome": "completed"
+                  }
+                ]
+              },
+              {
+                "tool_name": "read_source",
+                "event_sequence": 16,
+                "disposition": "accepted",
+                "content_chars": 454,
+                "model_calls": [
+                  {
+                    "call_id": "1c51f955-0ea2-4216-9a65-2f9e529fc36a",
+                    "node_name": "model",
+                    "started_sequence": 20,
+                    "finished_sequence": 21,
+                    "outcome": "completed"
+                  },
+                  {
+                    "call_id": "84f875a6-2eda-4d8c-a64e-456326f06059",
+                    "node_name": "plan",
+                    "started_sequence": 22,
+                    "finished_sequence": 23,
+                    "outcome": "completed"
+                  }
+                ]
+              },
+              {
+                "tool_name": "read_source",
+                "event_sequence": 19,
+                "disposition": "accepted",
+                "content_chars": 1673,
+                "model_calls": [
+                  {
+                    "call_id": "1c51f955-0ea2-4216-9a65-2f9e529fc36a",
+                    "node_name": "model",
+                    "started_sequence": 20,
+                    "finished_sequence": 21,
+                    "outcome": "completed"
+                  },
+                  {
+                    "call_id": "84f875a6-2eda-4d8c-a64e-456326f06059",
+                    "node_name": "plan",
+                    "started_sequence": 22,
+                    "finished_sequence": 23,
+                    "outcome": "completed"
+                  }
+                ]
+              }
+            ],
+            "model_calls": [
+              {
+                "node_name": "model",
+                "outcome": "completed",
+                "model": "deepseek-v4.1-flash",
+                "system_prompt_sha256": [
+                  "5e1dac8159cfa28a912fb88e2c4c9515cc3442db4c4f9f3cff1cfb92217c4f6d"
+                ],
+                "unmatched_tool_context": []
+              },
+              {
+                "node_name": "model",
+                "outcome": "completed",
+                "model": "deepseek-v4.1-flash",
+                "system_prompt_sha256": [
+                  "5e1dac8159cfa28a912fb88e2c4c9515cc3442db4c4f9f3cff1cfb92217c4f6d"
+                ],
+                "unmatched_tool_context": []
+              },
+              {
+                "node_name": "model",
+                "outcome": "completed",
+                "model": "deepseek-v4.1-flash",
+                "system_prompt_sha256": [
+                  "5e1dac8159cfa28a912fb88e2c4c9515cc3442db4c4f9f3cff1cfb92217c4f6d"
+                ],
+                "unmatched_tool_context": []
+              },
+              {
+                "node_name": "plan",
+                "outcome": "completed",
+                "model": "deepseek-v4.1-flash",
+                "system_prompt_sha256": [
+                  "1c5ee785ef09fb7f061eff43c4c288d197e46854b2cf2bc426ab3ed1c90ece0b"
+                ],
+                "unmatched_tool_context": []
+              }
+            ]
+          },
+          "token_usage": null,
+          "cost": null,
+          "max_retries": 1,
+          "review": {
+            "decision": "approved",
+            "comment": "已检查计划与证据，批准在声明范围内执行，不修改固定验收测试。",
+            "reviewed_at": "2026-10-09T03:15:44.793167+00:00"
+          },
+          "role": "primary",
+          "artifacts": {
+            "preparation": {
+              "path": "D:\\RepoPilot\\reports\\experiments\\deduplicate-hybrid-366bb7283ee54359a0d3809a79ab8e5b\\6ce17de7-ad33-4232-bac6-5c1d673d326d\\preparation.json",
+              "uri": "file:///D:/RepoPilot/reports/experiments/deduplicate-hybrid-366bb7283ee54359a0d3809a79ab8e5b/6ce17de7-ad33-4232-bac6-5c1d673d326d/preparation.json",
+              "sha256": "c15a8a7cd5d510d10e03b0257bb98f823ee4aabf724d6a040b01dabef32632e1"
+            },
+            "report": {
+              "path": "D:\\RepoPilot\\reports\\experiments\\deduplicate-hybrid-366bb7283ee54359a0d3809a79ab8e5b\\6ce17de7-ad33-4232-bac6-5c1d673d326d\\operations\\d02f3ad3-84c3-4371-8e01-2787faddf321\\task_a2574e05-f9a8-4257-94b9-c6d4153d4f61_20261009T032022076141Z.json",
+              "uri": "file:///D:/RepoPilot/reports/experiments/deduplicate-hybrid-366bb7283ee54359a0d3809a79ab8e5b/6ce17de7-ad33-4232-bac6-5c1d673d326d/operations/d02f3ad3-84c3-4371-8e01-2787faddf321/task_a2574e05-f9a8-4257-94b9-c6d4153d4f61_20261009T032022076141Z.json",
+              "sha256": "b9fa77d85ff1140f11afea5d088eb47fcd1631d93b643acfd091d747cfb26f69"
+            },
+            "evidence": {
+              "path": "D:\\RepoPilot\\reports\\experiments\\deduplicate-hybrid-366bb7283ee54359a0d3809a79ab8e5b\\6ce17de7-ad33-4232-bac6-5c1d673d326d\\evidence\\retrieval_a2574e05-f9a8-4257-94b9-c6d4153d4f61_a5e1ea98c4234f7fba9b4cd74715af9f\\evidence.json",
+              "uri": "file:///D:/RepoPilot/reports/experiments/deduplicate-hybrid-366bb7283ee54359a0d3809a79ab8e5b/6ce17de7-ad33-4232-bac6-5c1d673d326d/evidence/retrieval_a2574e05-f9a8-4257-94b9-c6d4153d4f61_a5e1ea98c4234f7fba9b4cd74715af9f/evidence.json",
+              "sha256": "ac37a09c4a98d6a29fef7faacb40ad6a9b33ecb0b001f3676cd57a70744b728f"
+            }
+          }
+        },
+        "vector": {
+          "experiment_id": "a9851347-d41f-40b9-a004-83cb2632f0f9",
+          "case": {
+            "schema_version": 1,
+            "case_id": "deduplicate",
+            "case_version": "v1",
+            "task_type": "bug_fix",
+            "user_request": "deduplicate_by_key 按指定字段去重时，没有保留第一次出现的记录。请定位并修复：相同键值只保留首次出现的完整记录，结果按这些记录在输入中的先后顺序排列，不修改输入列表或记录。空列表返回空列表；记录缺少指定字段时仍抛 KeyError。只修改 deduplicate.py，不修改固定验收测试。",
+            "repository_commit": "38093c2aca961bcaebbffcd864fc1859844829fd",
+            "editable_files": [
+              "deduplicate.py"
+            ],
+            "protected_test_files": [
+              "tests/test_deduplicate.py"
+            ],
+            "test_profile": "python-basic"
+          },
+          "strategy": "vector",
+          "run_config": {
+            "schema_version": 1,
+            "retrieval_policy": "vector",
+            "max_tool_calls": 4
+          },
+          "task_id": "6d272d44-74a8-4d1f-b3a0-074f008b5165",
+          "preparation_status": "prepared",
+          "preparation_stage": "create_task",
+          "preparation_error_type": null,
+          "protected_test_file_hashes": {
+            "tests/test_deduplicate.py": "cbc9724b0faa9ccb8bae8dcc562f7b40b2728cbc3eeb6a2e9c68f3d1de5cafdb"
+          },
+          "status": "completed",
+          "test": {
+            "id": "7bba202b-cc52-4eda-a580-f2745c228982",
+            "task_id": "6d272d44-74a8-4d1f-b3a0-074f008b5165",
+            "status": "finished",
+            "image": "repopilot-pytest:py311",
+            "timeout_seconds": 120,
+            "started_at": "2026-10-09T03:06:45.900345Z",
+            "completed_at": "2026-10-09T03:06:47.516556Z",
+            "exit_code": 0,
+            "timed_out": false,
+            "stdout": "......                                                                   [100%]\n6 passed in 0.09s\n",
+            "stderr": "",
+            "stdout_truncated": false,
+            "stderr_truncated": false,
+            "error": null,
+            "snapshot_hash": "3e21b655464ae48529c86c0e705acbda566af96c7909f69efdd175149e1048ce",
+            "process_passed": true,
+            "structured_test_counts": null
+          },
+          "retry_count": 0,
+          "completion_event_sequence": 33,
+          "failure": null,
+          "final_diff": {
+            "task_id": "6d272d44-74a8-4d1f-b3a0-074f008b5165",
+            "repository_id": "dcfdceeb-ef84-41df-b66a-3402985af94d",
+            "diff": "diff --git a/deduplicate.py b/deduplicate.py\nindex d6beb80..ab287ca 100644\n--- a/deduplicate.py\n+++ b/deduplicate.py\n@@ -1,5 +1,7 @@\n def deduplicate_by_key(records: list[dict], *, key: str) -> list[dict]:\n     by_key = {}\n     for record in records:\n-        by_key[record[key]] = record\n+        record_key = record[key]\n+        if record_key not in by_key:\n+            by_key[record_key] = record\n     return list(by_key.values())\n",
+            "changed_files": [
+              "deduplicate.py"
+            ],
+            "untracked_files": [],
+            "truncated": false
+          },
+          "retrieval": {
+            "trace_status": "recorded",
+            "trace_status_source": "original_export_snapshot",
+            "association_warnings": [],
+            "exported_event_count": 27,
+            "snapshot_last_sequence": 27,
+            "scope": "exported_retrieval_context_events_only",
+            "warnings": [],
+            "queries": [
+              {
+                "event_sequence": 6,
+                "query": "deduplicate_by_key 按指定字段去重 保留第一次出现的记录",
+                "requested_strategy": "vector",
+                "retrieval_strategy": "vector",
+                "top_k": 5,
+                "diagnostics": null,
+                "retrieval_parameters": {
+                  "index_version": null,
+                  "embedding_model": "text-embedding-v4",
+                  "rrf_rank_constant": null,
+                  "embedding_dimensions": 1024,
+                  "hybrid_candidate_limit": null
+                },
+                "hits": [
+                  {
+                    "rank": 1,
+                    "file_id": "0d2dad9d-02db-4eff-97c9-f5a967c582e7",
+                    "chunk_id": "ec9fc5fe-13b7-4662-a21a-44c8292ccb30",
+                    "distance": 0.2804933786392161,
+                    "end_line": 27,
+                    "file_hash": null,
+                    "file_path": "tests/test_deduplicate.py",
+                    "source_id": null,
+                    "start_line": 25,
+                    "symbol_name": "test_custom_key_keeps_first_record",
+                    "content_chars": 196,
+                    "content_sha256": "45966c633d46ab0e922ab89113897dc066d68fb999df71f4fbe0f1fa7d76f221"
+                  },
+                  {
+                    "rank": 2,
+                    "file_id": "0d2dad9d-02db-4eff-97c9-f5a967c582e7",
+                    "chunk_id": "f15a6604-3e28-48db-b673-7161803570d6",
+                    "distance": 0.2836769223213145,
+                    "end_line": 22,
+                    "file_hash": null,
+                    "file_path": "tests/test_deduplicate.py",
+                    "source_id": null,
+                    "start_line": 20,
+                    "symbol_name": "test_distinct_records_keep_input_order",
+                    "content_chars": 157,
+                    "content_sha256": "4cbd83d7d5321f14e1bcc6a7e0ce307515aa3cb508ff6b2808eee9afcd58162d"
+                  },
+                  {
+                    "rank": 3,
+                    "file_id": "0d2dad9d-02db-4eff-97c9-f5a967c582e7",
+                    "chunk_id": "fe01cbb5-4ceb-46de-832c-4397547f2342",
+                    "distance": 0.2866080361552268,
+                    "end_line": 17,
+                    "file_hash": null,
+                    "file_path": "tests/test_deduplicate.py",
+                    "source_id": null,
+                    "start_line": 8,
+                    "symbol_name": "test_keeps_first_complete_record",
+                    "content_chars": 339,
+                    "content_sha256": "51060bf6385ebac47c5d53286735df7c32a2bd1a13ede6860b7763afe230b07e"
+                  },
+                  {
+                    "rank": 4,
+                    "file_id": "0d2dad9d-02db-4eff-97c9-f5a967c582e7",
+                    "chunk_id": "d0293325-2828-4579-95c9-56b7f6276ce6",
+                    "distance": 0.29936832189559437,
+                    "end_line": 38,
+                    "file_hash": null,
+                    "file_path": "tests/test_deduplicate.py",
+                    "source_id": null,
+                    "start_line": 34,
+                    "symbol_name": "test_input_is_not_modified",
+                    "content_chars": 212,
+                    "content_sha256": "ab8c84ec910dc0e70bb0d7b0869b715765dba5ed43dc29f51b256ea8625f441b"
+                  },
+                  {
+                    "rank": 5,
+                    "file_id": "0d2dad9d-02db-4eff-97c9-f5a967c582e7",
+                    "chunk_id": "0e8b9a10-4b80-4c18-bfd2-9b5cfc0d6553",
+                    "distance": 0.30080127716063954,
+                    "end_line": 31,
+                    "file_hash": null,
+                    "file_path": "tests/test_deduplicate.py",
+                    "source_id": null,
+                    "start_line": 30,
+                    "symbol_name": "test_empty_list",
+                    "content_chars": 75,
+                    "content_sha256": "c51f5ff695edf1b632acc7a5fc5e0aeca639c11b33bc673c36252a81a678477e"
+                  }
+                ]
+              },
+              {
+                "event_sequence": 10,
+                "query": "deduplicate.py",
+                "requested_strategy": "vector",
+                "retrieval_strategy": "vector",
+                "top_k": 5,
+                "diagnostics": null,
+                "retrieval_parameters": {
+                  "index_version": null,
+                  "embedding_model": "text-embedding-v4",
+                  "rrf_rank_constant": null,
+                  "embedding_dimensions": 1024,
+                  "hybrid_candidate_limit": null
+                },
+                "hits": [
+                  {
+                    "rank": 1,
+                    "file_id": "0d2dad9d-02db-4eff-97c9-f5a967c582e7",
+                    "chunk_id": "807f0018-02ee-4042-851c-ed298dfd1629",
+                    "distance": 0.23854728822267524,
+                    "end_line": 43,
+                    "file_hash": null,
+                    "file_path": "tests/test_deduplicate.py",
+                    "source_id": null,
+                    "start_line": 41,
+                    "symbol_name": "test_missing_key_raises",
+                    "content_chars": 139,
+                    "content_sha256": "96f3fdc996ed04799ab960f42c4690d128b8b6293cc1f86f2db170bbad87e75f"
+                  },
+                  {
+                    "rank": 2,
+                    "file_id": "0d2dad9d-02db-4eff-97c9-f5a967c582e7",
+                    "chunk_id": "0e8b9a10-4b80-4c18-bfd2-9b5cfc0d6553",
+                    "distance": 0.25855944331166647,
+                    "end_line": 31,
+                    "file_hash": null,
+                    "file_path": "tests/test_deduplicate.py",
+                    "source_id": null,
+                    "start_line": 30,
+                    "symbol_name": "test_empty_list",
+                    "content_chars": 75,
+                    "content_sha256": "c51f5ff695edf1b632acc7a5fc5e0aeca639c11b33bc673c36252a81a678477e"
+                  },
+                  {
+                    "rank": 3,
+                    "file_id": "0d2dad9d-02db-4eff-97c9-f5a967c582e7",
+                    "chunk_id": "d0293325-2828-4579-95c9-56b7f6276ce6",
+                    "distance": 0.27610889900054425,
+                    "end_line": 38,
+                    "file_hash": null,
+                    "file_path": "tests/test_deduplicate.py",
+                    "source_id": null,
+                    "start_line": 34,
+                    "symbol_name": "test_input_is_not_modified",
+                    "content_chars": 212,
+                    "content_sha256": "ab8c84ec910dc0e70bb0d7b0869b715765dba5ed43dc29f51b256ea8625f441b"
+                  },
+                  {
+                    "rank": 4,
+                    "file_id": "0d2dad9d-02db-4eff-97c9-f5a967c582e7",
+                    "chunk_id": "fe01cbb5-4ceb-46de-832c-4397547f2342",
+                    "distance": 0.28091004859328716,
+                    "end_line": 17,
+                    "file_hash": null,
+                    "file_path": "tests/test_deduplicate.py",
+                    "source_id": null,
+                    "start_line": 8,
+                    "symbol_name": "test_keeps_first_complete_record",
+                    "content_chars": 339,
+                    "content_sha256": "51060bf6385ebac47c5d53286735df7c32a2bd1a13ede6860b7763afe230b07e"
+                  },
+                  {
+                    "rank": 5,
+                    "file_id": "0d2dad9d-02db-4eff-97c9-f5a967c582e7",
+                    "chunk_id": "f15a6604-3e28-48db-b673-7161803570d6",
+                    "distance": 0.28153703455736534,
+                    "end_line": 22,
+                    "file_hash": null,
+                    "file_path": "tests/test_deduplicate.py",
+                    "source_id": null,
+                    "start_line": 20,
+                    "symbol_name": "test_distinct_records_keep_input_order",
+                    "content_chars": 157,
+                    "content_sha256": "4cbd83d7d5321f14e1bcc6a7e0ce307515aa3cb508ff6b2808eee9afcd58162d"
+                  }
+                ]
+              },
+              {
+                "event_sequence": 16,
+                "query": "def deduplicate_by_key 实现 去重逻辑",
+                "requested_strategy": "vector",
+                "retrieval_strategy": "vector",
+                "top_k": 5,
+                "diagnostics": null,
+                "retrieval_parameters": {
+                  "index_version": null,
+                  "embedding_model": "text-embedding-v4",
+                  "rrf_rank_constant": null,
+                  "embedding_dimensions": 1024,
+                  "hybrid_candidate_limit": null
+                },
+                "hits": [
+                  {
+                    "rank": 1,
+                    "file_id": "0d2dad9d-02db-4eff-97c9-f5a967c582e7",
+                    "chunk_id": "0e8b9a10-4b80-4c18-bfd2-9b5cfc0d6553",
+                    "distance": 0.2641547164824761,
+                    "end_line": 31,
+                    "file_hash": null,
+                    "file_path": "tests/test_deduplicate.py",
+                    "source_id": null,
+                    "start_line": 30,
+                    "symbol_name": "test_empty_list",
+                    "content_chars": 75,
+                    "content_sha256": "c51f5ff695edf1b632acc7a5fc5e0aeca639c11b33bc673c36252a81a678477e"
+                  },
+                  {
+                    "rank": 2,
+                    "file_id": "0d2dad9d-02db-4eff-97c9-f5a967c582e7",
+                    "chunk_id": "f15a6604-3e28-48db-b673-7161803570d6",
+                    "distance": 0.2900091832870719,
+                    "end_line": 22,
+                    "file_hash": null,
+                    "file_path": "tests/test_deduplicate.py",
+                    "source_id": null,
+                    "start_line": 20,
+                    "symbol_name": "test_distinct_records_keep_input_order",
+                    "content_chars": 157,
+                    "content_sha256": "4cbd83d7d5321f14e1bcc6a7e0ce307515aa3cb508ff6b2808eee9afcd58162d"
+                  },
+                  {
+                    "rank": 3,
+                    "file_id": "0d2dad9d-02db-4eff-97c9-f5a967c582e7",
+                    "chunk_id": "ec9fc5fe-13b7-4662-a21a-44c8292ccb30",
+                    "distance": 0.2998707711773638,
+                    "end_line": 27,
+                    "file_hash": null,
+                    "file_path": "tests/test_deduplicate.py",
+                    "source_id": null,
+                    "start_line": 25,
+                    "symbol_name": "test_custom_key_keeps_first_record",
+                    "content_chars": 196,
+                    "content_sha256": "45966c633d46ab0e922ab89113897dc066d68fb999df71f4fbe0f1fa7d76f221"
+                  },
+                  {
+                    "rank": 4,
+                    "file_id": "0d2dad9d-02db-4eff-97c9-f5a967c582e7",
+                    "chunk_id": "d0293325-2828-4579-95c9-56b7f6276ce6",
+                    "distance": 0.3009202897000127,
+                    "end_line": 38,
+                    "file_hash": null,
+                    "file_path": "tests/test_deduplicate.py",
+                    "source_id": null,
+                    "start_line": 34,
+                    "symbol_name": "test_input_is_not_modified",
+                    "content_chars": 212,
+                    "content_sha256": "ab8c84ec910dc0e70bb0d7b0869b715765dba5ed43dc29f51b256ea8625f441b"
+                  },
+                  {
+                    "rank": 5,
+                    "file_id": "0d2dad9d-02db-4eff-97c9-f5a967c582e7",
+                    "chunk_id": "fe01cbb5-4ceb-46de-832c-4397547f2342",
+                    "distance": 0.30530581788139965,
+                    "end_line": 17,
+                    "file_hash": null,
+                    "file_path": "tests/test_deduplicate.py",
+                    "source_id": null,
+                    "start_line": 8,
+                    "symbol_name": "test_keeps_first_complete_record",
+                    "content_chars": 339,
+                    "content_sha256": "51060bf6385ebac47c5d53286735df7c32a2bd1a13ede6860b7763afe230b07e"
+                  }
+                ]
+              },
+              {
+                "event_sequence": 20,
+                "query": "seen keys dict comprehensions return records",
+                "requested_strategy": "vector",
+                "retrieval_strategy": "vector",
+                "top_k": 5,
+                "diagnostics": null,
+                "retrieval_parameters": {
+                  "index_version": null,
+                  "embedding_model": "text-embedding-v4",
+                  "rrf_rank_constant": null,
+                  "embedding_dimensions": 1024,
+                  "hybrid_candidate_limit": null
+                },
+                "hits": [
+                  {
+                    "rank": 1,
+                    "file_id": "ac346efb-48e6-4ea3-a203-6c5111681c49",
+                    "chunk_id": "a7139957-887d-4656-9083-5fb288a68f38",
+                    "distance": 0.27695016402303063,
+                    "end_line": 5,
+                    "file_hash": null,
+                    "file_path": "deduplicate.py",
+                    "source_id": null,
+                    "start_line": 1,
+                    "symbol_name": "deduplicate_by_key",
+                    "content_chars": 190,
+                    "content_sha256": "24d6a2501a91b044a14a9db0fdbe34614318b7a560231e3be7a46c3558150135"
+                  },
+                  {
+                    "rank": 2,
+                    "file_id": "0d2dad9d-02db-4eff-97c9-f5a967c582e7",
+                    "chunk_id": "fe01cbb5-4ceb-46de-832c-4397547f2342",
+                    "distance": 0.3232269488803434,
+                    "end_line": 17,
+                    "file_hash": null,
+                    "file_path": "tests/test_deduplicate.py",
+                    "source_id": null,
+                    "start_line": 8,
+                    "symbol_name": "test_keeps_first_complete_record",
+                    "content_chars": 339,
+                    "content_sha256": "51060bf6385ebac47c5d53286735df7c32a2bd1a13ede6860b7763afe230b07e"
+                  },
+                  {
+                    "rank": 3,
+                    "file_id": "0d2dad9d-02db-4eff-97c9-f5a967c582e7",
+                    "chunk_id": "f15a6604-3e28-48db-b673-7161803570d6",
+                    "distance": 0.3259886114610897,
+                    "end_line": 22,
+                    "file_hash": null,
+                    "file_path": "tests/test_deduplicate.py",
+                    "source_id": null,
+                    "start_line": 20,
+                    "symbol_name": "test_distinct_records_keep_input_order",
+                    "content_chars": 157,
+                    "content_sha256": "4cbd83d7d5321f14e1bcc6a7e0ce307515aa3cb508ff6b2808eee9afcd58162d"
+                  },
+                  {
+                    "rank": 4,
+                    "file_id": "0d2dad9d-02db-4eff-97c9-f5a967c582e7",
+                    "chunk_id": "ec9fc5fe-13b7-4662-a21a-44c8292ccb30",
+                    "distance": 0.33119495735228566,
+                    "end_line": 27,
+                    "file_hash": null,
+                    "file_path": "tests/test_deduplicate.py",
+                    "source_id": null,
+                    "start_line": 25,
+                    "symbol_name": "test_custom_key_keeps_first_record",
+                    "content_chars": 196,
+                    "content_sha256": "45966c633d46ab0e922ab89113897dc066d68fb999df71f4fbe0f1fa7d76f221"
+                  },
+                  {
+                    "rank": 5,
+                    "file_id": "0d2dad9d-02db-4eff-97c9-f5a967c582e7",
+                    "chunk_id": "d0293325-2828-4579-95c9-56b7f6276ce6",
+                    "distance": 0.35566278032508136,
+                    "end_line": 38,
+                    "file_hash": null,
+                    "file_path": "tests/test_deduplicate.py",
+                    "source_id": null,
+                    "start_line": 34,
+                    "symbol_name": "test_input_is_not_modified",
+                    "content_chars": 212,
+                    "content_sha256": "ab8c84ec910dc0e70bb0d7b0869b715765dba5ed43dc29f51b256ea8625f441b"
+                  }
+                ]
+              }
+            ],
+            "contexts": [
+              {
+                "tool_name": "search_code",
+                "event_sequence": 7,
+                "disposition": "accepted",
+                "content_chars": 3111,
+                "model_calls": [
+                  {
+                    "call_id": "e8c17f10-66c5-4efb-bbd0-37299b793dea",
+                    "node_name": "model",
+                    "started_sequence": 12,
+                    "finished_sequence": 13,
+                    "outcome": "completed"
+                  },
+                  {
+                    "call_id": "6140b543-6598-46ef-ac5b-b01ceb4ae781",
+                    "node_name": "model",
+                    "started_sequence": 22,
+                    "finished_sequence": 23,
+                    "outcome": "completed"
+                  },
+                  {
+                    "call_id": "6a0b44f1-71ec-4db8-a03a-8897b2fcf4c6",
+                    "node_name": "plan",
+                    "started_sequence": 24,
+                    "finished_sequence": 25,
+                    "outcome": "completed"
+                  }
+                ]
+              },
+              {
+                "tool_name": "search_code",
+                "event_sequence": 11,
+                "disposition": "accepted",
+                "content_chars": 3035,
+                "model_calls": [
+                  {
+                    "call_id": "e8c17f10-66c5-4efb-bbd0-37299b793dea",
+                    "node_name": "model",
+                    "started_sequence": 12,
+                    "finished_sequence": 13,
+                    "outcome": "completed"
+                  },
+                  {
+                    "call_id": "6140b543-6598-46ef-ac5b-b01ceb4ae781",
+                    "node_name": "model",
+                    "started_sequence": 22,
+                    "finished_sequence": 23,
+                    "outcome": "completed"
+                  },
+                  {
+                    "call_id": "6a0b44f1-71ec-4db8-a03a-8897b2fcf4c6",
+                    "node_name": "plan",
+                    "started_sequence": 24,
+                    "finished_sequence": 25,
+                    "outcome": "completed"
+                  }
+                ]
+              },
+              {
+                "tool_name": "search_code",
+                "event_sequence": 17,
+                "disposition": "accepted",
+                "content_chars": 3115,
+                "model_calls": [
+                  {
+                    "call_id": "6140b543-6598-46ef-ac5b-b01ceb4ae781",
+                    "node_name": "model",
+                    "started_sequence": 22,
+                    "finished_sequence": 23,
+                    "outcome": "completed"
+                  },
+                  {
+                    "call_id": "6a0b44f1-71ec-4db8-a03a-8897b2fcf4c6",
+                    "node_name": "plan",
+                    "started_sequence": 24,
+                    "finished_sequence": 25,
+                    "outcome": "completed"
+                  }
+                ]
+              },
+              {
+                "tool_name": "search_code",
+                "event_sequence": 21,
+                "disposition": "accepted",
+                "content_chars": 3226,
+                "model_calls": [
+                  {
+                    "call_id": "6140b543-6598-46ef-ac5b-b01ceb4ae781",
+                    "node_name": "model",
+                    "started_sequence": 22,
+                    "finished_sequence": 23,
+                    "outcome": "completed"
+                  },
+                  {
+                    "call_id": "6a0b44f1-71ec-4db8-a03a-8897b2fcf4c6",
+                    "node_name": "plan",
+                    "started_sequence": 24,
+                    "finished_sequence": 25,
+                    "outcome": "completed"
+                  }
+                ]
+              }
+            ],
+            "model_calls": [
+              {
+                "node_name": "model",
+                "outcome": "completed",
+                "model": "deepseek-v4.1-flash",
+                "system_prompt_sha256": [
+                  "a70c491c2908d7c44439897812c5bba441be9dc870b4851837442a738da8816e"
+                ],
+                "unmatched_tool_context": []
+              },
+              {
+                "node_name": "model",
+                "outcome": "completed",
+                "model": "deepseek-v4.1-flash",
+                "system_prompt_sha256": [
+                  "a70c491c2908d7c44439897812c5bba441be9dc870b4851837442a738da8816e"
+                ],
+                "unmatched_tool_context": []
+              },
+              {
+                "node_name": "model",
+                "outcome": "completed",
+                "model": "deepseek-v4.1-flash",
+                "system_prompt_sha256": [
+                  "a70c491c2908d7c44439897812c5bba441be9dc870b4851837442a738da8816e"
+                ],
+                "unmatched_tool_context": []
+              },
+              {
+                "node_name": "plan",
+                "outcome": "completed",
+                "model": "deepseek-v4.1-flash",
+                "system_prompt_sha256": [
+                  "1c5ee785ef09fb7f061eff43c4c288d197e46854b2cf2bc426ab3ed1c90ece0b"
+                ],
+                "unmatched_tool_context": []
+              }
+            ]
+          },
+          "token_usage": null,
+          "cost": null,
+          "max_retries": 1,
+          "review": {
+            "decision": "approved",
+            "comment": "已检查计划与证据，批准在声明范围内执行，不修改固定验收测试。",
+            "reviewed_at": "2026-10-09T03:01:15.690782+00:00"
+          },
+          "role": "primary",
+          "artifacts": {
+            "preparation": {
+              "path": "D:\\RepoPilot\\reports\\experiments\\deduplicate-vector-343a16f8da4e459998c7be8a499a0909\\a9851347-d41f-40b9-a004-83cb2632f0f9\\preparation.json",
+              "uri": "file:///D:/RepoPilot/reports/experiments/deduplicate-vector-343a16f8da4e459998c7be8a499a0909/a9851347-d41f-40b9-a004-83cb2632f0f9/preparation.json",
+              "sha256": "9b42682a380c7ce4ed6552da1126e56a09a30f53e1d2a5bd441c996368b80052"
+            },
+            "report": {
+              "path": "D:\\RepoPilot\\reports\\experiments\\deduplicate-vector-343a16f8da4e459998c7be8a499a0909\\a9851347-d41f-40b9-a004-83cb2632f0f9\\operations\\3e7d5fb3-7482-4a5a-b699-ca30980516ff\\task_6d272d44-74a8-4d1f-b3a0-074f008b5165_20261009T030817215478Z.json",
+              "uri": "file:///D:/RepoPilot/reports/experiments/deduplicate-vector-343a16f8da4e459998c7be8a499a0909/a9851347-d41f-40b9-a004-83cb2632f0f9/operations/3e7d5fb3-7482-4a5a-b699-ca30980516ff/task_6d272d44-74a8-4d1f-b3a0-074f008b5165_20261009T030817215478Z.json",
+              "sha256": "c0ab1a30589a2228655d3ac9182c6b7688bd22cd7dd4b2ebad91a444ef6135a6"
+            },
+            "evidence": {
+              "path": "D:\\RepoPilot\\reports\\experiments\\deduplicate-vector-343a16f8da4e459998c7be8a499a0909\\a9851347-d41f-40b9-a004-83cb2632f0f9\\evidence\\retrieval_6d272d44-74a8-4d1f-b3a0-074f008b5165_6b8b89746f19471f844a1abde2c9ac79\\evidence.json",
+              "uri": "file:///D:/RepoPilot/reports/experiments/deduplicate-vector-343a16f8da4e459998c7be8a499a0909/a9851347-d41f-40b9-a004-83cb2632f0f9/evidence/retrieval_6d272d44-74a8-4d1f-b3a0-074f008b5165_6b8b89746f19471f844a1abde2c9ac79/evidence.json",
+              "sha256": "e62c5e4e88585e1c92b34c35c1b0c24fb8a66ec707a0b72bcc1650f4b7eba5d7"
+            }
+          }
+        }
+      },
+      "recorded_condition_differences": [],
+      "pair_complete": true
+    },
+    {
+      "case_id": "statistics",
+      "case_version": "v1",
+      "runs": {
+        "hybrid": {
+          "experiment_id": "b2fb749c-a1f3-4b47-bea3-5b9f96f75091",
+          "case": {
+            "schema_version": 1,
+            "case_id": "statistics",
+            "case_version": "v1",
+            "task_type": "feature",
+            "user_request": "为 summarize_tasks 增加可选的关键字参数 status，默认值为 None。不指定时保持现有行为；指定时只统计状态相等的任务。返回结构仍为 count 和 total_duration，其中 total_duration 是纳入统计的任务 duration 之和。没有匹配项时返回零计数和零总时长。不修改输入列表或记录，保留现有字段访问的异常行为。只修改 statistics.py，不修改固定验收测试。",
+            "repository_commit": "2890105ac01d778cb853c033ad34d839f5f8dfd7",
+            "editable_files": [
+              "statistics.py"
+            ],
+            "protected_test_files": [
+              "tests/test_statistics.py"
+            ],
+            "test_profile": "python-basic"
+          },
+          "strategy": "hybrid",
+          "run_config": {
+            "schema_version": 1,
+            "retrieval_policy": "hybrid",
+            "max_tool_calls": 4
+          },
+          "task_id": "67540362-f4aa-4d68-b034-d6d640964a27",
+          "preparation_status": "prepared",
+          "preparation_stage": "create_task",
+          "preparation_error_type": null,
+          "protected_test_file_hashes": {
+            "tests/test_statistics.py": "8b46db49f3963c0ea465765aed3f7a2b0e662c3af467d92715b15abc12b90340"
+          },
+          "status": "completed",
+          "test": {
+            "id": "9e4e2d21-ce67-4a0d-86cc-452a45ce89e0",
+            "task_id": "67540362-f4aa-4d68-b034-d6d640964a27",
+            "status": "finished",
+            "image": "repopilot-pytest:py311",
+            "timeout_seconds": 120,
+            "started_at": "2026-10-09T13:18:00.921884Z",
+            "completed_at": "2026-10-09T13:18:02.594882Z",
+            "exit_code": 0,
+            "timed_out": false,
+            "stdout": "............                                                             [100%]\n12 passed in 0.11s\n",
+            "stderr": "",
+            "stdout_truncated": false,
+            "stderr_truncated": false,
+            "error": null,
+            "snapshot_hash": "b84bd8b979dee9c010cc05b65acb1f0fd9b23d92e5379e9bf3e60913ade6d7cb",
+            "process_passed": true,
+            "structured_test_counts": null
+          },
+          "retry_count": 0,
+          "completion_event_sequence": 31,
+          "failure": null,
+          "final_diff": {
+            "task_id": "67540362-f4aa-4d68-b034-d6d640964a27",
+            "repository_id": "caafaee0-3662-45da-80db-112a1881a8c1",
+            "diff": "diff --git a/statistics.py b/statistics.py\nindex 9b3bd4a..35645d9 100644\n--- a/statistics.py\n+++ b/statistics.py\n@@ -1,5 +1,9 @@\n-def summarize_tasks(tasks: list[dict]) -> dict:\n+def summarize_tasks(tasks: list[dict], status: str | None = None) -> dict:\n+    if status is None:\n+        selected_tasks = tasks\n+    else:\n+        selected_tasks = [task for task in tasks if task[\"status\"] == status]\n     return {\n-        \"count\": len(tasks),\n-        \"total_duration\": sum(task[\"duration\"] for task in tasks),\n+        \"count\": len(selected_tasks),\n+        \"total_duration\": sum(task[\"duration\"] for task in selected_tasks),\n     }\n",
+            "changed_files": [
+              "statistics.py"
+            ],
+            "untracked_files": [],
+            "truncated": false
+          },
+          "retrieval": {
+            "trace_status": "recorded",
+            "trace_status_source": "original_export_snapshot",
+            "association_warnings": [],
+            "exported_event_count": 25,
+            "snapshot_last_sequence": 25,
+            "scope": "exported_retrieval_context_events_only",
+            "warnings": [],
+            "queries": [
+              {
+                "event_sequence": 6,
+                "query": "summarize_tasks",
+                "requested_strategy": "hybrid",
+                "retrieval_strategy": "hybrid",
+                "top_k": 5,
+                "diagnostics": {
+                  "overlap_count": 11,
+                  "vector_candidate_count": 12,
+                  "final_keyword_hit_count": 5,
+                  "keyword_candidate_count": 11
+                },
+                "retrieval_parameters": {
+                  "index_version": null,
+                  "embedding_model": "text-embedding-v4",
+                  "rrf_rank_constant": 60,
+                  "embedding_dimensions": 1024,
+                  "hybrid_candidate_limit": 20
+                },
+                "hits": [
+                  {
+                    "rank": 1,
+                    "file_id": "254e95fa-700e-478d-a4bd-387dcf4d0ec2",
+                    "chunk_id": "5a2aeaf1-45e2-455f-b28b-ca4c62c36bca",
+                    "end_line": 5,
+                    "file_hash": null,
+                    "file_path": "statistics.py",
+                    "rrf_score": 0.032266458495966696,
+                    "source_id": null,
+                    "start_line": 1,
+                    "symbol_name": "summarize_tasks",
+                    "vector_rank": 3,
+                    "keyword_rank": 1,
+                    "content_chars": 168,
+                    "keyword_score": 0.25,
+                    "content_sha256": "96fb804cd72ad01c2b153d6c3f40577687833269e2428070a9088025cff3149d",
+                    "vector_distance": 0.30969977378845215
+                  },
+                  {
+                    "rank": 2,
+                    "file_id": "582cba19-f8d5-41fa-83bb-3c32966da4b7",
+                    "chunk_id": "621213b8-e2f9-4424-a0d9-3ba33acc8d42",
+                    "end_line": 50,
+                    "file_hash": null,
+                    "file_path": "tests/test_statistics.py",
+                    "rrf_score": 0.03225806451612903,
+                    "source_id": null,
+                    "start_line": 47,
+                    "symbol_name": "test_original_input_unchanged",
+                    "vector_rank": 2,
+                    "keyword_rank": 2,
+                    "content_chars": 133,
+                    "keyword_score": 0.2,
+                    "content_sha256": "bdc4514fdedf9eb7cec8160f249e7122c10a36a1320c5204a9661aca0c65a3b4",
+                    "vector_distance": 0.30124926567077637
+                  },
+                  {
+                    "rank": 3,
+                    "file_id": "582cba19-f8d5-41fa-83bb-3c32966da4b7",
+                    "chunk_id": "bee0798f-455f-4154-b129-3cc6017debce",
+                    "end_line": 27,
+                    "file_hash": null,
+                    "file_path": "tests/test_statistics.py",
+                    "rrf_score": 0.032018442622950824,
+                    "source_id": null,
+                    "start_line": 26,
+                    "symbol_name": "test_original_behavior",
+                    "vector_rank": 1,
+                    "keyword_rank": 4,
+                    "content_chars": 109,
+                    "keyword_score": 0.15,
+                    "content_sha256": "f33f038c7c2103f0e386f563790430f0f262936d6903bf38766af52a7ce17094",
+                    "vector_distance": 0.28665781021118164
+                  },
+                  {
+                    "rank": 4,
+                    "file_id": "582cba19-f8d5-41fa-83bb-3c32966da4b7",
+                    "chunk_id": "8c77b6cc-77e9-4c42-898b-9cb07de97874",
+                    "end_line": 56,
+                    "file_hash": null,
+                    "file_path": "tests/test_statistics.py",
+                    "rrf_score": 0.03149801587301587,
+                    "source_id": null,
+                    "start_line": 53,
+                    "symbol_name": "test_filtered_input_unchanged",
+                    "vector_rank": 4,
+                    "keyword_rank": 3,
+                    "content_chars": 153,
+                    "keyword_score": 0.2,
+                    "content_sha256": "6d1e7cab4525ce5a117428d75eb26b06e67e3ef0da7d109f03b0e84a823638c0",
+                    "vector_distance": 0.3596482276916504
+                  },
+                  {
+                    "rank": 5,
+                    "file_id": "582cba19-f8d5-41fa-83bb-3c32966da4b7",
+                    "chunk_id": "c398c298-7c11-44a1-a59f-1e833ea5c618",
+                    "end_line": 40,
+                    "file_hash": null,
+                    "file_path": "tests/test_statistics.py",
+                    "rrf_score": 0.030536130536130537,
+                    "source_id": null,
+                    "start_line": 39,
+                    "symbol_name": "test_empty_original",
+                    "vector_rank": 5,
+                    "keyword_rank": 6,
+                    "content_chars": 97,
+                    "keyword_score": 0.1,
+                    "content_sha256": "1d4ae1a44ad66966f51417904754a83a2bbac84ebbd7e54fe9f6e64d16fdb5f2",
+                    "vector_distance": 0.36578426855159574
+                  }
+                ]
+              },
+              {
+                "event_sequence": 10,
+                "query": "statistics.py count total_duration",
+                "requested_strategy": "hybrid",
+                "retrieval_strategy": "hybrid",
+                "top_k": 5,
+                "diagnostics": {
+                  "overlap_count": 6,
+                  "vector_candidate_count": 12,
+                  "final_keyword_hit_count": 5,
+                  "keyword_candidate_count": 6
+                },
+                "retrieval_parameters": {
+                  "index_version": null,
+                  "embedding_model": "text-embedding-v4",
+                  "rrf_rank_constant": 60,
+                  "embedding_dimensions": 1024,
+                  "hybrid_candidate_limit": 20
+                },
+                "hits": [
+                  {
+                    "rank": 1,
+                    "file_id": "582cba19-f8d5-41fa-83bb-3c32966da4b7",
+                    "chunk_id": "c398c298-7c11-44a1-a59f-1e833ea5c618",
+                    "end_line": 40,
+                    "file_hash": null,
+                    "file_path": "tests/test_statistics.py",
+                    "rrf_score": 0.03252247488101534,
+                    "source_id": null,
+                    "start_line": 39,
+                    "symbol_name": "test_empty_original",
+                    "vector_rank": 1,
+                    "keyword_rank": 2,
+                    "content_chars": 97,
+                    "keyword_score": 0.008333334,
+                    "content_sha256": "1d4ae1a44ad66966f51417904754a83a2bbac84ebbd7e54fe9f6e64d16fdb5f2",
+                    "vector_distance": 0.3866233642883109
+                  },
+                  {
+                    "rank": 2,
+                    "file_id": "582cba19-f8d5-41fa-83bb-3c32966da4b7",
+                    "chunk_id": "4f21058b-16bd-4f6c-94c3-afecea9996dd",
+                    "end_line": 36,
+                    "file_hash": null,
+                    "file_path": "tests/test_statistics.py",
+                    "rrf_score": 0.03131881575727918,
+                    "source_id": null,
+                    "start_line": 30,
+                    "symbol_name": "test_optional_status",
+                    "vector_rank": 7,
+                    "keyword_rank": 1,
+                    "content_chars": 323,
+                    "keyword_score": 0.009090909,
+                    "content_sha256": "b01db22ce858ad77c5a23dbbbb473c3570799c3a27f924dbfaa50b22e32e3b8f",
+                    "vector_distance": 0.46167859206667994
+                  },
+                  {
+                    "rank": 3,
+                    "file_id": "254e95fa-700e-478d-a4bd-387dcf4d0ec2",
+                    "chunk_id": "5a2aeaf1-45e2-455f-b28b-ca4c62c36bca",
+                    "end_line": 5,
+                    "file_hash": null,
+                    "file_path": "statistics.py",
+                    "rrf_score": 0.03125763125763126,
+                    "source_id": null,
+                    "start_line": 1,
+                    "symbol_name": "summarize_tasks",
+                    "vector_rank": 5,
+                    "keyword_rank": 3,
+                    "content_chars": 168,
+                    "keyword_score": 0.0076923077,
+                    "content_sha256": "96fb804cd72ad01c2b153d6c3f40577687833269e2428070a9088025cff3149d",
+                    "vector_distance": 0.4347325563430786
+                  },
+                  {
+                    "rank": 4,
+                    "file_id": "582cba19-f8d5-41fa-83bb-3c32966da4b7",
+                    "chunk_id": "bee0798f-455f-4154-b129-3cc6017debce",
+                    "end_line": 27,
+                    "file_hash": null,
+                    "file_path": "tests/test_statistics.py",
+                    "rrf_score": 0.03125,
+                    "source_id": null,
+                    "start_line": 26,
+                    "symbol_name": "test_original_behavior",
+                    "vector_rank": 4,
+                    "keyword_rank": 4,
+                    "content_chars": 109,
+                    "keyword_score": 0.007142857,
+                    "content_sha256": "f33f038c7c2103f0e386f563790430f0f262936d6903bf38766af52a7ce17094",
+                    "vector_distance": 0.4165268540382385
+                  },
+                  {
+                    "rank": 5,
+                    "file_id": "582cba19-f8d5-41fa-83bb-3c32966da4b7",
+                    "chunk_id": "6bf566ca-e6d6-4edd-9770-7bb10fd68b0c",
+                    "end_line": 60,
+                    "file_hash": null,
+                    "file_path": "tests/test_statistics.py",
+                    "rrf_score": 0.030303030303030304,
+                    "source_id": null,
+                    "start_line": 59,
+                    "symbol_name": "test_unfiltered_does_not_require_status",
+                    "vector_rank": 6,
+                    "keyword_rank": 6,
+                    "content_chars": 132,
+                    "keyword_score": 0.005263158,
+                    "content_sha256": "91b6f7dcaa81e72695eb488e6fed821482331d3011cb8300b48f5a90953832fa",
+                    "vector_distance": 0.4385598040485489
+                  }
+                ]
+              }
+            ],
+            "contexts": [
+              {
+                "tool_name": "search_code",
+                "event_sequence": 7,
+                "disposition": "accepted",
+                "content_chars": 3283,
+                "model_calls": [
+                  {
+                    "call_id": "2b28342f-f858-4650-8643-bbc4c890b576",
+                    "node_name": "model",
+                    "started_sequence": 12,
+                    "finished_sequence": 13,
+                    "outcome": "completed"
+                  },
+                  {
+                    "call_id": "42c034fb-32e6-4f2b-be73-2074a2e9d5f9",
+                    "node_name": "model",
+                    "started_sequence": 20,
+                    "finished_sequence": 21,
+                    "outcome": "completed"
+                  },
+                  {
+                    "call_id": "ffb4583b-2169-49e3-889f-934da758222c",
+                    "node_name": "plan",
+                    "started_sequence": 22,
+                    "finished_sequence": 23,
+                    "outcome": "completed"
+                  }
+                ]
+              },
+              {
+                "tool_name": "search_code",
+                "event_sequence": 11,
+                "disposition": "accepted",
+                "content_chars": 3498,
+                "model_calls": [
+                  {
+                    "call_id": "2b28342f-f858-4650-8643-bbc4c890b576",
+                    "node_name": "model",
+                    "started_sequence": 12,
+                    "finished_sequence": 13,
+                    "outcome": "completed"
+                  },
+                  {
+                    "call_id": "42c034fb-32e6-4f2b-be73-2074a2e9d5f9",
+                    "node_name": "model",
+                    "started_sequence": 20,
+                    "finished_sequence": 21,
+                    "outcome": "completed"
+                  },
+                  {
+                    "call_id": "ffb4583b-2169-49e3-889f-934da758222c",
+                    "node_name": "plan",
+                    "started_sequence": 22,
+                    "finished_sequence": 23,
+                    "outcome": "completed"
+                  }
+                ]
+              },
+              {
+                "tool_name": "read_source",
+                "event_sequence": 16,
+                "disposition": "accepted",
+                "content_chars": 2130,
+                "model_calls": [
+                  {
+                    "call_id": "42c034fb-32e6-4f2b-be73-2074a2e9d5f9",
+                    "node_name": "model",
+                    "started_sequence": 20,
+                    "finished_sequence": 21,
+                    "outcome": "completed"
+                  },
+                  {
+                    "call_id": "ffb4583b-2169-49e3-889f-934da758222c",
+                    "node_name": "plan",
+                    "started_sequence": 22,
+                    "finished_sequence": 23,
+                    "outcome": "completed"
+                  }
+                ]
+              },
+              {
+                "tool_name": "read_source",
+                "event_sequence": 19,
+                "disposition": "accepted",
+                "content_chars": 437,
+                "model_calls": [
+                  {
+                    "call_id": "42c034fb-32e6-4f2b-be73-2074a2e9d5f9",
+                    "node_name": "model",
+                    "started_sequence": 20,
+                    "finished_sequence": 21,
+                    "outcome": "completed"
+                  },
+                  {
+                    "call_id": "ffb4583b-2169-49e3-889f-934da758222c",
+                    "node_name": "plan",
+                    "started_sequence": 22,
+                    "finished_sequence": 23,
+                    "outcome": "completed"
+                  }
+                ]
+              }
+            ],
+            "model_calls": [
+              {
+                "node_name": "model",
+                "outcome": "completed",
+                "model": "deepseek-v4.1-flash",
+                "system_prompt_sha256": [
+                  "5e1dac8159cfa28a912fb88e2c4c9515cc3442db4c4f9f3cff1cfb92217c4f6d"
+                ],
+                "unmatched_tool_context": []
+              },
+              {
+                "node_name": "model",
+                "outcome": "completed",
+                "model": "deepseek-v4.1-flash",
+                "system_prompt_sha256": [
+                  "5e1dac8159cfa28a912fb88e2c4c9515cc3442db4c4f9f3cff1cfb92217c4f6d"
+                ],
+                "unmatched_tool_context": []
+              },
+              {
+                "node_name": "model",
+                "outcome": "completed",
+                "model": "deepseek-v4.1-flash",
+                "system_prompt_sha256": [
+                  "5e1dac8159cfa28a912fb88e2c4c9515cc3442db4c4f9f3cff1cfb92217c4f6d"
+                ],
+                "unmatched_tool_context": []
+              },
+              {
+                "node_name": "plan",
+                "outcome": "completed",
+                "model": "deepseek-v4.1-flash",
+                "system_prompt_sha256": [
+                  "1c5ee785ef09fb7f061eff43c4c288d197e46854b2cf2bc426ab3ed1c90ece0b"
+                ],
+                "unmatched_tool_context": []
+              }
+            ]
+          },
+          "token_usage": null,
+          "cost": null,
+          "max_retries": 1,
+          "review": {
+            "decision": "approved",
+            "comment": "已检查计划与证据，批准在声明范围内执行，不修改固定验收测试。",
+            "reviewed_at": "2026-10-09T03:36:48.310138+00:00"
+          },
+          "role": "primary",
+          "artifacts": {
+            "preparation": {
+              "path": "D:\\RepoPilot\\reports\\experiments\\statistics-hybrid-a253cbfe46e348f089ebd6837b5b7c1b\\b2fb749c-a1f3-4b47-bea3-5b9f96f75091\\preparation.json",
+              "uri": "file:///D:/RepoPilot/reports/experiments/statistics-hybrid-a253cbfe46e348f089ebd6837b5b7c1b/b2fb749c-a1f3-4b47-bea3-5b9f96f75091/preparation.json",
+              "sha256": "e77d0d6079be3d931fdd7c90eeefcb11d1da1bde43c540e1756b1295d152f4ff"
+            },
+            "report": {
+              "path": "D:\\RepoPilot\\reports\\experiments\\statistics-hybrid-a253cbfe46e348f089ebd6837b5b7c1b\\b2fb749c-a1f3-4b47-bea3-5b9f96f75091\\operations\\82bc1ff5-576b-4d52-9eab-cffbc85add34\\task_67540362-f4aa-4d68-b034-d6d640964a27_20261009T131845913217Z.json",
+              "uri": "file:///D:/RepoPilot/reports/experiments/statistics-hybrid-a253cbfe46e348f089ebd6837b5b7c1b/b2fb749c-a1f3-4b47-bea3-5b9f96f75091/operations/82bc1ff5-576b-4d52-9eab-cffbc85add34/task_67540362-f4aa-4d68-b034-d6d640964a27_20261009T131845913217Z.json",
+              "sha256": "d1455347ab1d479e9e84eb75dc4ce28be18defe11202e950e0dc6f6cdaf7078a"
+            },
+            "evidence": {
+              "path": "D:\\RepoPilot\\reports\\experiments\\statistics-hybrid-a253cbfe46e348f089ebd6837b5b7c1b\\b2fb749c-a1f3-4b47-bea3-5b9f96f75091\\evidence\\retrieval_67540362-f4aa-4d68-b034-d6d640964a27_ff678e8312ac4f4ba79d83fcaabd135f\\evidence.json",
+              "uri": "file:///D:/RepoPilot/reports/experiments/statistics-hybrid-a253cbfe46e348f089ebd6837b5b7c1b/b2fb749c-a1f3-4b47-bea3-5b9f96f75091/evidence/retrieval_67540362-f4aa-4d68-b034-d6d640964a27_ff678e8312ac4f4ba79d83fcaabd135f/evidence.json",
+              "sha256": "d61de7f0be55f2a184128d6d102b7f29587249c95194a32ca4985ad21110f107"
+            }
+          }
+        },
+        "vector": {
+          "experiment_id": "c35757bb-fee0-45e3-8744-8ee23194fa31",
+          "case": {
+            "schema_version": 1,
+            "case_id": "statistics",
+            "case_version": "v1",
+            "task_type": "feature",
+            "user_request": "为 summarize_tasks 增加可选的关键字参数 status，默认值为 None。不指定时保持现有行为；指定时只统计状态相等的任务。返回结构仍为 count 和 total_duration，其中 total_duration 是纳入统计的任务 duration 之和。没有匹配项时返回零计数和零总时长。不修改输入列表或记录，保留现有字段访问的异常行为。只修改 statistics.py，不修改固定验收测试。",
+            "repository_commit": "2890105ac01d778cb853c033ad34d839f5f8dfd7",
+            "editable_files": [
+              "statistics.py"
+            ],
+            "protected_test_files": [
+              "tests/test_statistics.py"
+            ],
+            "test_profile": "python-basic"
+          },
+          "strategy": "vector",
+          "run_config": {
+            "schema_version": 1,
+            "retrieval_policy": "vector",
+            "max_tool_calls": 4
+          },
+          "task_id": "9532cc66-4349-473d-bdf5-696cbad1a083",
+          "preparation_status": "prepared",
+          "preparation_stage": "create_task",
+          "preparation_error_type": null,
+          "protected_test_file_hashes": {
+            "tests/test_statistics.py": "8b46db49f3963c0ea465765aed3f7a2b0e662c3af467d92715b15abc12b90340"
+          },
+          "status": "completed",
+          "test": {
+            "id": "a037537b-c8f5-437e-92b7-3c85cb635489",
+            "task_id": "9532cc66-4349-473d-bdf5-696cbad1a083",
+            "status": "finished",
+            "image": "repopilot-pytest:py311",
+            "timeout_seconds": 120,
+            "started_at": "2026-10-09T03:31:14.793123Z",
+            "completed_at": "2026-10-09T03:31:16.265793Z",
+            "exit_code": 0,
+            "timed_out": false,
+            "stdout": "............                                                             [100%]\n12 passed in 0.10s\n",
+            "stderr": "",
+            "stdout_truncated": false,
+            "stderr_truncated": false,
+            "error": null,
+            "snapshot_hash": "68f2fe0cb1f215ff99daecfa13fb65c302c1c6e9f32d168fc08904988b9dbe0d",
+            "process_passed": true,
+            "structured_test_counts": null
+          },
+          "retry_count": 0,
+          "completion_event_sequence": 31,
+          "failure": null,
+          "final_diff": {
+            "task_id": "9532cc66-4349-473d-bdf5-696cbad1a083",
+            "repository_id": "ad96cc1f-d57b-472b-bfe2-0f9d04a3cfa2",
+            "diff": "diff --git a/statistics.py b/statistics.py\nindex 9b3bd4a..5c86f21 100644\n--- a/statistics.py\n+++ b/statistics.py\n@@ -1,5 +1,12 @@\n-def summarize_tasks(tasks: list[dict]) -> dict:\n+def summarize_tasks(tasks: list[dict], status=None) -> dict:\n+    if status is None:\n+        return {\n+            \"count\": len(tasks),\n+            \"total_duration\": sum(task[\"duration\"] for task in tasks),\n+        }\n+\n+    matched = [task for task in tasks if task[\"status\"] == status]\n     return {\n-        \"count\": len(tasks),\n-        \"total_duration\": sum(task[\"duration\"] for task in tasks),\n+        \"count\": len(matched),\n+        \"total_duration\": sum(task[\"duration\"] for task in matched),\n     }\n",
+            "changed_files": [
+              "statistics.py"
+            ],
+            "untracked_files": [],
+            "truncated": false
+          },
+          "retrieval": {
+            "trace_status": "recorded",
+            "trace_status_source": "original_export_snapshot",
+            "association_warnings": [],
+            "exported_event_count": 25,
+            "snapshot_last_sequence": 25,
+            "scope": "exported_retrieval_context_events_only",
+            "warnings": [],
+            "queries": [
+              {
+                "event_sequence": 6,
+                "query": "summarize_tasks count total_duration",
+                "requested_strategy": "vector",
+                "retrieval_strategy": "vector",
+                "top_k": 5,
+                "diagnostics": null,
+                "retrieval_parameters": {
+                  "index_version": null,
+                  "embedding_model": "text-embedding-v4",
+                  "rrf_rank_constant": null,
+                  "embedding_dimensions": 1024,
+                  "hybrid_candidate_limit": null
+                },
+                "hits": [
+                  {
+                    "rank": 1,
+                    "file_id": "eb37cb9a-2715-48cf-a843-d231f395981c",
+                    "chunk_id": "a8ea7e9b-3ac6-46c2-b82e-add299392d9c",
+                    "distance": 0.15567421913146973,
+                    "end_line": 5,
+                    "file_hash": null,
+                    "file_path": "statistics.py",
+                    "source_id": null,
+                    "start_line": 1,
+                    "symbol_name": "summarize_tasks",
+                    "content_chars": 168,
+                    "content_sha256": "96fb804cd72ad01c2b153d6c3f40577687833269e2428070a9088025cff3149d"
+                  },
+                  {
+                    "rank": 2,
+                    "file_id": "edfb0051-53d0-43dd-b859-c23a3ed992af",
+                    "chunk_id": "078b06da-7c09-4cf7-a9d6-c1d98b9d6e6d",
+                    "distance": 0.1583845615386963,
+                    "end_line": 27,
+                    "file_hash": null,
+                    "file_path": "tests/test_statistics.py",
+                    "source_id": null,
+                    "start_line": 26,
+                    "symbol_name": "test_original_behavior",
+                    "content_chars": 109,
+                    "content_sha256": "f33f038c7c2103f0e386f563790430f0f262936d6903bf38766af52a7ce17094"
+                  },
+                  {
+                    "rank": 3,
+                    "file_id": "edfb0051-53d0-43dd-b859-c23a3ed992af",
+                    "chunk_id": "e6ccc6ee-fcdd-4ed1-a4b6-68b2d15b2b6d",
+                    "distance": 0.1810211891240232,
+                    "end_line": 40,
+                    "file_hash": null,
+                    "file_path": "tests/test_statistics.py",
+                    "source_id": null,
+                    "start_line": 39,
+                    "symbol_name": "test_empty_original",
+                    "content_chars": 97,
+                    "content_sha256": "1d4ae1a44ad66966f51417904754a83a2bbac84ebbd7e54fe9f6e64d16fdb5f2"
+                  },
+                  {
+                    "rank": 4,
+                    "file_id": "edfb0051-53d0-43dd-b859-c23a3ed992af",
+                    "chunk_id": "0cedae3a-d1cc-4722-9dd9-24464d8f67c4",
+                    "distance": 0.2122089989309892,
+                    "end_line": 36,
+                    "file_hash": null,
+                    "file_path": "tests/test_statistics.py",
+                    "source_id": null,
+                    "start_line": 30,
+                    "symbol_name": "test_optional_status",
+                    "content_chars": 323,
+                    "content_sha256": "b01db22ce858ad77c5a23dbbbb473c3570799c3a27f924dbfaa50b22e32e3b8f"
+                  },
+                  {
+                    "rank": 5,
+                    "file_id": "edfb0051-53d0-43dd-b859-c23a3ed992af",
+                    "chunk_id": "a8d30772-5884-4807-b8fc-cc19df8b5e58",
+                    "distance": 0.21948188543319702,
+                    "end_line": 65,
+                    "file_hash": null,
+                    "file_path": "tests/test_statistics.py",
+                    "source_id": null,
+                    "start_line": 63,
+                    "symbol_name": "test_missing_duration_still_raises",
+                    "content_chars": 130,
+                    "content_sha256": "d7255fe55f813452b86b6bd1e10f2d19411ca183df7545a4d45b316ae0c1d95b"
+                  }
+                ]
+              },
+              {
+                "event_sequence": 10,
+                "query": "statistics.py task status duration",
+                "requested_strategy": "vector",
+                "retrieval_strategy": "vector",
+                "top_k": 5,
+                "diagnostics": null,
+                "retrieval_parameters": {
+                  "index_version": null,
+                  "embedding_model": "text-embedding-v4",
+                  "rrf_rank_constant": null,
+                  "embedding_dimensions": 1024,
+                  "hybrid_candidate_limit": null
+                },
+                "hits": [
+                  {
+                    "rank": 1,
+                    "file_id": "edfb0051-53d0-43dd-b859-c23a3ed992af",
+                    "chunk_id": "a8d30772-5884-4807-b8fc-cc19df8b5e58",
+                    "distance": 0.3107264267532268,
+                    "end_line": 65,
+                    "file_hash": null,
+                    "file_path": "tests/test_statistics.py",
+                    "source_id": null,
+                    "start_line": 63,
+                    "symbol_name": "test_missing_duration_still_raises",
+                    "content_chars": 130,
+                    "content_sha256": "d7255fe55f813452b86b6bd1e10f2d19411ca183df7545a4d45b316ae0c1d95b"
+                  },
+                  {
+                    "rank": 2,
+                    "file_id": "edfb0051-53d0-43dd-b859-c23a3ed992af",
+                    "chunk_id": "58d20d7e-465f-4618-87a7-e15aa239826f",
+                    "distance": 0.31585443019865,
+                    "end_line": 75,
+                    "file_hash": null,
+                    "file_path": "tests/test_statistics.py",
+                    "source_id": null,
+                    "start_line": 73,
+                    "symbol_name": "test_filtered_missing_duration_raises",
+                    "content_chars": 153,
+                    "content_sha256": "e7716306f2a8f6045a3f58099518e814780a133d7f6bca8e4f66305eadc96117"
+                  },
+                  {
+                    "rank": 3,
+                    "file_id": "edfb0051-53d0-43dd-b859-c23a3ed992af",
+                    "chunk_id": "5111dfe2-ecb6-43bd-91f9-ad0a2d2b0e37",
+                    "distance": 0.3241249339357125,
+                    "end_line": 60,
+                    "file_hash": null,
+                    "file_path": "tests/test_statistics.py",
+                    "source_id": null,
+                    "start_line": 59,
+                    "symbol_name": "test_unfiltered_does_not_require_status",
+                    "content_chars": 132,
+                    "content_sha256": "91b6f7dcaa81e72695eb488e6fed821482331d3011cb8300b48f5a90953832fa"
+                  },
+                  {
+                    "rank": 4,
+                    "file_id": "edfb0051-53d0-43dd-b859-c23a3ed992af",
+                    "chunk_id": "0cedae3a-d1cc-4722-9dd9-24464d8f67c4",
+                    "distance": 0.32699022728261906,
+                    "end_line": 36,
+                    "file_hash": null,
+                    "file_path": "tests/test_statistics.py",
+                    "source_id": null,
+                    "start_line": 30,
+                    "symbol_name": "test_optional_status",
+                    "content_chars": 323,
+                    "content_sha256": "b01db22ce858ad77c5a23dbbbb473c3570799c3a27f924dbfaa50b22e32e3b8f"
+                  },
+                  {
+                    "rank": 5,
+                    "file_id": "edfb0051-53d0-43dd-b859-c23a3ed992af",
+                    "chunk_id": "6824dce4-377e-4dfa-a255-ec0fc4594742",
+                    "distance": 0.3316939275447066,
+                    "end_line": 70,
+                    "file_hash": null,
+                    "file_path": "tests/test_statistics.py",
+                    "source_id": null,
+                    "start_line": 68,
+                    "symbol_name": "test_filtered_missing_status_raises",
+                    "content_chars": 143,
+                    "content_sha256": "cc815fa548d012abc9bfa222cd71cf5b503f0c0afa419cbfa4d5b7062155c199"
+                  }
+                ]
+              }
+            ],
+            "contexts": [
+              {
+                "tool_name": "search_code",
+                "event_sequence": 7,
+                "disposition": "accepted",
+                "content_chars": 2855,
+                "model_calls": [
+                  {
+                    "call_id": "81e3da3b-9f8d-49d4-9100-026764bd1fde",
+                    "node_name": "model",
+                    "started_sequence": 12,
+                    "finished_sequence": 13,
+                    "outcome": "completed"
+                  },
+                  {
+                    "call_id": "ecffb77d-efe2-45de-b218-97844cee209a",
+                    "node_name": "model",
+                    "started_sequence": 20,
+                    "finished_sequence": 21,
+                    "outcome": "completed"
+                  },
+                  {
+                    "call_id": "f8d5ad7f-12c0-4909-97b7-3c8e46da1fb9",
+                    "node_name": "plan",
+                    "started_sequence": 22,
+                    "finished_sequence": 23,
+                    "outcome": "completed"
+                  }
+                ]
+              },
+              {
+                "tool_name": "search_code",
+                "event_sequence": 11,
+                "disposition": "accepted",
+                "content_chars": 2975,
+                "model_calls": [
+                  {
+                    "call_id": "81e3da3b-9f8d-49d4-9100-026764bd1fde",
+                    "node_name": "model",
+                    "started_sequence": 12,
+                    "finished_sequence": 13,
+                    "outcome": "completed"
+                  },
+                  {
+                    "call_id": "ecffb77d-efe2-45de-b218-97844cee209a",
+                    "node_name": "model",
+                    "started_sequence": 20,
+                    "finished_sequence": 21,
+                    "outcome": "completed"
+                  },
+                  {
+                    "call_id": "f8d5ad7f-12c0-4909-97b7-3c8e46da1fb9",
+                    "node_name": "plan",
+                    "started_sequence": 22,
+                    "finished_sequence": 23,
+                    "outcome": "completed"
+                  }
+                ]
+              },
+              {
+                "tool_name": "read_source",
+                "event_sequence": 16,
+                "disposition": "accepted",
+                "content_chars": 437,
+                "model_calls": [
+                  {
+                    "call_id": "ecffb77d-efe2-45de-b218-97844cee209a",
+                    "node_name": "model",
+                    "started_sequence": 20,
+                    "finished_sequence": 21,
+                    "outcome": "completed"
+                  },
+                  {
+                    "call_id": "f8d5ad7f-12c0-4909-97b7-3c8e46da1fb9",
+                    "node_name": "plan",
+                    "started_sequence": 22,
+                    "finished_sequence": 23,
+                    "outcome": "completed"
+                  }
+                ]
+              },
+              {
+                "tool_name": "read_source",
+                "event_sequence": 19,
+                "disposition": "accepted",
+                "content_chars": 2612,
+                "model_calls": [
+                  {
+                    "call_id": "ecffb77d-efe2-45de-b218-97844cee209a",
+                    "node_name": "model",
+                    "started_sequence": 20,
+                    "finished_sequence": 21,
+                    "outcome": "completed"
+                  },
+                  {
+                    "call_id": "f8d5ad7f-12c0-4909-97b7-3c8e46da1fb9",
+                    "node_name": "plan",
+                    "started_sequence": 22,
+                    "finished_sequence": 23,
+                    "outcome": "completed"
+                  }
+                ]
+              }
+            ],
+            "model_calls": [
+              {
+                "node_name": "model",
+                "outcome": "completed",
+                "model": "deepseek-v4.1-flash",
+                "system_prompt_sha256": [
+                  "a70c491c2908d7c44439897812c5bba441be9dc870b4851837442a738da8816e"
+                ],
+                "unmatched_tool_context": []
+              },
+              {
+                "node_name": "model",
+                "outcome": "completed",
+                "model": "deepseek-v4.1-flash",
+                "system_prompt_sha256": [
+                  "a70c491c2908d7c44439897812c5bba441be9dc870b4851837442a738da8816e"
+                ],
+                "unmatched_tool_context": []
+              },
+              {
+                "node_name": "model",
+                "outcome": "completed",
+                "model": "deepseek-v4.1-flash",
+                "system_prompt_sha256": [
+                  "a70c491c2908d7c44439897812c5bba441be9dc870b4851837442a738da8816e"
+                ],
+                "unmatched_tool_context": []
+              },
+              {
+                "node_name": "plan",
+                "outcome": "completed",
+                "model": "deepseek-v4.1-flash",
+                "system_prompt_sha256": [
+                  "1c5ee785ef09fb7f061eff43c4c288d197e46854b2cf2bc426ab3ed1c90ece0b"
+                ],
+                "unmatched_tool_context": []
+              }
+            ]
+          },
+          "token_usage": null,
+          "cost": null,
+          "max_retries": 1,
+          "review": {
+            "decision": "approved",
+            "comment": "已检查计划与证据，批准在声明范围内执行，不修改固定验收测试。",
+            "reviewed_at": "2026-10-09T03:26:35.867137+00:00"
+          },
+          "role": "primary",
+          "artifacts": {
+            "preparation": {
+              "path": "D:\\RepoPilot\\reports\\experiments\\statistics-vector-e2ae07c6c8bc41b08725195c8269e988\\c35757bb-fee0-45e3-8744-8ee23194fa31\\preparation.json",
+              "uri": "file:///D:/RepoPilot/reports/experiments/statistics-vector-e2ae07c6c8bc41b08725195c8269e988/c35757bb-fee0-45e3-8744-8ee23194fa31/preparation.json",
+              "sha256": "9806863fddb9d55753e70e66ebebd13821a306b66fabbf9e57d3ae9a6ae446a7"
+            },
+            "report": {
+              "path": "D:\\RepoPilot\\reports\\experiments\\statistics-vector-e2ae07c6c8bc41b08725195c8269e988\\c35757bb-fee0-45e3-8744-8ee23194fa31\\operations\\35792bdd-a5b2-4a6f-a6c9-f6e1ec4426c6\\task_9532cc66-4349-473d-bdf5-696cbad1a083_20261009T033215561324Z.json",
+              "uri": "file:///D:/RepoPilot/reports/experiments/statistics-vector-e2ae07c6c8bc41b08725195c8269e988/c35757bb-fee0-45e3-8744-8ee23194fa31/operations/35792bdd-a5b2-4a6f-a6c9-f6e1ec4426c6/task_9532cc66-4349-473d-bdf5-696cbad1a083_20261009T033215561324Z.json",
+              "sha256": "2c2c5ec3b5935b711e410fca760033ac95eec54507d21985c2184e1857194145"
+            },
+            "evidence": {
+              "path": "D:\\RepoPilot\\reports\\experiments\\statistics-vector-e2ae07c6c8bc41b08725195c8269e988\\c35757bb-fee0-45e3-8744-8ee23194fa31\\evidence\\retrieval_9532cc66-4349-473d-bdf5-696cbad1a083_2ff54a4e258a44918e8145ad534968f3\\evidence.json",
+              "uri": "file:///D:/RepoPilot/reports/experiments/statistics-vector-e2ae07c6c8bc41b08725195c8269e988/c35757bb-fee0-45e3-8744-8ee23194fa31/evidence/retrieval_9532cc66-4349-473d-bdf5-696cbad1a083_2ff54a4e258a44918e8145ad534968f3/evidence.json",
+              "sha256": "7fb45916013a6408cf3b9509e161b224997a6274f42c2ac6a2a279361b657d34"
+            }
+          }
+        }
+      },
+      "recorded_condition_differences": [],
+      "pair_complete": true
+    },
+    {
+      "case_id": "task-list",
+      "case_version": "v1",
+      "runs": {
+        "vector": {
+          "experiment_id": "1050c45d-458e-41bf-a4d7-cd5ce1f897b2",
+          "case": {
+            "schema_version": 1,
+            "case_id": "task-list",
+            "case_version": "v1",
+            "task_type": "bug_fix",
+            "user_request": "list_tasks 同时使用状态筛选和分页时，部分结果数量及偏移不符合预期。请定位并修复，保持原顺序、不修改输入列表；非法分页参数仍抛 ValueError。只修改 task_list.py，不修改固定验收测试。",
+            "repository_commit": "4629a3a98cb62c989ed4e1e67be9514703b3d346",
+            "editable_files": [
+              "task_list.py"
+            ],
+            "protected_test_files": [
+              "tests/test_task_list.py"
+            ],
+            "test_profile": "python-basic"
+          },
+          "strategy": "vector",
+          "run_config": {
+            "schema_version": 1,
+            "retrieval_policy": "vector",
+            "max_tool_calls": 4
+          },
+          "task_id": "f58111a3-4d12-49d9-8d04-665fd512f53a",
+          "preparation_status": "prepared",
+          "preparation_stage": "create_task",
+          "preparation_error_type": null,
+          "protected_test_file_hashes": {
+            "tests/test_task_list.py": "82dc949554c0a262566d7cdcee6ee21b272ab6468381213633916a36e8f94552"
+          },
+          "status": "completed",
+          "test": {
+            "id": "54a99c2d-aaa0-4364-871f-89efc2fdf319",
+            "task_id": "f58111a3-4d12-49d9-8d04-665fd512f53a",
+            "status": "finished",
+            "image": "repopilot-pytest:py311",
+            "timeout_seconds": 120,
+            "started_at": "2026-10-08T12:37:54.770448Z",
+            "completed_at": "2026-10-08T12:37:56.489735Z",
+            "exit_code": 0,
+            "timed_out": false,
+            "stdout": "........                                                                 [100%]\n8 passed in 0.09s\n",
+            "stderr": "",
+            "stdout_truncated": false,
+            "stderr_truncated": false,
+            "error": null,
+            "snapshot_hash": "171c70a0dd6bb66a2022a54a20ee2ecb53293ddec106b32f41c841589abd0cd3",
+            "process_passed": true,
+            "structured_test_counts": null
+          },
+          "retry_count": 0,
+          "completion_event_sequence": 25,
+          "failure": null,
+          "final_diff": {
+            "task_id": "f58111a3-4d12-49d9-8d04-665fd512f53a",
+            "repository_id": "201f4e6b-18f8-446d-9a07-c99036190f99",
+            "diff": "diff --git a/task_list.py b/task_list.py\nindex 7994d7c..4993eec 100644\n--- a/task_list.py\n+++ b/task_list.py\n@@ -9,7 +9,5 @@ def list_tasks(\n     if limit < 1 or offset < 0:\n         raise ValueError(\"limit must be at least 1 and offset must be non-negative\")\n \n-    page = tasks[offset:offset + limit]\n-    if status is not None:\n-        page = [task for task in page if task[\"status\"] == status]\n-    return page\n+    filtered = tasks if status is None else [task for task in tasks if task[\"status\"] == status]\n+    return filtered[offset:offset + limit]\n",
+            "changed_files": [
+              "task_list.py"
+            ],
+            "untracked_files": [],
+            "truncated": false
+          },
+          "retrieval": {
+            "trace_status": "not_recorded",
+            "trace_status_source": "original_export_snapshot",
+            "association_warnings": [],
+            "exported_event_count": 25,
+            "snapshot_last_sequence": 25,
+            "scope": "exported_retrieval_context_events_only",
+            "warnings": [],
+            "queries": [],
+            "contexts": [],
+            "model_calls": [
+              {
+                "node_name": "model",
+                "outcome": "completed",
+                "model": "deepseek-v4.1-flash",
+                "system_prompt_sha256": null,
+                "unmatched_tool_context": []
+              },
+              {
+                "node_name": "model",
+                "outcome": "completed",
+                "model": "deepseek-v4.1-flash",
+                "system_prompt_sha256": null,
+                "unmatched_tool_context": []
+              },
+              {
+                "node_name": "model",
+                "outcome": "completed",
+                "model": "deepseek-v4.1-flash",
+                "system_prompt_sha256": null,
+                "unmatched_tool_context": []
+              },
+              {
+                "node_name": "plan",
+                "outcome": "completed",
+                "model": "deepseek-v4.1-flash",
+                "system_prompt_sha256": null,
+                "unmatched_tool_context": []
+              }
+            ]
+          },
+          "token_usage": null,
+          "cost": null,
+          "max_retries": 1,
+          "review": {
+            "decision": "approved",
+            "comment": "已检查计划范围和任务目标，同意执行本次固定用例",
+            "reviewed_at": "2026-10-08T12:32:17.702490+00:00"
+          },
+          "role": "primary",
+          "artifacts": {
+            "preparation": {
+              "path": "D:\\RepoPilot\\reports\\experiments\\1050c45d-458e-41bf-a4d7-cd5ce1f897b2\\preparation.json",
+              "uri": "file:///D:/RepoPilot/reports/experiments/1050c45d-458e-41bf-a4d7-cd5ce1f897b2/preparation.json",
+              "sha256": "10b117a9296faf93822150cdd9da1efc4f5594e4bc44ed2a094f19fddb210208"
+            },
+            "report": {
+              "path": "D:\\RepoPilot\\reports\\experiments\\1050c45d-458e-41bf-a4d7-cd5ce1f897b2\\operations\\16a5aac1-0b7d-46ff-9828-0e904a9103ed\\task_f58111a3-4d12-49d9-8d04-665fd512f53a_20261008T123957657305Z.json",
+              "uri": "file:///D:/RepoPilot/reports/experiments/1050c45d-458e-41bf-a4d7-cd5ce1f897b2/operations/16a5aac1-0b7d-46ff-9828-0e904a9103ed/task_f58111a3-4d12-49d9-8d04-665fd512f53a_20261008T123957657305Z.json",
+              "sha256": "9862bcc0b906b1b17d6b0367b967b71982e3857cf1a0142aa4c378fd85a71401"
+            },
+            "evidence": {
+              "path": "D:\\RepoPilot\\reports\\experiments\\1050c45d-458e-41bf-a4d7-cd5ce1f897b2\\evidence\\retrieval_f58111a3-4d12-49d9-8d04-665fd512f53a_2d426355bc0a47a2bf07a14dabcccf3a\\evidence.json",
+              "uri": "file:///D:/RepoPilot/reports/experiments/1050c45d-458e-41bf-a4d7-cd5ce1f897b2/evidence/retrieval_f58111a3-4d12-49d9-8d04-665fd512f53a_2d426355bc0a47a2bf07a14dabcccf3a/evidence.json",
+              "sha256": "c54e31dd2df58bee514c3dcae625327d2bf70baadb4559a46bc6364d53771c70"
+            }
+          }
+        },
+        "hybrid": {
+          "experiment_id": "1d1733ce-fa0c-4590-a548-3eb118acd784",
+          "case": {
+            "schema_version": 1,
+            "case_id": "task-list",
+            "case_version": "v1",
+            "task_type": "bug_fix",
+            "user_request": "list_tasks 同时使用状态筛选和分页时，部分结果数量及偏移不符合预期。请定位并修复，保持原顺序、不修改输入列表；非法分页参数仍抛 ValueError。只修改 task_list.py，不修改固定验收测试。",
+            "repository_commit": "4629a3a98cb62c989ed4e1e67be9514703b3d346",
+            "editable_files": [
+              "task_list.py"
+            ],
+            "protected_test_files": [
+              "tests/test_task_list.py"
+            ],
+            "test_profile": "python-basic"
+          },
+          "strategy": "hybrid",
+          "run_config": {
+            "schema_version": 1,
+            "retrieval_policy": "hybrid",
+            "max_tool_calls": 4
+          },
+          "task_id": "1e9054f1-4ac4-4889-a587-81160e5fc4fb",
+          "preparation_status": "prepared",
+          "preparation_stage": "create_task",
+          "preparation_error_type": null,
+          "protected_test_file_hashes": {
+            "tests/test_task_list.py": "82dc949554c0a262566d7cdcee6ee21b272ab6468381213633916a36e8f94552"
+          },
+          "status": "completed",
+          "test": {
+            "id": "3b9a844d-1623-46c2-9184-4ada45d81394",
+            "task_id": "1e9054f1-4ac4-4889-a587-81160e5fc4fb",
+            "status": "finished",
+            "image": "repopilot-pytest:py311",
+            "timeout_seconds": 120,
+            "started_at": "2026-10-08T16:04:38.727085Z",
+            "completed_at": "2026-10-08T16:04:40.522261Z",
+            "exit_code": 0,
+            "timed_out": false,
+            "stdout": "........                                                                 [100%]\n8 passed in 0.09s\n",
+            "stderr": "",
+            "stdout_truncated": false,
+            "stderr_truncated": false,
+            "error": null,
+            "snapshot_hash": "a62303ad559fe3e63b81adb8c245d191da5b80b511689d444045df83760ffee2",
+            "process_passed": true,
+            "structured_test_counts": null
+          },
+          "retry_count": 0,
+          "completion_event_sequence": 31,
+          "failure": null,
+          "final_diff": {
+            "task_id": "1e9054f1-4ac4-4889-a587-81160e5fc4fb",
+            "repository_id": "3e42f873-e95b-4881-a3d2-ad36b4d396d2",
+            "diff": "diff --git a/task_list.py b/task_list.py\nindex 7994d7c..3a9ea4c 100644\n--- a/task_list.py\n+++ b/task_list.py\n@@ -9,7 +9,9 @@ def list_tasks(\n     if limit < 1 or offset < 0:\n         raise ValueError(\"limit must be at least 1 and offset must be non-negative\")\n \n-    page = tasks[offset:offset + limit]\n-    if status is not None:\n-        page = [task for task in page if task[\"status\"] == status]\n-    return page\n+    if status is None:\n+        tasks_filtered = list(tasks)\n+    else:\n+        tasks_filtered = [task for task in tasks if task[\"status\"] == status]\n+\n+    return tasks_filtered[offset:offset + limit]\n",
+            "changed_files": [
+              "task_list.py"
+            ],
+            "untracked_files": [],
+            "truncated": false
+          },
+          "retrieval": {
+            "trace_status": "recorded",
+            "trace_status_source": "original_export_snapshot",
+            "association_warnings": [],
+            "exported_event_count": 25,
+            "snapshot_last_sequence": 25,
+            "scope": "exported_retrieval_context_events_only",
+            "warnings": [],
+            "queries": [
+              {
+                "event_sequence": 6,
+                "query": "list_tasks",
+                "requested_strategy": "hybrid",
+                "retrieval_strategy": "hybrid",
+                "top_k": 5,
+                "diagnostics": {
+                  "overlap_count": 5,
+                  "vector_candidate_count": 5,
+                  "final_keyword_hit_count": 5,
+                  "keyword_candidate_count": 5
+                },
+                "retrieval_parameters": {
+                  "index_version": null,
+                  "embedding_model": "text-embedding-v4",
+                  "rrf_rank_constant": 60,
+                  "embedding_dimensions": 1024,
+                  "hybrid_candidate_limit": 20
+                },
+                "hits": [
+                  {
+                    "rank": 1,
+                    "file_id": "8b0d84df-acc6-4933-b875-92d202b81fed",
+                    "chunk_id": "f1781bbf-1d6c-4c0b-8837-a74db0804808",
+                    "end_line": 15,
+                    "file_hash": null,
+                    "file_path": "task_list.py",
+                    "rrf_score": 0.03278688524590164,
+                    "source_id": null,
+                    "start_line": 1,
+                    "symbol_name": "list_tasks",
+                    "vector_rank": 1,
+                    "keyword_rank": 1,
+                    "content_chars": 450,
+                    "keyword_score": 0.35384616,
+                    "content_sha256": "2bcc1a76ad665ab96ec71789ff24baae6db9d98464e1abb6a7e9283a4d37aa5f",
+                    "vector_distance": 0.35721328003485564
+                  },
+                  {
+                    "rank": 2,
+                    "file_id": "b1fc5e27-e141-419a-a378-2da43f59bead",
+                    "chunk_id": "e95d2ad1-68e7-4ae9-884e-67c61e42b91b",
+                    "end_line": 37,
+                    "file_hash": null,
+                    "file_path": "tests/test_task_list.py",
+                    "rrf_score": 0.03225806451612903,
+                    "source_id": null,
+                    "start_line": 34,
+                    "symbol_name": "test_input_is_not_modified",
+                    "vector_rank": 2,
+                    "keyword_rank": 2,
+                    "content_chars": 164,
+                    "keyword_score": 0.20769231,
+                    "content_sha256": "a4224c95ccc009f0cde6486e44f217af0aedbc5e1821b9e676e1434ad069c25c",
+                    "vector_distance": 0.41709768772124833
+                  },
+                  {
+                    "rank": 3,
+                    "file_id": "b1fc5e27-e141-419a-a378-2da43f59bead",
+                    "chunk_id": "eb88f0ce-ceed-4442-a006-f1462b1f41db",
+                    "end_line": 31,
+                    "file_hash": null,
+                    "file_path": "tests/test_task_list.py",
+                    "rrf_score": 0.03149801587301587,
+                    "source_id": null,
+                    "start_line": 19,
+                    "symbol_name": "test_filter_and_pagination",
+                    "vector_rank": 3,
+                    "keyword_rank": 4,
+                    "content_chars": 475,
+                    "keyword_score": 0.11678571,
+                    "content_sha256": "360e78fec35888e0e28466c644dc35939cfbcdf2e4bd4d56d0b63342f64f4b90",
+                    "vector_distance": 0.4334232986134219
+                  },
+                  {
+                    "rank": 4,
+                    "file_id": "b1fc5e27-e141-419a-a378-2da43f59bead",
+                    "chunk_id": "28fc1986-098c-4e28-bbd4-1a0cb4577a26",
+                    "end_line": 43,
+                    "file_hash": null,
+                    "file_path": "tests/test_task_list.py",
+                    "rrf_score": 0.03125763125763126,
+                    "source_id": null,
+                    "start_line": 40,
+                    "symbol_name": "test_invalid_pagination",
+                    "vector_rank": 5,
+                    "keyword_rank": 3,
+                    "content_chars": 206,
+                    "keyword_score": 0.11984127,
+                    "content_sha256": "ff7e2b76d265e77cbd26df327d250daea03154b189248b0921269b51523291af",
+                    "vector_distance": 0.4489562779042877
+                  },
+                  {
+                    "rank": 5,
+                    "file_id": "b1fc5e27-e141-419a-a378-2da43f59bead",
+                    "chunk_id": "90c6c8d7-8408-4c70-85ab-25acf105c075",
+                    "end_line": 16,
+                    "file_hash": null,
+                    "file_path": "tests/test_task_list.py",
+                    "rrf_score": 0.031009615384615385,
+                    "source_id": null,
+                    "start_line": 8,
+                    "symbol_name": "tasks",
+                    "vector_rank": 4,
+                    "keyword_rank": 5,
+                    "content_chars": 262,
+                    "keyword_score": 0.05,
+                    "content_sha256": "9e3c87255d878df25093a85bd07a9283227625aaf2d177fc0e2b06a96248e0d5",
+                    "vector_distance": 0.4392340517500518
+                  }
+                ]
+              },
+              {
+                "event_sequence": 10,
+                "query": "task_list.py 分页 offset limit ValueError",
+                "requested_strategy": "hybrid",
+                "retrieval_strategy": "hybrid",
+                "top_k": 5,
+                "diagnostics": {
+                  "overlap_count": 0,
+                  "vector_candidate_count": 5,
+                  "final_keyword_hit_count": 0,
+                  "keyword_candidate_count": 0
+                },
+                "retrieval_parameters": {
+                  "index_version": null,
+                  "embedding_model": "text-embedding-v4",
+                  "rrf_rank_constant": 60,
+                  "embedding_dimensions": 1024,
+                  "hybrid_candidate_limit": 20
+                },
+                "hits": [
+                  {
+                    "rank": 1,
+                    "file_id": "8b0d84df-acc6-4933-b875-92d202b81fed",
+                    "chunk_id": "f1781bbf-1d6c-4c0b-8837-a74db0804808",
+                    "end_line": 15,
+                    "file_hash": null,
+                    "file_path": "task_list.py",
+                    "rrf_score": 0.01639344262295082,
+                    "source_id": null,
+                    "start_line": 1,
+                    "symbol_name": "list_tasks",
+                    "vector_rank": 1,
+                    "keyword_rank": null,
+                    "content_chars": 450,
+                    "keyword_score": null,
+                    "content_sha256": "2bcc1a76ad665ab96ec71789ff24baae6db9d98464e1abb6a7e9283a4d37aa5f",
+                    "vector_distance": 0.18582607423222364
+                  },
+                  {
+                    "rank": 2,
+                    "file_id": "b1fc5e27-e141-419a-a378-2da43f59bead",
+                    "chunk_id": "28fc1986-098c-4e28-bbd4-1a0cb4577a26",
+                    "end_line": 43,
+                    "file_hash": null,
+                    "file_path": "tests/test_task_list.py",
+                    "rrf_score": 0.016129032258064516,
+                    "source_id": null,
+                    "start_line": 40,
+                    "symbol_name": "test_invalid_pagination",
+                    "vector_rank": 2,
+                    "keyword_rank": null,
+                    "content_chars": 206,
+                    "keyword_score": null,
+                    "content_sha256": "ff7e2b76d265e77cbd26df327d250daea03154b189248b0921269b51523291af",
+                    "vector_distance": 0.18897707396608887
+                  },
+                  {
+                    "rank": 3,
+                    "file_id": "b1fc5e27-e141-419a-a378-2da43f59bead",
+                    "chunk_id": "eb88f0ce-ceed-4442-a006-f1462b1f41db",
+                    "end_line": 31,
+                    "file_hash": null,
+                    "file_path": "tests/test_task_list.py",
+                    "rrf_score": 0.015873015873015872,
+                    "source_id": null,
+                    "start_line": 19,
+                    "symbol_name": "test_filter_and_pagination",
+                    "vector_rank": 3,
+                    "keyword_rank": null,
+                    "content_chars": 475,
+                    "keyword_score": null,
+                    "content_sha256": "360e78fec35888e0e28466c644dc35939cfbcdf2e4bd4d56d0b63342f64f4b90",
+                    "vector_distance": 0.29840552182296187
+                  },
+                  {
+                    "rank": 4,
+                    "file_id": "b1fc5e27-e141-419a-a378-2da43f59bead",
+                    "chunk_id": "e95d2ad1-68e7-4ae9-884e-67c61e42b91b",
+                    "end_line": 37,
+                    "file_hash": null,
+                    "file_path": "tests/test_task_list.py",
+                    "rrf_score": 0.015625,
+                    "source_id": null,
+                    "start_line": 34,
+                    "symbol_name": "test_input_is_not_modified",
+                    "vector_rank": 4,
+                    "keyword_rank": null,
+                    "content_chars": 164,
+                    "keyword_score": null,
+                    "content_sha256": "a4224c95ccc009f0cde6486e44f217af0aedbc5e1821b9e676e1434ad069c25c",
+                    "vector_distance": 0.33873033523559104
+                  },
+                  {
+                    "rank": 5,
+                    "file_id": "b1fc5e27-e141-419a-a378-2da43f59bead",
+                    "chunk_id": "90c6c8d7-8408-4c70-85ab-25acf105c075",
+                    "end_line": 16,
+                    "file_hash": null,
+                    "file_path": "tests/test_task_list.py",
+                    "rrf_score": 0.015384615384615385,
+                    "source_id": null,
+                    "start_line": 8,
+                    "symbol_name": "tasks",
+                    "vector_rank": 5,
+                    "keyword_rank": null,
+                    "content_chars": 262,
+                    "keyword_score": null,
+                    "content_sha256": "9e3c87255d878df25093a85bd07a9283227625aaf2d177fc0e2b06a96248e0d5",
+                    "vector_distance": 0.416087721819408
+                  }
+                ]
+              }
+            ],
+            "contexts": [
+              {
+                "tool_name": "search_code",
+                "event_sequence": 7,
+                "disposition": "accepted",
+                "content_chars": 4267,
+                "model_calls": [
+                  {
+                    "call_id": "e046ac6e-fefa-4242-ba85-8ec875517e9e",
+                    "node_name": "model",
+                    "started_sequence": 12,
+                    "finished_sequence": 13,
+                    "outcome": "completed"
+                  },
+                  {
+                    "call_id": "8013ad74-d512-4031-965a-4a53f47e6a9f",
+                    "node_name": "model",
+                    "started_sequence": 20,
+                    "finished_sequence": 21,
+                    "outcome": "completed"
+                  },
+                  {
+                    "call_id": "927e8640-b4d8-4ec0-9093-1c3b2309dd4c",
+                    "node_name": "plan",
+                    "started_sequence": 22,
+                    "finished_sequence": 23,
+                    "outcome": "completed"
+                  }
+                ]
+              },
+              {
+                "tool_name": "search_code",
+                "event_sequence": 11,
+                "disposition": "accepted",
+                "content_chars": 4251,
+                "model_calls": [
+                  {
+                    "call_id": "e046ac6e-fefa-4242-ba85-8ec875517e9e",
+                    "node_name": "model",
+                    "started_sequence": 12,
+                    "finished_sequence": 13,
+                    "outcome": "completed"
+                  },
+                  {
+                    "call_id": "8013ad74-d512-4031-965a-4a53f47e6a9f",
+                    "node_name": "model",
+                    "started_sequence": 20,
+                    "finished_sequence": 21,
+                    "outcome": "completed"
+                  },
+                  {
+                    "call_id": "927e8640-b4d8-4ec0-9093-1c3b2309dd4c",
+                    "node_name": "plan",
+                    "started_sequence": 22,
+                    "finished_sequence": 23,
+                    "outcome": "completed"
+                  }
+                ]
+              },
+              {
+                "tool_name": "read_source",
+                "event_sequence": 16,
+                "disposition": "accepted",
+                "content_chars": 744,
+                "model_calls": [
+                  {
+                    "call_id": "8013ad74-d512-4031-965a-4a53f47e6a9f",
+                    "node_name": "model",
+                    "started_sequence": 20,
+                    "finished_sequence": 21,
+                    "outcome": "completed"
+                  },
+                  {
+                    "call_id": "927e8640-b4d8-4ec0-9093-1c3b2309dd4c",
+                    "node_name": "plan",
+                    "started_sequence": 22,
+                    "finished_sequence": 23,
+                    "outcome": "completed"
+                  }
+                ]
+              },
+              {
+                "tool_name": "read_source",
+                "event_sequence": 19,
+                "disposition": "accepted",
+                "content_chars": 1600,
+                "model_calls": [
+                  {
+                    "call_id": "8013ad74-d512-4031-965a-4a53f47e6a9f",
+                    "node_name": "model",
+                    "started_sequence": 20,
+                    "finished_sequence": 21,
+                    "outcome": "completed"
+                  },
+                  {
+                    "call_id": "927e8640-b4d8-4ec0-9093-1c3b2309dd4c",
+                    "node_name": "plan",
+                    "started_sequence": 22,
+                    "finished_sequence": 23,
+                    "outcome": "completed"
+                  }
+                ]
+              }
+            ],
+            "model_calls": [
+              {
+                "node_name": "model",
+                "outcome": "completed",
+                "model": "deepseek-v4.1-flash",
+                "system_prompt_sha256": [
+                  "5e1dac8159cfa28a912fb88e2c4c9515cc3442db4c4f9f3cff1cfb92217c4f6d"
+                ],
+                "unmatched_tool_context": []
+              },
+              {
+                "node_name": "model",
+                "outcome": "completed",
+                "model": "deepseek-v4.1-flash",
+                "system_prompt_sha256": [
+                  "5e1dac8159cfa28a912fb88e2c4c9515cc3442db4c4f9f3cff1cfb92217c4f6d"
+                ],
+                "unmatched_tool_context": []
+              },
+              {
+                "node_name": "model",
+                "outcome": "completed",
+                "model": "deepseek-v4.1-flash",
+                "system_prompt_sha256": [
+                  "5e1dac8159cfa28a912fb88e2c4c9515cc3442db4c4f9f3cff1cfb92217c4f6d"
+                ],
+                "unmatched_tool_context": []
+              },
+              {
+                "node_name": "plan",
+                "outcome": "completed",
+                "model": "deepseek-v4.1-flash",
+                "system_prompt_sha256": [
+                  "1c5ee785ef09fb7f061eff43c4c288d197e46854b2cf2bc426ab3ed1c90ece0b"
+                ],
+                "unmatched_tool_context": []
+              }
+            ]
+          },
+          "token_usage": null,
+          "cost": null,
+          "max_retries": 1,
+          "review": {
+            "decision": "approved",
+            "comment": "计划仅修改 task_list.py，先筛选后分页，保留输入不变及参数校验，不修改测试。",
+            "reviewed_at": "2026-10-08T16:00:50.161053+00:00"
+          },
+          "role": "primary",
+          "artifacts": {
+            "preparation": {
+              "path": "D:\\RepoPilot\\reports\\experiments\\task-list-hybrid-9e3a2db4a0d7493a9c746e08cb30333e\\1d1733ce-fa0c-4590-a548-3eb118acd784\\preparation.json",
+              "uri": "file:///D:/RepoPilot/reports/experiments/task-list-hybrid-9e3a2db4a0d7493a9c746e08cb30333e/1d1733ce-fa0c-4590-a548-3eb118acd784/preparation.json",
+              "sha256": "88cf1c770fb34e68d1116df35a19dd8f077840f23dc1ccc472028dd2341039b4"
+            },
+            "report": {
+              "path": "D:\\RepoPilot\\reports\\experiments\\task-list-hybrid-9e3a2db4a0d7493a9c746e08cb30333e\\1d1733ce-fa0c-4590-a548-3eb118acd784\\operations\\936953c5-35fa-41a6-b6f6-461e50260a39\\task_1e9054f1-4ac4-4889-a587-81160e5fc4fb_20261008T160743527639Z.json",
+              "uri": "file:///D:/RepoPilot/reports/experiments/task-list-hybrid-9e3a2db4a0d7493a9c746e08cb30333e/1d1733ce-fa0c-4590-a548-3eb118acd784/operations/936953c5-35fa-41a6-b6f6-461e50260a39/task_1e9054f1-4ac4-4889-a587-81160e5fc4fb_20261008T160743527639Z.json",
+              "sha256": "db62fbe84847734789e0d78b9a35c8a78b07699e50d014da6cc7f5ca6ba5d022"
+            },
+            "evidence": {
+              "path": "D:\\RepoPilot\\reports\\experiments\\task-list-hybrid-9e3a2db4a0d7493a9c746e08cb30333e\\1d1733ce-fa0c-4590-a548-3eb118acd784\\evidence\\retrieval_1e9054f1-4ac4-4889-a587-81160e5fc4fb_bf681be097fa48869e9e9287731b3091\\evidence.json",
+              "uri": "file:///D:/RepoPilot/reports/experiments/task-list-hybrid-9e3a2db4a0d7493a9c746e08cb30333e/1d1733ce-fa0c-4590-a548-3eb118acd784/evidence/retrieval_1e9054f1-4ac4-4889-a587-81160e5fc4fb_bf681be097fa48869e9e9287731b3091/evidence.json",
+              "sha256": "a131713d7b2e695631e23634214ab985842150ce2c136174a6af85c7428e3deb"
+            }
+          }
+        }
+      },
+      "recorded_condition_differences": [],
+      "pair_complete": true
+    }
+  ],
+  "additional_attempts": [
+    {
+      "experiment_id": "4ee78fc6-f4bb-48d8-a5c6-0e85cc1378a7",
+      "case": {
+        "schema_version": 1,
+        "case_id": "task-list",
+        "case_version": "v1",
+        "task_type": "bug_fix",
+        "user_request": "list_tasks 同时使用状态筛选和分页时，部分结果数量及偏移不符合预期。请定位并修复，保持原顺序、不修改输入列表；非法分页参数仍抛 ValueError。只修改 task_list.py，不修改固定验收测试。",
+        "repository_commit": "4629a3a98cb62c989ed4e1e67be9514703b3d346",
+        "editable_files": [
+          "task_list.py"
+        ],
+        "protected_test_files": [
+          "tests/test_task_list.py"
+        ],
+        "test_profile": "python-basic"
+      },
+      "strategy": "vector",
+      "run_config": {
+        "schema_version": 1,
+        "retrieval_policy": "vector",
+        "max_tool_calls": 4
+      },
+      "task_id": null,
+      "preparation_status": "preparing",
+      "preparation_stage": "register_repository",
+      "preparation_error_type": null,
+      "protected_test_file_hashes": {
+        "tests/test_task_list.py": "85b9659858ae990a2399a3277b611c8963f1b6f78784bce6368ac52566e1a2c4"
+      },
+      "status": "preparation_incomplete",
+      "test": null,
+      "retry_count": null,
+      "completion_event_sequence": null,
+      "failure": null,
+      "final_diff": null,
+      "retrieval": null,
+      "token_usage": null,
+      "cost": null,
+      "role": "additional",
+      "artifacts": {
+        "preparation": {
+          "path": "D:\\RepoPilot\\reports\\experiments\\4ee78fc6-f4bb-48d8-a5c6-0e85cc1378a7\\preparation.json",
+          "uri": "file:///D:/RepoPilot/reports/experiments/4ee78fc6-f4bb-48d8-a5c6-0e85cc1378a7/preparation.json",
+          "sha256": "bc9f91dffc23973a8220e59020f34d40371552bda60accc107fa342bbb378960"
+        },
+        "report": null,
+        "evidence": null
+      }
+    },
+    {
+      "experiment_id": "d3c43986-e97b-42ca-a631-f599ee76bd4f",
+      "case": {
+        "schema_version": 1,
+        "case_id": "task-list",
+        "case_version": "v1",
+        "task_type": "bug_fix",
+        "user_request": "list_tasks 同时使用状态筛选和分页时，部分结果数量及偏移不符合预期。请定位并修复，保持原顺序、不修改输入列表；非法分页参数仍抛 ValueError。只修改 task_list.py，不修改固定验收测试。",
+        "repository_commit": "4629a3a98cb62c989ed4e1e67be9514703b3d346",
+        "editable_files": [
+          "task_list.py"
+        ],
+        "protected_test_files": [
+          "tests/test_task_list.py"
+        ],
+        "test_profile": "python-basic"
+      },
+      "strategy": "vector",
+      "run_config": {
+        "schema_version": 1,
+        "retrieval_policy": "vector",
+        "max_tool_calls": 4
+      },
+      "task_id": null,
+      "preparation_status": "error",
+      "preparation_stage": "inspect_workspace",
+      "preparation_error_type": "ValueError",
+      "protected_test_file_hashes": {
+        "tests/test_task_list.py": "85b9659858ae990a2399a3277b611c8963f1b6f78784bce6368ac52566e1a2c4"
+      },
+      "status": "preparation_error",
+      "test": null,
+      "retry_count": null,
+      "completion_event_sequence": null,
+      "failure": null,
+      "final_diff": null,
+      "retrieval": null,
+      "token_usage": null,
+      "cost": null,
+      "role": "additional",
+      "artifacts": {
+        "preparation": {
+          "path": "D:\\RepoPilot\\reports\\experiments\\d3c43986-e97b-42ca-a631-f599ee76bd4f\\preparation.json",
+          "uri": "file:///D:/RepoPilot/reports/experiments/d3c43986-e97b-42ca-a631-f599ee76bd4f/preparation.json",
+          "sha256": "215af330f3af0ff3c929433caf376c4d0e2ff111d14a2af380f0402852187b50"
+        },
+        "report": null,
+        "evidence": null
+      }
+    }
+  ],
+  "limitations": [
+    "每个配置每例仅一次运行，模型查询可能不同，不能宣称统计显著提升。",
+    "completed + 关联测试进程通过不是对全部需求的自动语义证明；人工审批仍参与流程。",
+    "未计算通用任务成功率；额外准备失败和未完成记录单列，未知状态不填成功或失败。",
+    "规划证据快照不等于完整终态轨迹；not_recorded 或缺文件不等于零次检索。",
+    "未采集的结构化测试计数、token 和成本为 null；不从字符数估算，不比较人工等待耗时。",
+    "当前可比性只核对已保存用例、测试 hash、预算、镜像标签及超时；镜像 digest、完整生成参数和索引版本不齐，不能认证所有条件一致。"
+  ],
+  "manifest": "D:\\RepoPilot\\evals\\experiments\\comparison-v1.json"
+}

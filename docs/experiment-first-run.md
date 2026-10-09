@@ -33,7 +33,7 @@ if ($LASTEXITCODE -ne 0) { throw '准备失败，保留错误记录，不重复�
 从输出复制本次“记录文件”路径，填入变量。不要自动选择目录中“最新文件”，避免拿到其他实验：
 
 ```powershell
-$experimentPreparation = Read-Host 'D:\RepoPilot\reports\experiments\1050c45d-458e-41bf-a4d7-cd5ce1f897b2\preparation.json'
+$experimentPreparation = Read-Host '粘贴本次准备输出的 preparation.json 完整路径，不加引号'
 .\.venv\Scripts\python.exe -m scripts.plan_experiment --preparation "$experimentPreparation" --run --allow-model
 ```
 
@@ -55,7 +55,7 @@ generate 会真实调用模型，但只保存候选。打开输出的 `candidate
 认可候选后，将本次候选文件路径填入变量并应用：
 
 ```powershell
-$experimentCandidate = Read-Host 'D:\RepoPilot\reports\experiments\1050c45d-458e-41bf-a4d7-cd5ce1f897b2\preparation.json'
+$experimentCandidate = Read-Host '粘贴本次生成输出的 candidate.json 完整路径，不加引号'
 .\.venv\Scripts\python.exe -m scripts.execute_experiment apply --preparation "$experimentPreparation" --candidate "$experimentCandidate" --confirm-apply
 if ($LASTEXITCODE -ne 0) { throw '应用未确认成功，停止并查询实际写入状态' }
 ```
@@ -75,7 +75,7 @@ if ($experimentTestExit -ne 0) { throw "测试阶段未通过（退出码 $exper
 通过后复制本次打印的测试运行 ID，不选旧记录：
 
 ```powershell
-$experimentTestRun = Read-Host '54a99c2d-aaa0-4364-871f-89efc2fdf319'
+$experimentTestRun = Read-Host '粘贴本次测试输出的测试运行 ID，不加引号'
 .\.venv\Scripts\python.exe -m scripts.execute_experiment complete --preparation "$experimentPreparation" --test-run-id "$experimentTestRun"
 if ($LASTEXITCODE -ne 0) { throw '完成未确认成功，停止并查询状态' }
 .\.venv\Scripts\python.exe -m scripts.execute_experiment report --preparation "$experimentPreparation"

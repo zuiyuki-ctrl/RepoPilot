@@ -164,7 +164,7 @@ RepoPilot 是一个可观测、可评测、可实验的 Coding Agent 基础设�
 - 新想法统一进入后续待办，不插入本周主线。如有阻断，先说明影响与最小修复；改变范围或日期须由用户确认。
 - 进度紧张时优先减少页面装饰与非必要统计图，不删除固定验收、独立工作区、策略控制和证据关联。
 
-当前接续点（2026-10-09）：task-list-v1 两组各 8 项通过，deduplicate-v1 两组各 6 项通过，statistics / Vector 12 项通过，五条真实运行已完成。除旧 task-list / Vector 外均已核对新版规划检索证据。最后一条为 statistics / Hybrid，随后进行逐例汇总。此前 59 项模拟测试本轮未重跑；旧 task-list / Vector 缺新版证据，明确标注，不补造历史，不直接启动批量付费运行。
+当前接续点（2026-10-09）：六条真实运行、跨实验离线对照和前端策略对比页已接通，用户已反馈页面验收通过。README 与 `docs/demo-guide.md` 已整理项目定位、启动入口、三段历史演示和面试说明，本周展示范围冻结。`evals/experiments/comparison-v1.json` 显式关联六条主运行及两条额外准备记录；报告位于 `reports/comparisons/comparison_8c54092f02d84786951ea787e24ad5c3/`，前端由 `frontend/comparison-source.json` 指定读取。下一步由用户按讲稿演练一次，整理提交与交接；新环境固定起点真实复跑仍是待验收项，本轮不自动追加付费运行。旧 task-list / Vector 证据缺失仍保留；详情页与清单选择不同证据导出时会提示。
 
 最终演示要回答的不是只有“它能修一个 Bug”，而是：同一个任务在两种受控策略下看到了什么上下文、产生了什么修改、获得了什么测试结果，以及这些证据支持和不支持哪些结论。
 
@@ -209,6 +209,16 @@ RepoPilot 是一个可观测、可评测、可实验的 Coding Agent 基础设�
 
 ### 9.2 实际验证与当前边界
 
+- 2026-10-09 提交前检查通过：显式清单的 20 个输入引用都存在且属于 Git 已跟踪或未忽略文件；仅从可提交文件在内存重建历史展示，读取 57 个历史记录文件，得到六条任务、两条准备记录、三组对照，六个详情链接匹配。检查时有 23 个未跟踪文件，均为本轮代码、文档和报告，无超过 5 MB 的文件；`.env`、虚拟环境、前端依赖、构建产物及生成的页面数据均被忽略，未发现这些目录或真实配置文件被跟踪。未读取 `.env`，未进行完整密钥内容审计，未提交或推送 Git，也未在另一台电脑复验。换电脑后只需先按 README 验证离线展示；原始报告中的本机文件链接可能需要重新离线导出，不影响页面相对路径数据加载。
+
+- 2026-10-09 用户反馈前端页面验收全部通过，作为用户执行的验收记录保存。随后完善根 README 和三段历史演示讲稿，修正首次实验文档的路径输入提示；只读核对六条报告的测试汇总、文档本地链接和 diff 格式。本轮未重跑单元测试、模型、Docker 或真实实验；下面的“浏览器视觉验收尚未执行”是此前代码交付时的状态。第 7 天的新环境真实复跑未被本次验收替代。
+
+- 2026-10-09 前端策略对比模块接入：复用已有 Vue 离线页面，新增 `#/comparisons` 和明确报告选择配置。快照投影展示逐例终态、测试、重试、查询排名、诊断与上下文关联，另列两条准备记录；旧证据不补造，详情来源不同有提示。新增 6 项快照测试，连同原有 13 项共 19 项通过；类型检查、实际报告快照生成与生产构建通过。浏览器视觉验收尚未执行，无新增模型、数据库、Docker 调用，也未运行全项目回归。下方“前端没有修改”描述的是之前离线汇总阶段。
+
+- 2026-10-09 离线对照模块完成：新增纯业务 `experiment_comparison_service.py` 与 CLI `compare_experiments.py`。显式清单拒绝重复主运行、跨任务 TestRun、配置/证据策略错配、越界 diff 和缺失文件；关联从历史相关事件重建，不读取当前工作副本。原导出的完整性状态单独保留，不把过滤无关事件导致的序号间隔误判成采集缺失。13 项离线测试通过，socket 连接被禁止；另以真实 artifact 导出并核对三组配对、六个 completed、一个 preparation_error 和一个 preparation_incomplete。额外 preparing 记录 `4ee78fc6-f4bb-48d8-a5c6-0e85cc1378a7` 停在 register_repository、无任务 ID，不能假定进程仍活着或编造原因。无新增模型、数据库或 Docker 调用，无全项目回归。主运行各配置三条完成不是通用成功率；旧 Vector 选用先前已核对的原证据导出，不自动挑最新文件。前端没有修改。
+
+- 2026-10-09 statistics-v1 / Hybrid 完成真实闭环：实验 `b2fb749c-a1f3-4b47-bea3-5b9f96f75091`，任务 `67540362-f4aa-4d68-b034-d6d640964a27`，仓库 `caafaee0-3662-45da-80db-112a1881a8c1`；人工批准，completed、retry_count=0、完成事件序号 31。TestRun `9e4e2d21-ce67-4a0d-86cc-452a45ce89e0`，12 passed in 0.11s、exit_code=0，无超时或截断，snapshot_hash `b84bd8b979dee9c010cc05b65acb1f0fd9b23d92e5379e9bf3e60913ade6d7cb`。应用、测试、完成与报告关联一致；历史 Diff 仅修改 statistics.py，选取 selected_tasks 后统一聚合，error/failure 为空。报告入口 `reports/experiments/statistics-hybrid-a253cbfe46e348f089ebd6837b5b7c1b/b2fb749c-a1f3-4b47-bea3-5b9f96f75091/operations/82bc1ff5-576b-4d52-9eab-cffbc85add34/report-result.json`。规划证据 25 个事件，2 次搜索和 2 次源码读取均 accepted，首查 summarize_tasks 的实现向量第 3、关键词第 1、融合第 1；第二次查询 test_optional_status 向量第 7、关键词第 1、融合第 2。只读取测试 1–60 行，未读末尾异常测试，实际验收仍运行完整 12 项。六条成功运行均未触发 Reflection；这是小规模人工审批流程演示，不能泛化为通用成功率或 Hybrid 优越性。当前核对未重跑模型或测试。
+
 - 2026-10-09 statistics-v1 / Vector 完成真实闭环：实验 `c35757bb-fee0-45e3-8744-8ee23194fa31`，任务 `9532cc66-4349-473d-bdf5-696cbad1a083`，仓库 `ad96cc1f-d57b-472b-bfe2-0f9d04a3cfa2`；人工批准、completed、retry_count=0、完成事件序号 31。TestRun `a037537b-c8f5-437e-92b7-3c85cb635489`，12 passed in 0.10s、exit_code=0，无超时或截断；snapshot_hash `68f2fe0cb1f215ff99daecfa13fb65c302c1c6e9f32d168fc08904988b9dbe0d`。最终 Diff 仅修改 statistics.py，新增 status=None 分支及匹配列表统计；应用、测试、完成和报告关联一致，failure/error 均为空。报告入口 `reports/experiments/statistics-vector-e2ae07c6c8bc41b08725195c8269e988/c35757bb-fee0-45e3-8744-8ee23194fa31/operations/35792bdd-a5b2-4a6f-a6c9-f6e1ec4426c6/report-result.json`。规划证据 25 个事件，2 次 Vector 搜索、2 次源码读取均 accepted，首次搜索实现排第 1。候选说明称惰性筛选，实际为立即构造列表；签名允许位置或关键字传 status，固定需求未明确仅限关键字，因此未临时更改验收。保留原始模型输出，本轮只读取核对，未重跑模型或测试。
 
 - 2026-10-09 deduplicate-v1 / Hybrid 完成真实闭环：实验 `6ce17de7-ad33-4232-bac6-5c1d673d326d`，任务 `a2574e05-f9a8-4257-94b9-c6d4153d4f61`，仓库 `45e1d17d-bab1-44ef-b053-b268f67c27f9`；人工批准，completed、retry_count=0、完成事件序号 31。TestRun `ef9d2f9c-a41b-4e78-92e4-6a526c8c668a`，6 passed in 0.08s，exit_code=0，无超时或截断，snapshot_hash `89c7adc088146b13eb32f959ca8ad0156cff9ba2589e8ebe74c04d0d0182b1b2`。历史 Diff 仅修改 deduplicate.py，逻辑与 Vector 修复一致，failure 为 null。报告入口 `reports/experiments/deduplicate-hybrid-366bb7283ee54359a0d3809a79ab8e5b/6ce17de7-ad33-4232-bac6-5c1d673d326d/operations/d02f3ad3-84c3-4371-8e01-2787faddf321/report-result.json`。规划证据 25 个事件，2 次搜索、2 次源码读取均 accepted；实现首次搜索即进入 Top 5。与 Vector 共有的查询 deduplicate.py 中，实现向量第 7、关键词第 1、融合第 3，显示本次关键词排名帮助实现进入上下文。两组其他查询不同且各仅一次运行，不能推断整体收益或统计显著性；0.08/0.09 秒是 pytest 输出耗时，不是 Agent 运行速度。核对未重跑模型或测试。
@@ -243,11 +253,11 @@ RepoPilot 是一个可观测、可评测、可实验的 Coding Agent 基础设�
 
 首次真实联调步骤见 `docs/experiment-first-run.md`，分为准备规划、批准与应用、测试报告三段。文档中的旧迁移缺口是首次预检时的历史记录；随后用户已完成真实闭环，换电脑时仍以当地数据库实际版本为准。
 
-目标：第 4 天新版证据正常链路已真实验证，接下来推进第 5 天最后一条 statistics / Hybrid 运行及两组逐例对比。单次证据报告已实现，跨实验对照汇总仍待推进。不要重复已通过的真实用例或模拟测试，除非代码变化或出现新问题。
+目标：六条真实运行、逐例对照汇总与离线页面已完成，用户页面验收通过；README 和固定演示路径见 `docs/demo-guide.md`。接下来演练讲解、整理提交与交接，不扩展功能。历史展示不要求数据库、Docker 或模型环境；新环境真实复跑单列待验收，不通过重复回放冒充。不要重复已通过的真实用例或模拟测试，除非代码变化或出现新问题。
 
 1. 模块层模拟验收已完成（见 9.2）：保留这些测试作为回归，不再增加一套测试框架。
 2. 单个固定用例真实闭环已完成（见 9.2），保留整个实验目录与先前失败记录。命令行参数错误发生在业务操作前，不计为新的模型修复轮次。
-3. 下一条选择 statistics-v1 / 固定 Hybrid；此前预检确认 statistics 源仓库干净、HEAD 与声明 `2890105ac01d778cb853c033ad34d839f5f8dfd7` 一致，python-basic 镜像存在，启动入口仍会重新校验。由用户执行付费模型调用，沿用既有入口，不修改固定用例制造提升。旧 task-list / Vector 缺新证据时明确标注，不伪装成同等可观测程度的新运行。
+3. 汇总采用显式运行关联，核对用例版本、提交、配置、任务及 TestRun，保留失败准备记录并单列阶段，不只挑成功记录。展示两组逐例终态、测试、重试、检索与上下文证据链接，明确旧 task-list / Vector 的观测缺失；未采集的 token/成本不填零，不把人工等待算成模型耗时。不为排序差异或没有提升追加调参实验。本轮仅在已有前端增加策略对比导航与页面，复用原总览和详情。
 
 此次真实成功没有触发 Reflection，不能据此宣称恢复路径已验收。后续恢复继续复用现有 Reflection 和重试预算；当前首轮检查限制 retry_count 为 0，不能直接拿它当作重试入口。旧 test_and_complete_task 脚本保留；新实验入口需要在各阶段保存证据和复核，因此直接复用底层服务，不调用其连续测试并完成的组合函数。
 

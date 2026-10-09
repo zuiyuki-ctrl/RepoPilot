@@ -1,0 +1,90 @@
+{
+  "experiment_id": "b2fb749c-a1f3-4b47-bea3-5b9f96f75091",
+  "task_id": "67540362-f4aa-4d68-b034-d6d640964a27",
+  "operation_id": "ba91d8c7-e93e-4ac7-8f8b-8ce3554645e2",
+  "test_run_id": "9e4e2d21-ce67-4a0d-86cc-452a45ce89e0",
+  "result": {
+    "id": "67540362-f4aa-4d68-b034-d6d640964a27",
+    "repository_id": "caafaee0-3662-45da-80db-112a1881a8c1",
+    "user_request": "为 summarize_tasks 增加可选的关键字参数 status，默认值为 None。不指定时保持现有行为；指定时只统计状态相等的任务。返回结构仍为 count 和 total_duration，其中 total_duration 是纳入统计的任务 duration 之和。没有匹配项时返回零计数和零总时长。不修改输入列表或记录，保留现有字段访问的异常行为。只修改 statistics.py，不修改固定验收测试。",
+    "task_type": "plan",
+    "status": "completed",
+    "created_at": "2026-10-09T03:34:54.456741Z",
+    "started_at": "2026-10-09T03:34:55.803411Z",
+    "completed_at": "2026-10-09T13:18:35.403548Z",
+    "result": {
+      "repository_id": "caafaee0-3662-45da-80db-112a1881a8c1",
+      "plan": {
+        "summary": "在 statistics.py 的 summarize_tasks 中新增可选关键字参数 status（默认 None）。status 为 None 时保持现有聚合逻辑不变；status 不为 None 时先按 task[\"status\"] == status 筛选任务再聚合 count 与 total_duration。全程不修改输入列表或记录，仅修改 statistics.py，不改动固定验收测试。",
+        "steps": [
+          {
+            "id": 1,
+            "description": "为 summarize_tasks 增加关键字参数 status: str | None = None，保持默认调用签名兼容现有行为，不改变返回值结构。",
+            "files": [
+              "statistics.py"
+            ],
+            "source_ids": [
+              "S1",
+              "S12",
+              "S3",
+              "S9"
+            ],
+            "verification": "不传 status 调用 summarize_tasks(tasks) 时返回 {'count': 3, 'total_duration': 16}，行为与修改前一致。"
+          },
+          {
+            "id": 2,
+            "description": "在函数内构造待统计任务序列：status 为 None 时使用原 tasks 全量；status 不为 None 时按 task['status'] == status 过滤，不原地修改 tasks 也不拷贝后写回记录。",
+            "files": [
+              "statistics.py"
+            ],
+            "source_ids": [
+              "S7",
+              "S11",
+              "S2",
+              "S4"
+            ],
+            "verification": "传入 status='completed' 返回 {'count': 2, 'total_duration': 8}，传入 status='running' 返回 {'count': 0, 'total_duration': 0}，且调用前后输入列表内容完全相同。"
+          },
+          {
+            "id": 3,
+            "description": "基于筛选后的任务序列计算 count 与 total_duration：count 为纳入统计的任务数，total_duration 为这些任务 duration 字段之和；无匹配任务时自然得到 0 和 0。",
+            "files": [
+              "statistics.py"
+            ],
+            "source_ids": [
+              "S5",
+              "S6",
+              "S7",
+              "S11"
+            ],
+            "verification": "summarize_tasks([], status='completed') 返回 {'count': 0, 'total_duration': 0}，summarize_tasks([]) 也返回 {'count': 0, 'total_duration': 0}。"
+          },
+          {
+            "id": 4,
+            "description": "保留现有字段访问的异常行为：未过滤时仍只访问 task['duration']，不因新增过滤逻辑而提前访问 status；过滤时通过 task['status'] 访问，缺失键仍抛出原有异常。",
+            "files": [
+              "statistics.py"
+            ],
+            "source_ids": [
+              "S10",
+              "S1",
+              "S12"
+            ],
+            "verification": "summarize_tasks([{'duration': 4}]) 返回 {'count': 1, 'total_duration': 4}，未过滤场景不因缺少 status 键而失败。"
+          }
+        ]
+      }
+    },
+    "error": null,
+    "review_decision": "approved",
+    "review_comment": "已检查计划与证据，批准在声明范围内执行，不修改固定验收测试。",
+    "reviewed_at": "2026-10-09T03:36:48.310138Z",
+    "retry_count": 0,
+    "max_retries": 1,
+    "run_config": {
+      "schema_version": 1,
+      "retrieval_policy": "hybrid",
+      "max_tool_calls": 4
+    }
+  }
+}
