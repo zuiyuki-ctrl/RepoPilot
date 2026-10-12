@@ -1,6 +1,8 @@
 import logging
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from uuid import uuid4
 from threading import Thread
 
@@ -8,6 +10,7 @@ from .process_output import CapturedOutput, drain_text_stream
 from ..core.exceptions import SandboxExecutionError
 from .repository_scanner import _is_link_or_reparse_point
 from .sandbox_snapshot_service import SandboxSnapshot
+from .test_report_parser import read_test_report
 
 
 DEFAULT_TEST_IMAGE = "repopilot-pytest:py311"
@@ -25,6 +28,7 @@ class SandboxTestResult:
     timed_out: bool
     stdout_truncated: bool
     stderr_truncated: bool
+    test_report: dict | None = None
 
 
 # 按本次运行的容器名强制清理容器，供超时等清理流程使用；清理失败只记日志。
@@ -150,12 +154,23 @@ def run_pytest_in_docker(
     ]
 
     # 6. subprocess.Popen 执行，不使用 shell=True。
-    return _run_docker_process(
-        command,
-        container_name=container_name,
-        timeout_seconds=timeout_seconds,
-        max_output_chars=max_output_chars,
-    )
+    # 独立临时输出目录只用于本次报告，不给工作区增加写权限。
+    with TemporaryDirectory(prefix="repopilot-junit-") as directory:
+        # 镜像以 UID 10001 运行；Linux 宿主的 mkdtemp 默认 0700，需允许容器写入此专用目录。
+        Path(directory).chmod(0o777)
+        image_index = command.index(image)
+        command[image_index:image_index] = [
+            "--mount", f"type=bind,source={Path(directory).resolve()},target=/test-results",
+        ]
+        command.extend(["--junitxml=/test-results/junit.xml", "-o", "junit_family=xunit2"])
+        result = _run_docker_process(
+            command, container_name=container_name,
+            timeout_seconds=timeout_seconds, max_output_chars=max_output_chars,
+        )
+        report = read_test_report(Path(directory) / "junit.xml")
+        if result.timed_out:
+            report = {**report, "status": "incomplete", "counts": None}
+        return replace(result, test_report=report)
 
 
 # 启动 Docker 子进程，用两个线程持续读取标准输出和错误输出，并分别限制保留字符数。

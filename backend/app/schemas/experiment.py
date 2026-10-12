@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from .run_config import AgentRunConfig
 from .task import TaskRead
 from .edit import TaskFileEditRead
+from .experiment_definition import ExperimentDefinition
 
 
 class ExperimentEditCandidate(BaseModel):
@@ -71,6 +72,10 @@ class ExperimentPreparation(BaseModel):
     # 旧记录可能没有该字段，不根据当前文件补造历史值。
     source_protected_test_file_hashes: dict[str, str] = Field(default_factory=dict)
     error_type: str | None = None
+    conditions: dict | None = None
+    embedding_observations: list[dict] | None = None
+    definition: ExperimentDefinition | None = None
+    baseline_test: dict | None = None
 
 
 class ExperimentPlanInspection(BaseModel):

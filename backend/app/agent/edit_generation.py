@@ -4,6 +4,7 @@ import ast
 from pydantic import ValidationError
 
 from ..rag.generation import request_tool_turn
+from ..rag.model_observation import ModelObservation
 
 from ..schemas.plan import ChangePlan
 from ..core.exceptions import InvalidEditProposalError
@@ -104,6 +105,7 @@ def generate_file_edit(
     file_path: str,
     original_content: str,
     repair_instruction: str | None = None,
+    observation: ModelObservation | None = None,
 ) -> FileEditProposal:
     # 1. 校验需求长度、文件类型及原文大小。
     if not isinstance(user_request, str):
@@ -180,10 +182,13 @@ def generate_file_edit(
     assistant_message = request_tool_turn(
         messages=messages,
         allow_tools=False,
-        final_instruction=EDIT_FINAL_INSTRUCTION
+        final_instruction=EDIT_FINAL_INSTRUCTION,
+        observation=observation,
     )
 
     # 5. 把返回 content 交给 parse_file_edit。
+    if observation is not None:
+        observation.validation_stage = "business_validation"
     return parse_file_edit(
         content=assistant_message["content"],
         expected_file_path=file_path,

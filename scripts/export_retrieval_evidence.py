@@ -84,6 +84,8 @@ def main() -> None:
         report["experiment"] = ({"experiment_id": str(preparation.experiment_id),
             "case_id": preparation.case.case_id, "case_version": preparation.case.case_version,
             "repository_commit": preparation.case.repository_commit} if preparation else None)
+        report["conditions"] = preparation.conditions if preparation else None
+        report["preparation_embedding_observations"] = preparation.embedding_observations if preparation else None
         output_dir = args.output_dir or (args.preparation.resolve().parent / "evidence"
                                         if preparation else Path("reports/retrieval-evidence"))
         paths = export_evidence(report, output_dir=output_dir)

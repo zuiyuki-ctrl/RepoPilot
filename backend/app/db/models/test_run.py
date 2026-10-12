@@ -4,12 +4,15 @@ from uuid import UUID
 
 from sqlalchemy import ForeignKey, String, DateTime, Integer, Boolean, Text, false, CheckConstraint
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.dialects.postgresql import JSONB
 
 from ...db.base import Base
 
 
 class TestRun(Base):
     __tablename__ = "test_runs"
+
+    test_report: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     __table_args__ = (
         CheckConstraint(

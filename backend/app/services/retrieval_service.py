@@ -19,6 +19,7 @@ def semantic_search(
     *,
     query: str,
     top_k: int = 5,
+    observation_sink=None,
 ) -> list[CodeChunkSearchHit] | None:
     # 1. query.strip() 后不能为空，top_k 必须在 1～20。
     # 不合法时抛 ValueError。
@@ -33,7 +34,7 @@ def semantic_search(
 
     # 3. 此时上面的会话已关闭。
     # 调用 embed_texts([query])，取返回列表的第一个向量
-    vector = embed_texts([query])
+    vector = embed_texts([query], **({"observation_sink": observation_sink} if observation_sink is not None else {}))
 
     # 4. 开启查询会话。
     with SessionLocal() as session:
@@ -121,6 +122,7 @@ def hybrid_search_with_diagnostics(
     *,
     query: str,
     top_k: int = 5,
+    observation_sink=None,
 ) -> HybridSearchResult | None:
     query = query.strip()
 
@@ -135,7 +137,7 @@ def hybrid_search_with_diagnostics(
             return None
 
     # 网络请求在数据库会话之外执行。
-    query_vector = embed_texts([query])[0]
+    query_vector = embed_texts([query], **({"observation_sink": observation_sink} if observation_sink is not None else {}))[0]
 
     with SessionLocal() as session:
         # 必须在这个会话的第一次查询之前设置。

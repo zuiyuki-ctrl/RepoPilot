@@ -10,6 +10,7 @@ import httpx
 from backend.app.schemas.experiment import ExperimentPreparation, ExperimentPlanInspection
 from backend.app.schemas.repository import RepositoryRead
 from backend.app.schemas.task import TaskRead, TaskPlanResult
+from backend.app.services.experiment_contract_service import require_contract
 
 
 def load_prepared_experiment(path: Path) -> ExperimentPreparation:
@@ -25,6 +26,9 @@ def load_prepared_experiment(path: Path) -> ExperimentPreparation:
 
 
 def _check_task(preparation: ExperimentPreparation, task: TaskRead) -> None:
+    require_contract(preparation)
+    if preparation.definition and task.max_retries != preparation.definition.max_retries:
+        raise RuntimeError("Task retry budget differs from experiment definition")
     for field, expected in (
         ("id", preparation.task_id), ("repository_id", preparation.repository_id),
         ("task_type", "plan"), ("run_config", preparation.run_config),

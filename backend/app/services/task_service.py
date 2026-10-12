@@ -99,6 +99,7 @@ def run_task(task_id: UUID) -> TaskRead | None:
             node_name="task_service",
             message="Task started",
             payload={
+                "observation_protocol_version": 1,
                 "attempt": 1,
                 "step_id": "task",
                 "started_at": task.started_at.isoformat(),

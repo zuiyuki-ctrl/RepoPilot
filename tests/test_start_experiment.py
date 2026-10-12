@@ -31,6 +31,9 @@ class StartExperimentTests(unittest.TestCase):
         self.index = self.enterContext(patch.object(script, "index_repository_chunks",
             return_value=SimpleNamespace(chunk_count=1, skipped_files=[])))
         self.embed = self.enterContext(patch.object(script, "embed_repository_chunks", return_value=0))
+        self.conditions = self.enterContext(patch.object(script, "capture_experiment_conditions", return_value={
+            "runtime_fingerprint": "b" * 64, "index_fingerprint": "c" * 64,
+            "test_image": {"id": None}}))
         self.task = self.enterContext(patch.object(script, "create_task", side_effect=lambda data:
             SimpleNamespace(id=uuid4(), repository_id=data.repository_id,
                             status="created", run_config=data.run_config)))
@@ -77,6 +80,38 @@ class StartExperimentTests(unittest.TestCase):
             self.prepare()
         self.create.assert_not_called()
         self.assertFalse((self.root / "output").exists())
+
+    def test_controlled_preparation_requires_explicit_test_permission(self):
+        from backend.app.schemas.experiment_definition import ExperimentDefinition
+        rule = dict(classname="tests.test_example", name="test_example")
+        definition = ExperimentDefinition(suite_id="synthetic", suite_version="v2", config_version="v1", repeat_index=1,
+            acceptance=dict(version="v2", required_tests=[rule], baseline_failure_tests=[rule]))
+        with self.assertRaisesRegex(ValueError, "allow-baseline-tests"):
+            script.prepare_experiment_run(self.case, source_path=self.root / "source", retrieval_policy="vector",
+                output_dir=self.root / "output", definition=definition)
+        self.create.assert_not_called()
+        self.embed.assert_not_called()
+
+    def test_controlled_preparation_freezes_baseline_before_task_creation(self):
+        from backend.app.schemas.experiment_definition import ExperimentDefinition
+        from backend.app.services.experiment_contract_service import require_contract
+        from backend.app.services.test_report_parser import parse_test_report
+        rule = dict(classname="tests.test_example", name="test_example")
+        definition = ExperimentDefinition(suite_id="synthetic", suite_version="v2", config_version="v1", repeat_index=1,
+            acceptance=dict(version="v2", required_tests=[rule], baseline_failure_tests=[rule]))
+        self.conditions.return_value["test_image"]["id"] = "sha256:" + "a" * 64
+        def capture(record):
+            self.task.assert_not_called()
+            return dict(exit_code=1, timed_out=False, image=record.run_config.test_image_id,
+                timeout_seconds=120, snapshot_hash="a" * 64, repository_commit=self.case.repository_commit,
+                protected_test_file_hashes=record.protected_test_file_hashes,
+                test_report=parse_test_report(b'<testsuite tests="1" failures="1" errors="0" skipped="0"><testcase classname="tests.test_example" name="test_example"><failure/></testcase></testsuite>'))
+        with patch.object(script, "capture_baseline_test", side_effect=capture):
+            record = script.prepare_experiment_run(self.case, source_path=self.root / "source", retrieval_policy="vector",
+                output_dir=self.root / "output", definition=definition, allow_baseline_tests=True)
+        require_contract(record)
+        self.assertEqual(self.saved(), record)
+        self.assertEqual(self.task.call_args.args[0].run_config.experiment_contract_sha256, record.run_config.experiment_contract_sha256)
 
     def test_incomplete_index_stops_before_embedding(self):
         for result in (None, SimpleNamespace(chunk_count=0, skipped_files=[]),
@@ -132,6 +167,22 @@ class StartExperimentTests(unittest.TestCase):
         self.assertIn("stage=embedding", stderr.getvalue())
         self.assertIn("错误记录保存失败", stderr.getvalue())
         self.assertEqual(self.saved().repository_id, self.repository.id)
+        self.task.assert_not_called()
+
+    def test_embedding_failure_preserves_request_evidence(self):
+        def fail(repository_id, *, observation_sink):
+            observation_sink({"status": "started", "observation": {"call_id": "batch-1"}})
+            observation_sink({"status": "failed", "observation": {
+                "call_id": "batch-1", "usage_status": "missing"}})
+            raise TimeoutError("timeout")
+        self.embed.side_effect = fail
+        with redirect_stderr(io.StringIO()), self.assertRaises(TimeoutError):
+            self.prepare()
+        record = self.saved()
+        self.assertEqual(record.status, "error")
+        self.assertEqual(len(record.embedding_observations), 2)
+        self.assertEqual(record.embedding_observations[-1]["scope"], "preparation_index")
+        self.assertEqual(record.embedding_observations[-1]["repository_id"], str(self.repository.id))
         self.task.assert_not_called()
 
     def test_embedding_none_records_error(self):

@@ -5,6 +5,7 @@ from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from .test_run_service import check_test_run_snapshot
+from .model_observation_service import observe_task_model
 from ..schemas.reflection import ReflectionDecision
 from ..core.exceptions import (
     RetryBudgetExceededError,
@@ -302,11 +303,13 @@ def run_task_reflection(
 
     try:
         # 3. 调用 generate_reflection_decision
-        decision = generate_reflection_decision(
-            user_request=context.user_request,
-            plan=context.plan.plan,
-            test_result=context.test_result,
-        )
+        with observe_task_model(task_id, phase="reflection") as observation:
+            decision = generate_reflection_decision(
+                user_request=context.user_request,
+                plan=context.plan.plan,
+                test_result=context.test_result,
+                observation=observation,
+            )
 
     except Exception as exc:
         # 4. logger.exception 记录模型生成失败，

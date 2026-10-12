@@ -31,6 +31,7 @@ class TaskSandboxExecutionTests(unittest.TestCase):
             task_type="plan",
             status="executing",
             review_decision="approved",
+            run_config={},
             error=None,
             completed_at=None,
         )
@@ -227,6 +228,20 @@ class TaskSandboxExecutionTests(unittest.TestCase):
                 event_call.kwargs["payload"]["test_run_id"],
                 str(self.test_run_id),
             )
+
+    def test_pinned_image_is_used_for_execution_and_record(self):
+        image_id = "sha256:" + "a" * 64
+        self.task.run_config = {"test_image_id": image_id}
+        result = SandboxTestResult(
+            exit_code=0, stdout="1 passed", stderr="", timed_out=False,
+            stdout_truncated=False, stderr_truncated=False,
+            test_report={"version": 1, "status": "missing"},
+        )
+        with patch.object(task_test_service, "run_pytest_in_docker", return_value=result) as run:
+            task_test_service.run_task_pytest(self.task_id)
+        self.assertEqual(run.call_args.kwargs["image"], image_id)
+        self.assertEqual(self.create_test_run.call_args.kwargs["image"], image_id)
+        self.assertEqual(self.finish_test_run.call_args.kwargs["test_report"], result.test_report)
 
     def test_pytest_failure_is_finished_result(self):
         result = SandboxTestResult(

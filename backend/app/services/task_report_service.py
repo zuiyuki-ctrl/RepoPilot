@@ -12,6 +12,14 @@ from ..schemas.testing import TestRunRead, TestExecutionEventPayload
 from ..schemas.workspace import TaskWorkspaceDiffRead
 from ..db.session import SessionLocal
 from ..schemas.task_report import TaskExecutionReport, TaskFailureSummary
+from .evaluation_metrics_service import build_run_metrics
+
+
+def _attach_metrics(session, report):
+    terminal = report.completion_event_sequence or report.failure.event_sequence
+    events = task_event_repo.list_task_events_through(session, task_id=report.task.id, sequence=terminal)
+    report.metrics = build_run_metrics(report.task, report.test_run, events, terminal_sequence=terminal)
+    return report
 
 
 # 从终止时的历史事件还原成功或失败报告，不使用当前工作区替代历史依据。
@@ -29,7 +37,7 @@ def get_task_execution_report(
             raise TaskStateConflictError
 
         if task.status == "failed":
-            return _build_failed_report(session, task=task)
+            return _attach_metrics(session, _build_failed_report(session, task=task))
 
         # ② 查询当前任务最近的 TASK_COMPLETED，命名为 completion_event。
         # - 已完成任务没有完成事件：抛 TaskExecutionError。
@@ -95,6 +103,8 @@ def get_task_execution_report(
             )
         except ValidationError as exc:
             raise TaskExecutionError("Stored task report data is invalid") from exc
+
+        _attach_metrics(session, result)
 
     return result
 

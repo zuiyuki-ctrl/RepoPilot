@@ -45,6 +45,7 @@ class TaskReportTests(unittest.TestCase):
             payload={"test_run_id": str(self.run_id), "final_diff": self.diff},
         )
         self.session = Mock()
+        self.enterContext(patch.object(service.task_event_repo, "list_task_events_through", return_value=[]))
         sessions = self.enterContext(patch.object(service, "SessionLocal"))
         sessions.begin.side_effect = lambda: nullcontext(self.session)
         self.get_task = self.enterContext(patch.object(

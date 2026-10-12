@@ -5,6 +5,8 @@ from contextlib import redirect_stdout, redirect_stderr
 from copy import deepcopy
 from unittest.mock import patch
 from uuid import UUID
+from tempfile import TemporaryDirectory
+from pathlib import Path
 
 import httpx
 
@@ -13,6 +15,7 @@ from scripts import test_and_complete_task as script
 
 class TestAndCompleteTaskTests(unittest.TestCase):
     def setUp(self):
+        self.output_dir = Path(self.enterContext(TemporaryDirectory()))
         self.task_id = UUID(int=1)
         self.run_id = UUID(int=2)
         self.test_result = dict(task_id=str(self.task_id), test_run_id=str(self.run_id),
@@ -133,7 +136,8 @@ class TestAndCompleteTaskTests(unittest.TestCase):
                 client = self.client()
                 stdout, stderr = io.StringIO(), io.StringIO()
                 with patch.object(script.httpx, "Client", return_value=client) as factory, \
-                     patch("sys.argv", ["test_and_complete_task", "--task-id", str(self.task_id)]), \
+                     patch("sys.argv", ["test_and_complete_task", "--task-id", str(self.task_id),
+                                        "--output-dir", str(self.output_dir)]), \
                      redirect_stdout(stdout), redirect_stderr(stderr):
                     if expected_code:
                         with self.assertRaises(SystemExit) as raised:
@@ -146,7 +150,9 @@ class TestAndCompleteTaskTests(unittest.TestCase):
                 self.assertEqual(timeout.connect, 5)
                 if case == "success":
                     self.assertIn("status=completed", stdout.getvalue())
-                    self.assertIn("未记录", stdout.getvalue())
+                    self.assertIn("JSON:", stdout.getvalue())
+                    exported = json.loads(next(self.output_dir.glob("*.json")).read_text(encoding="utf-8"))
+                    self.assertIsNone(exported["metrics"])
                 elif case == "failed":
                     self.assertIn("任务未完成", stdout.getvalue())
                 else:

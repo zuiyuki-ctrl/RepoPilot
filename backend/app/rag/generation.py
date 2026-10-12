@@ -1,13 +1,19 @@
 import httpx
+from .model_observation import ModelObservation, post_chat
 
 from .tool_chat import TOOL_DEFINITIONS
 from ..core import config
 from .prompts import DEFAULT_FINAL_INSTRUCTION, QA_SYSTEM_PROMPT
 
 
+def chat_parameters(*, max_tokens: int = 3000) -> dict:
+    return {"model": config.CHAT_MODEL, "stream": False,
+            "enable_thinking": False, "max_tokens": max_tokens}
+
+
 # 实现基于证据生成回答
 # 将问题及代码证据发送给聊天模型，返回完整文本回答；引用编号校验由问答服务负责。
-def generate_answer(question: str, context_text: str) -> str:
+def generate_answer(question: str, context_text: str, *, observation: ModelObservation | None = None) -> str:
     # 1. 检查 question、context_text 非空白。
     # 检查 API Key、CHAT_BASE_URL、CHAT_MODEL 已配置。
     # 不符合要求时抛带说明的 ValueError。
@@ -37,19 +43,15 @@ def generate_answer(question: str, context_text: str) -> str:
 
     # 5. 创建请求体
     request_body = {
-        "model": config.CHAT_MODEL,
+        **chat_parameters(max_tokens=1500),
         "messages": messages,
-        "stream": False,
-        "enable_thinking": False,
-        "max_tokens": 1500
     }
 
     with httpx.Client(timeout=60.0) as client:
         # 6. 发送 POST，请求体使用 json=request_body。
         # raise_for_status() 后，再读取 response.json()。
-        response = client.post(url, json=request_body, headers=headers)
-        response.raise_for_status()
-        payload = response.json()
+        payload = post_chat(client, url, headers=headers, body=request_body,
+                            observation=observation if observation is not None else ModelObservation())
 
     # 7. 取得响应中的 choices，确认是非空列表。
     if not isinstance(payload, dict):
@@ -88,7 +90,8 @@ def request_tool_turn(
         messages: list[dict],
         *,
         allow_tools: bool = True,
-        final_instruction: str = DEFAULT_FINAL_INSTRUCTION
+        final_instruction: str = DEFAULT_FINAL_INSTRUCTION,
+        observation: ModelObservation | None = None,
 ) -> dict:
     # 1. 检查 messages 非空。
     # 检查 API Key、CHAT_BASE_URL、CHAT_MODEL 已配置。
@@ -105,11 +108,8 @@ def request_tool_turn(
         "Content-Type": "application/json"
     }
     request_body = {
-        "model": config.CHAT_MODEL,
+        **chat_parameters(),
         "messages": messages,
-        "stream": False,
-        "enable_thinking": False,
-        "max_tokens": 3000,
     }
 
     if allow_tools:
@@ -128,9 +128,8 @@ def request_tool_turn(
     # 3. 使用 httpx.Client(timeout=60.0) 发送请求。
     # raise_for_status() 后读取 JSON。
     with httpx.Client(timeout=60.0) as client:
-        response = client.post(url, json=request_body, headers=headers)
-        response.raise_for_status()
-        payload = response.json()
+        payload = post_chat(client, url, headers=headers, body=request_body,
+                            observation=observation if observation is not None else ModelObservation())
 
     # 4. 检查：
     # payload 是 dict；

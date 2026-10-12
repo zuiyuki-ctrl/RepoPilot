@@ -139,6 +139,12 @@ def render_markdown(report: TaskExecutionReport) -> str:
         #     明确写“无已保存差异”，不要读取当前工作区补齐。
         lines.append("无已保存差异")
 
+    lines.extend(["", "## 评测指标（未知不等于零）", ""])
+    if report.metrics is None:
+        lines.append("历史报告未采集指标。")
+    else:
+        summary = {key: value for key, value in report.metrics.items() if key != "request_observations"}
+        append_literal(lines, json.dumps(summary, ensure_ascii=False, indent=2))
     return "\n".join(lines) + "\n"
 
 

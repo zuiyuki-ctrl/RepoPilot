@@ -1,4 +1,5 @@
 from pathlib import Path
+from ..core.runtime_conditions import require_runtime_conditions
 from uuid import UUID
 import re
 
@@ -8,6 +9,7 @@ from ..core.exceptions import (
 )
 from ..schemas.edit import TaskFileEditRead
 from ..schemas.experiment import ExperimentPreparation
+from .experiment_contract_service import require_contract
 from ..schemas.task import TaskRead, TaskPlanResult
 from .workspace_edit_service import resolve_workspace_target
 from .repository_scanner import read_file_snapshot
@@ -55,9 +57,13 @@ def check_experiment_execution(
         raise TaskExecutionError("Experiment preparation is missing task, repository or workspace association")
     if preparation.run_config.retrieval_policy not in ("vector", "hybrid"):
         raise TaskExecutionError("Experiment retrieval policy must be vector or hybrid")
+    require_runtime_conditions(preparation.run_config)
+    require_contract(preparation)
     task = task_service.get_task(preparation.task_id)
     if task is None:
         raise TaskExecutionError("Experiment associated task does not exist")
+    if preparation.definition and task.max_retries != preparation.definition.max_retries:
+        raise TaskExecutionError("Task retry budget differs from experiment definition")
     for field, expected in (
             ("id", preparation.task_id), ("repository_id", preparation.repository_id),
             ("run_config", preparation.run_config),

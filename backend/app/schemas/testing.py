@@ -42,6 +42,8 @@ class TestExecutionEventPayload(BaseModel):
 class TestRunRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    test_report: dict | None = None
+
     id: UUID
     task_id: UUID
     status: str

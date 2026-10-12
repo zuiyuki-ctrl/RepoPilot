@@ -5,6 +5,7 @@ from pydantic import ValidationError
 
 from ..agent.edit_generation import MAX_EDIT_INPUT_BYTES, generate_file_edit
 from .repository_scanner import read_file_snapshot
+from .model_observation_service import observe_task_model
 from ..db.repositories.repository_repo import get_repository
 from .workspace_edit_service import resolve_workspace_target
 from ..core.exceptions import (
@@ -98,12 +99,14 @@ def generate_task_file_edit(
 
     # 1. 调用 generate_file_edit：
     #    user_request、plan、file_path、original_content。
-    proposal = generate_file_edit(
-        user_request,
-        plan=plan,
-        file_path=file_path,
-        original_content=original_content,
-    )
+    with observe_task_model(task_id, phase="edit") as observation:
+        proposal = generate_file_edit(
+            user_request,
+            plan=plan,
+            file_path=file_path,
+            original_content=original_content,
+            observation=observation,
+        )
 
     # 2. 构造 TaskFileEditRead：
     #    task_id、repository_id、
@@ -270,13 +273,15 @@ def generate_task_reflection_edit(
 
     # 调用扩展后的 generate_file_edit，
     # 将 repair_instruction 一并传入。
-    proposal = generate_file_edit(
-        user_request,
-        plan=plan,
-        file_path=file_path,
-        original_content=original_content,
-        repair_instruction=repair_instruction,
-    )
+    with observe_task_model(task_id, phase="repair_edit") as observation:
+        proposal = generate_file_edit(
+            user_request,
+            plan=plan,
+            file_path=file_path,
+            original_content=original_content,
+            repair_instruction=repair_instruction,
+            observation=observation,
+        )
 
     return TaskFileEditRead(
         task_id=task_id,

@@ -17,6 +17,10 @@ class AgentRunConfig(BaseModel):
     schema_version: Literal[1] = 1
     retrieval_policy: RetrievalPolicy = "auto"
     max_tool_calls: int = Field(default=4, ge=1, le=8)
+    runtime_fingerprint: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    index_fingerprint: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    test_image_id: str | None = Field(default=None, pattern=r"^sha256:[0-9a-f]{64}$")
+    experiment_contract_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
     def resolve_retrieval_strategy(
         self,

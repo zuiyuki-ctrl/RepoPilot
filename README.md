@@ -69,7 +69,8 @@ docker compose up -d db
 ## 文档与验证
 
 - [需求文档](docs/RepoPilot_PRD_v1.1.md)：目标范围，不能作为已完成清单。
-- [当前进度与后续计划](docs/this-week-plan.md)：实际完成项、真实验收和剩余边界。
+- [核心平台七天计划（10/12—10/18）](docs/core-platform-seven-day-plan.md)：当前开发安排，优先补齐可观测、可评测、可实验与决策支持。
+- [上一阶段进度与验收记录](docs/this-week-plan.md)：已完成项、真实验收和历史边界。
 - [检索与上下文证据](docs/retrieval-context-evidence.md)：区分命中、工具消息和后续模型请求。
 - [前端说明](frontend/README.md)：构建、快照及显示规则。
 

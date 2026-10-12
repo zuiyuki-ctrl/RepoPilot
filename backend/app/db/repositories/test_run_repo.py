@@ -73,6 +73,7 @@ def finish_test_run(
     stderr: str,
     stdout_truncated: bool,
     stderr_truncated: bool,
+    test_report: dict | None = None,
 ) -> None:
 
     test_run.status = "finished"
@@ -82,6 +83,7 @@ def finish_test_run(
     test_run.stderr_truncated = stderr_truncated
     test_run.stdout = stdout
     test_run.stderr = stderr
+    test_run.test_report = test_report
 
     test_run.completed_at = datetime.now(timezone.utc)
     test_run.error = None

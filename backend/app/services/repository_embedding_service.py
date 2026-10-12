@@ -11,7 +11,7 @@ from ..rag.embedding import embed_texts
 
 # 编写分批保存服务
 # 锁定仓库并分批生成、保存缺失或模型不匹配的代码向量，为语义检索准备数据；返回本次处理数量。
-def embed_repository_chunks(repository_id: UUID) -> int | None:
+def embed_repository_chunks(repository_id: UUID, *, observation_sink=None) -> int | None:
     model = config.EMBEDDING_MODEL
     embedded_count = 0
 
@@ -51,7 +51,7 @@ def embed_repository_chunks(repository_id: UUID) -> int | None:
             for chunk in chunks:
                 texts.append(chunk.content)
 
-            vectors = embed_texts(texts)
+            vectors = embed_texts(texts, **({"observation_sink": observation_sink} if observation_sink is not None else {}))
 
             # 6. 将代码块和向量逐个配对：
             for chunk, vector in zip(chunks, vectors, strict=True):

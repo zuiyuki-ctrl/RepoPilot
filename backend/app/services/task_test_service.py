@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from sqlalchemy.exc import DBAPIError
 
 from ..core.test_profiles import get_test_profile
+from ..schemas.run_config import AgentRunConfig
+from ..core.runtime_conditions import require_runtime_conditions
 from .sandbox_snapshot_service import SandboxSnapshot, prepare_python_test_snapshot
 from ..core.exceptions import (
     TaskExecutionError,
@@ -150,11 +152,16 @@ def _begin_task_pytest(
         except InvalidRepositoryInputError as exc:
             raise TaskExecutionError("Stored test profile is invalid") from exc
 
+        run_config = AgentRunConfig.model_validate(task.run_config or {})
+        if run_config.experiment_contract_sha256 is not None and timeout_seconds != DEFAULT_TEST_TIMEOUT_SECONDS:
+            raise TaskStateConflictError("Controlled experiment test timeout is fixed at preparation")
+        require_runtime_conditions(run_config)
+        test_image = run_config.test_image_id or profile.image
         test_run = test_run_repo.create_test_run(
             session,
             task_id=task_id,
             timeout_seconds=timeout_seconds,
-            image=profile.image
+            image=test_image
         )
 
         if test_run is None:
@@ -186,7 +193,7 @@ def _begin_task_pytest(
             repository_id=repository.id,
             workspace_path=Path(repository.workspace_path),
             test_run_id=test_run.id,
-            image=profile.image,
+            image=test_image,
         )
 
     return context
@@ -281,7 +288,8 @@ def _finish_task_pytest(
             stdout=result.stdout,
             stderr=result.stderr,
             stderr_truncated=result.stderr_truncated,
-            stdout_truncated=result.stdout_truncated
+            stdout_truncated=result.stdout_truncated,
+            test_report=result.test_report,
         )
 
         # 测试完成后先恢复到 executing。

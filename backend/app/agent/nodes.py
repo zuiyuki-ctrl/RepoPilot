@@ -7,12 +7,14 @@ from uuid import uuid4
 from langgraph.runtime import Runtime
 
 from ..core import config
+from ..core.runtime_conditions import require_runtime_conditions
 from .context import AgentRunContext
 from .evidence import finish_answer, prepare_evidence
 from .retrieval_trace import retrieval_summary, context_summary, model_tool_context, text_hash, TRACE_VERSION
 from ..agent.state import ReadonlyAgentState, PlanningAgentState
 from ..core.exceptions import RepositoryScanError, FileSkippedError, InsufficientPlanEvidenceError
 from ..rag.generation import request_tool_turn
+from ..rag.model_observation import ModelObservation
 from .policy import BUDGET_ERROR, MAX_TOOL_ERROR_CHARS, PLAN_SYSTEM_PROMPT
 from ..services.tool_service import execute_readonly_tool
 
@@ -99,10 +101,13 @@ def model_node(
     started_at = perf_counter()
 
     # 4.调用模型
+    observation = ModelObservation(call_id=call_id)
     try:
+        require_runtime_conditions(runtime.context.run_config)
         assistant_message = request_tool_turn(
             state["messages"],
             allow_tools=allow_tools,
+            observation=observation,
         )
 
     except Exception as exc:
@@ -124,6 +129,7 @@ def model_node(
 
                     # 只记录异常类型名称，不记录 str(exc)。
                     "error_type": type(exc).__name__,
+                    "model_observation": observation.to_payload(exc),
                 },
             )
         except Exception:
@@ -159,6 +165,7 @@ def model_node(
 
             # 记录本次返回的工具调用数量。
             "tool_call_count": len(tool_calls),
+            "model_observation": observation.to_payload(),
         },
     )
 
@@ -305,11 +312,22 @@ def tools_node(
                 if not isinstance(args, dict):
                     raise ValueError("argument must be a dict")
 
+                def embedding_sink(record):
+                    emit_agent_event(runtime,
+                        event_type="EMBEDDING_CALL_" + record["status"].upper(),
+                        node_name="query_embedding", message="Query embedding observation",
+                        payload={"call_id": record["observation"]["call_id"],
+                                 "parent_call_id": call_id, "tool_call_id": call["id"],
+                                 "step_id": "query_embedding", "attempt": attempt,
+                                 "scope": "task_query", "repository_id": str(state["repository_id"]),
+                                 "model_observation": record["observation"]})
+
                 result = execute_readonly_tool(
                     state["repository_id"],
                     tool_name=function_name,
                     arguments=args,
                     run_config=runtime.context.run_config,
+                    **({"observation_sink": embedding_sink} if runtime.context.event_sink is not None and function_name == "search_code" else {}),
                 )
 
             except RepositoryScanError as exc:
@@ -562,12 +580,15 @@ def plan_node(
     # 4. 使用 perf_counter() 保存 started_at。
     started_at = perf_counter()
 
+    observation = ModelObservation(call_id=call_id)
     try:
+        require_runtime_conditions(runtime.context.run_config)
         # 5. 调用现有 generate_change_plan，保存返回的 plan。
         plan = generate_change_plan(
             state["user_request"],
             evidence_messages=state["messages"],
-            sources=sources
+            sources=sources,
+            observation=observation,
         )
     except Exception as exc:
         # 6. 计算 duration_ms。
@@ -584,6 +605,7 @@ def plan_node(
                     **base_payload,
                     "duration_ms": duration_ms,
                     "error_type": type(exc).__name__,
+                    "model_observation": observation.to_payload(exc),
                 }
             )
         except Exception:
@@ -604,7 +626,8 @@ def plan_node(
             **base_payload,
             "duration_ms": duration_ms,
             "response_type": "plan",
-            "tool_call_count": 0
+            "tool_call_count": 0,
+            "model_observation": observation.to_payload(),
         }
     )
 

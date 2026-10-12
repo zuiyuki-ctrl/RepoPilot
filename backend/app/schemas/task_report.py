@@ -23,6 +23,7 @@ class TaskFailureSummary(BaseModel):
 
 
 class TaskExecutionReport(BaseModel):
+    metrics: dict | None = None
     task: TaskRead
     completion_event_sequence: int | None = Field(ge=1)
     test_run: TestRunRead | None

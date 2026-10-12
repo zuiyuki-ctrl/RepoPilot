@@ -7,6 +7,7 @@ from typing import Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
+from backend.app.schemas.pricing import PricingSnapshot
 
 from backend.app.services.experiment_comparison_service import (
     build_comparison, render_comparison, summarize_run,
@@ -19,12 +20,14 @@ class RunArtifacts(BaseModel):
     preparation: str
     report: str | None = None
     evidence: str | None = None
+    acceptance_review: str | None = None
 
 
 class ComparisonManifest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     schema_version: Literal[1] = 1
     runs: list[RunArtifacts] = Field(min_length=1)
+    pricing: PricingSnapshot | None = None
 
 
 def load_comparison(manifest_path: Path) -> dict:
@@ -32,7 +35,7 @@ def load_comparison(manifest_path: Path) -> dict:
     rows = []
     for entry in manifest.runs:
         data, artifacts = {}, {}
-        for name in ("preparation", "report", "evidence"):
+        for name in ("preparation", "report", "evidence", "acceptance_review"):
             reference = getattr(entry, name)
             if reference is None:
                 data[name] = artifacts[name] = None
@@ -45,7 +48,7 @@ def load_comparison(manifest_path: Path) -> dict:
         row = summarize_run(**data)
         row.update(role=entry.role, artifacts=artifacts)
         rows.append(row)
-    result = build_comparison(rows)
+    result = build_comparison(rows, pricing=manifest.pricing.model_dump(mode="json") if manifest.pricing else None)
     result["manifest"] = str(manifest_path.resolve())
     return result
 

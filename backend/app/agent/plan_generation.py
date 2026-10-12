@@ -1,5 +1,6 @@
 # 组织需求、证据和格式要求，请模型生成计划
 import json
+from ..rag.model_observation import ModelObservation
 
 from .planning import parse_change_plan
 from .policy import PLAN_FINAL_INSTRUCTION, PLAN_SYSTEM_PROMPT
@@ -15,6 +16,7 @@ def generate_change_plan(
     *,
     evidence_messages: list[dict],
     sources: list[AgentSourceReference],
+    observation: ModelObservation | None = None,
 ) -> ChangePlan:
     # 1. 去除用户需求首尾空白。
     normalized_request = user_request.strip()
@@ -72,9 +74,12 @@ def generate_change_plan(
         messages,
         allow_tools=False,
         final_instruction=PLAN_FINAL_INSTRUCTION,
+        observation=observation,
     )
 
     # 9. 将模型 content 交给已有解析器。
+    if observation is not None:
+        observation.validation_stage = "business_validation"
     plan = parse_change_plan(
         assistant_message["content"],
         sources=sources,

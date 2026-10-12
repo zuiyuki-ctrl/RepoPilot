@@ -1,6 +1,8 @@
 from uuid import UUID
 
 from ..schemas.run_config import AgentRunConfig
+from ..core.runtime_conditions import require_runtime_conditions
+from .experiment_conditions_service import require_index_fingerprint
 from ..schemas.tools import SearchCodeArgs, ReadSourceArgs
 from .retrieval_service import semantic_search, keyword_search, hybrid_search_with_diagnostics
 from .source_service import read_repository_source
@@ -14,12 +16,15 @@ def execute_readonly_tool(
     tool_name: str,
     arguments: dict,
     run_config: AgentRunConfig | None = None,
+    observation_sink=None,
 ) -> dict:
     effective_config = (
         run_config if run_config is not None else AgentRunConfig()
     )
 
     if tool_name == "search_code":
+        require_runtime_conditions(effective_config)
+        require_index_fingerprint(repository_id, effective_config.index_fingerprint)
         # 1. SearchCodeArgs.model_validate(arguments) 校验参数。
         search_model = SearchCodeArgs.model_validate(arguments)
         requested_strategy = search_model.strategy
@@ -29,12 +34,14 @@ def execute_readonly_tool(
 
         diagnostics = None
         if effective_strategy == "vector":
-            hits = semantic_search(repository_id, query=search_model.query, top_k=search_model.top_k)
+            hits = semantic_search(repository_id, query=search_model.query, top_k=search_model.top_k,
+                **({"observation_sink": observation_sink} if observation_sink is not None else {}))
         elif effective_strategy == "keyword":
             hits = keyword_search(repository_id, query=search_model.query, top_k=search_model.top_k)
         else:
             details = hybrid_search_with_diagnostics(
                 repository_id, query=search_model.query, top_k=search_model.top_k,
+                **({"observation_sink": observation_sink} if observation_sink is not None else {}),
             )
             if details is None:
                 raise ValueError("Repository not found")
@@ -42,6 +49,7 @@ def execute_readonly_tool(
             diagnostics = details.diagnostics.model_dump(mode="json")
         if hits is None:
             raise ValueError("Repository not found")
+        require_index_fingerprint(repository_id, effective_config.index_fingerprint)
 
         # 保留各策略原有评分字段，空命中列表是正常结果。
         return {

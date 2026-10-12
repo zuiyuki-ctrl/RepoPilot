@@ -11,11 +11,15 @@ from uuid import uuid4
 from backend.app.schemas.experiment import ExperimentCase, ExperimentPreparation
 from backend.app.schemas.repository import RepositoryCreate
 from backend.app.schemas.run_config import AgentRunConfig
+from backend.app.schemas.experiment_definition import ExperimentDefinition
+from backend.app.services.experiment_contract_service import validate_definition, contract_digest, baseline_satisfies_rule
+from backend.app.services.experiment_baseline_service import capture_baseline_test
 from backend.app.schemas.task import TaskCreate
 from backend.app.services.repository_service import create_repository, update_repository_test_profile
 from backend.app.services.repository_indexing_service import index_repository_chunks
 from backend.app.services.repository_embedding_service import embed_repository_chunks
 from backend.app.services.task_service import create_task
+from backend.app.services.experiment_conditions_service import capture_experiment_conditions
 from scripts.prepare_experiment import inspect_experiment_source, load_experiment_case
 
 
@@ -39,8 +43,13 @@ def save_preparation(record: ExperimentPreparation, *, output_path: Path) -> Non
 def prepare_experiment_run(
     case: ExperimentCase, *, source_path: Path,
     retrieval_policy: Literal["vector", "hybrid"], output_dir: Path,
+    definition: ExperimentDefinition | None = None, allow_baseline_tests: bool = False,
 ) -> ExperimentPreparation:
     """创建一次独立实验所需的仓库、索引和 created 状态任务。"""
+    if definition is not None:
+        validate_definition(case, definition)
+        if case.task_type == "bug_fix" and not allow_baseline_tests:
+            raise ValueError("Controlled bug-fix preparation requires --allow-baseline-tests")
     summary = inspect_experiment_source(case, source_path=source_path)
     if retrieval_policy not in ("vector", "hybrid"):
         raise ValueError("Experiment retrieval policy must be vector or hybrid")
@@ -49,6 +58,8 @@ def prepare_experiment_run(
         case=case.model_copy(deep=True),
         run_config=AgentRunConfig(retrieval_policy=retrieval_policy, max_tool_calls=4),
         status="preparing", stage="initialize",
+        embedding_observations=[],
+        definition=definition.model_copy(deep=True) if definition else None,
         protected_test_file_hashes=summary["protected_test_file_hashes"],
         source_protected_test_file_hashes=summary["protected_test_file_hashes"],
     )
@@ -58,6 +69,11 @@ def prepare_experiment_run(
 
     def stage(name: str) -> None:
         record.stage = name
+        save_preparation(record, output_path=output_path)
+
+    def embedding_sink(event: dict) -> None:
+        record.embedding_observations.append({**event, "scope": "preparation_index",
+            "experiment_id": str(record.experiment_id), "repository_id": str(record.repository_id)})
         save_preparation(record, output_path=output_path)
 
     try:
@@ -104,8 +120,30 @@ def prepare_experiment_run(
         if index.skipped_files or index.chunk_count == 0:
             raise ValueError("Experiment requires a complete, nonempty chunk index")
         stage("embedding")
-        if embed_repository_chunks(repository.id) is None:
+        if embed_repository_chunks(repository.id, observation_sink=embedding_sink) is None:
             raise ValueError("Repository embedding returned None")
+
+        stage("capture_conditions")
+        record.conditions = capture_experiment_conditions(repository.id, test_profile=case.test_profile)
+        record.run_config = AgentRunConfig(retrieval_policy=retrieval_policy,
+            max_tool_calls=definition.max_tool_calls if definition else 4,
+            runtime_fingerprint=record.conditions["runtime_fingerprint"],
+            index_fingerprint=record.conditions["index_fingerprint"],
+            test_image_id=record.conditions["test_image"]["id"])
+        save_preparation(record, output_path=output_path)
+
+        if definition is not None:
+            if record.run_config.test_image_id is None:
+                raise ValueError("Controlled experiments require a recorded test image ID")
+            if case.task_type == "bug_fix":
+                stage("baseline_tests")
+                record.baseline_test = capture_baseline_test(record)
+                save_preparation(record, output_path=output_path)
+                if not baseline_satisfies_rule(record):
+                    raise ValueError("Baseline tests do not demonstrate the declared bug; inspect saved baseline evidence")
+            record.run_config = record.run_config.model_copy(update={
+                "experiment_contract_sha256": contract_digest(record)})
+            save_preparation(record, output_path=output_path)
 
         stage("create_task")
         task = create_task(TaskCreate(
@@ -144,6 +182,8 @@ def main() -> None:
     parser.add_argument("--retrieval-policy", required=True, choices=("vector", "hybrid"))
     parser.add_argument("--output-dir", type=Path, default=Path("reports/experiments"))
     parser.add_argument("--allow-embedding", action="store_true", help="明确允许本次真实 Embedding 向量化请求")
+    parser.add_argument("--definition", type=Path, help="运行前声明的版本化实验定义")
+    parser.add_argument("--allow-baseline-tests", action="store_true", help="允许在修改前启动 Docker 基线测试")
     args = parser.parse_args()
     if not args.allow_embedding:
         parser.error("本命令包含真实 Embedding 向量化请求；请使用 --allow-embedding 明确允许")
@@ -152,6 +192,8 @@ def main() -> None:
         record = prepare_experiment_run(
             load_experiment_case(args.case), source_path=args.source_path,
             retrieval_policy=args.retrieval_policy, output_dir=args.output_dir,
+            definition=ExperimentDefinition.model_validate_json(args.definition.read_bytes()) if args.definition else None,
+            allow_baseline_tests=args.allow_baseline_tests,
         )
     except Exception as exc:
         print(f"准备失败：{type(exc).__name__}: {exc}", file=sys.stderr)

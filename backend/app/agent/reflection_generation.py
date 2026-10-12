@@ -7,6 +7,7 @@ from ..schemas.reflection import ReflectionDecision
 import json
 
 from ..rag.generation import request_tool_turn
+from ..rag.model_observation import ModelObservation
 from ..schemas.testing import TestExecutionEventPayload
 from .policy import (
     REFLECTION_SYSTEM_PROMPT,
@@ -71,6 +72,7 @@ def generate_reflection_decision(
     *,
     plan: ChangePlan,
     test_result: TestExecutionEventPayload,
+    observation: ModelObservation | None = None,
 ) -> ReflectionDecision:
     # 1. 校验 user_request，去除首尾空白后长度为 1～1000
     if not isinstance(user_request, str):
@@ -131,7 +133,10 @@ def generate_reflection_decision(
         messages,
         allow_tools=False,
         final_instruction=REFLECTION_FINAL_INSTRUCTION,
+        observation=observation,
     )
 
     # 10. 调用 parse_reflection_decision，返回解析后的决策。
+    if observation is not None:
+        observation.validation_stage = "business_validation"
     return parse_reflection_decision(assistant_message["content"], plan=plan)

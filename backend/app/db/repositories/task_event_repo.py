@@ -6,6 +6,13 @@ from sqlalchemy.orm import Session
 from ..models import TaskEvent
 
 
+def list_task_events_through(session: Session, *, task_id: UUID, sequence: int) -> list[TaskEvent]:
+    """只取终态事件及之前的证据，避免事后操作混入历史指标。"""
+    return list(session.scalars(select(TaskEvent).where(
+        TaskEvent.task_id == task_id, TaskEvent.sequence <= sequence,
+    ).order_by(TaskEvent.sequence)).all())
+
+
 # 为任务分配递增序号并追加事件，形成可查询的执行历史；调用方须在同一事务锁定任务行。
 # 复制 payload 并补充协议版本和序号，只 flush，不自行提交。
 def append_task_event(

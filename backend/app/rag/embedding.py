@@ -1,11 +1,37 @@
 import httpx
+import logging
+from typing import Callable
+from .model_observation import ModelObservation, post_chat
 
 from ..core import config
 
 
 # 请求配置的 embedding 服务，将一批文本转换为等维向量，并校验返回数量、顺序和维度。
 # 代码入库向量化与用户问题检索共用此入口，不在这里写数据库。
-def embed_texts(texts: list[str]) -> list[list[float]]:
+def embed_texts(texts: list[str], *, observation_sink: Callable[[dict], None] | None = None) -> list[list[float]]:
+    if not texts:
+        return []
+    observation = ModelObservation(request_kind="embedding")
+    def emit(status, error=None):
+        if observation_sink is not None:
+            data = observation.to_payload(error)
+            if status == "started":
+                data["operation_status"] = "pending"
+            observation_sink({"status": status, "observation": data})
+    emit("started")
+    try:
+        result = _embed_texts(texts, observation=observation)
+    except Exception as exc:
+        try:
+            emit("failed", exc)
+        except Exception:
+            logging.getLogger(__name__).error("Embedding observation not persisted; call_id=%s", observation.call_id)
+        raise
+    emit("completed")
+    return result
+
+
+def _embed_texts(texts: list[str], *, observation: ModelObservation) -> list[list[float]]:
     # 1. 空列表直接返回 []，不发送请求。
     if not texts:
         return []
@@ -49,11 +75,8 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
 
     with httpx.Client(timeout=timeout) as client:
         # 6. POST 到配置的完整 endpoint
-        response = client.post(config.EMBEDDING_ENDPOINT, headers=headers, json=request_body)
-
-        # 7. 检查 HTTP 状态，再解析 JSON
-        response.raise_for_status()
-        payload = response.json()
+        payload = post_chat(client, config.EMBEDDING_ENDPOINT, headers=headers,
+                            body=request_body, observation=observation)
 
     # 8. 从响应的 data 字段取得向量条目。
     # 按每条的 index 升序排序

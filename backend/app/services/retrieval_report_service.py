@@ -5,10 +5,12 @@ import json
 from uuid import UUID
 
 from ..schemas.task_event import TaskEventRead
+from .request_observation_service import collect_request_observations
 
 
 TRACE_EVENTS = {"RETRIEVAL_COMPLETED", "TOOL_CONTEXT_PREPARED"}
 MODEL_EVENTS = {"MODEL_CALL_STARTED", "MODEL_CALL_COMPLETED", "MODEL_CALL_FAILED"}
+EMBEDDING_EVENTS = {"EMBEDDING_CALL_STARTED", "EMBEDDING_CALL_COMPLETED", "EMBEDDING_CALL_FAILED"}
 TOOL_EVENTS = {"TOOL_CALL_STARTED", "TOOL_CALL_COMPLETED", "TOOL_CALL_FAILED", "BUDGET_EXCEEDED"}
 
 
@@ -43,11 +45,14 @@ def build_retrieval_report(task_id: UUID, events: list[TaskEventRead]) -> dict:
         if event.sequence != previous + 1:
             warnings.append(f"事件序号 {previous} 到 {event.sequence} 之间存在缺口")
         previous = event.sequence
-        if event.event_type not in TRACE_EVENTS | MODEL_EVENTS | TOOL_EVENTS:
+        if event.event_type not in TRACE_EVENTS | MODEL_EVENTS | TOOL_EVENTS | EMBEDDING_EVENTS:
             continue
         raw_events.append(event.model_dump(mode="json"))
         payload = deepcopy(event.payload)
         call_id = payload.get("call_id")
+
+        if event.event_type in EMBEDDING_EVENTS:
+            continue
 
         if event.event_type in MODEL_EVENTS:
             if not isinstance(call_id, str) or not call_id:
@@ -128,6 +133,7 @@ def build_retrieval_report(task_id: UUID, events: list[TaskEventRead]) -> dict:
         "last_sequence": previous, "event_count": len(events),
         "trace_status": "not_recorded" if not has_trace else "partial" if incomplete else "recorded",
         "warnings": warnings, "tool_calls": rows, "model_calls": models,
+        "request_observations": collect_request_observations(events),
         "events": raw_events,
     }
 
@@ -188,4 +194,9 @@ def render_retrieval_report(report: dict) -> str:
     if report["warnings"]:
         lines.extend(["", "## 关联缺口", ""])
         _literal(lines, report["warnings"])
+    lines.extend(["", "## 请求观测（按唯一调用关联，不在此汇总费用）"])
+    _literal(lines, report.get("request_observations", "未记录"))
+    lines.extend(["", "## 准备期 Embedding 与运行条件"])
+    _literal(lines, {"conditions": report.get("conditions"),
+                     "preparation_embedding_observations": report.get("preparation_embedding_observations")})
     return "\n".join(lines) + "\n"
