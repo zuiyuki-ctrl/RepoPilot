@@ -1,0 +1,269 @@
+{
+  "schema_version": 1,
+  "experiment_id": "c1a22071-0dac-4998-86bc-923179fbae25",
+  "created_at": "2026-10-13T14:07:19.482805Z",
+  "case": {
+    "schema_version": 1,
+    "case_id": "task-list",
+    "case_version": "v1",
+    "task_type": "bug_fix",
+    "user_request": "list_tasks 同时使用状态筛选和分页时，部分结果数量及偏移不符合预期。请定位并修复，保持原顺序、不修改输入列表；非法分页参数仍抛 ValueError。只修改 task_list.py，不修改固定验收测试。",
+    "repository_commit": "4629a3a98cb62c989ed4e1e67be9514703b3d346",
+    "editable_files": [
+      "task_list.py"
+    ],
+    "protected_test_files": [
+      "tests/test_task_list.py"
+    ],
+    "test_profile": "python-basic"
+  },
+  "run_config": {
+    "schema_version": 1,
+    "retrieval_policy": "vector",
+    "max_tool_calls": 4,
+    "runtime_fingerprint": "3da554dd021701722395600115d5b87715f05f98adca79a668c97ceb83b134ba",
+    "index_fingerprint": "8c257a4b2f570f9e273907dbe73e6239f0aa4640bda4c0d27847caa53009440c",
+    "test_image_id": "sha256:14ae9449013b4c5cf1ac42d09ae368570eda7315f3b8757c6274e9e48fab1d28",
+    "experiment_contract_sha256": "fd8557bdea2fb625166130de811d2ffe2c9daeb56907506dc649c0ab17c5551d"
+  },
+  "status": "prepared",
+  "stage": "create_task",
+  "repository_id": "3b64de3b-a5b3-4749-afd6-364e89256153",
+  "workspace_path": "D:\\RepoPilot-workspaces\\c6538219d5fd40f69f2d3e8b502120a6",
+  "task_id": "302c289e-852f-47af-bdd6-01dfdbef6f8c",
+  "protected_test_file_hashes": {
+    "tests/test_task_list.py": "82dc949554c0a262566d7cdcee6ee21b272ab6468381213633916a36e8f94552"
+  },
+  "source_protected_test_file_hashes": {
+    "tests/test_task_list.py": "85b9659858ae990a2399a3277b611c8963f1b6f78784bce6368ac52566e1a2c4"
+  },
+  "error_type": null,
+  "conditions": {
+    "version": 1,
+    "runtime": {
+      "version": 1,
+      "chat_model": "deepseek-v4.1-flash",
+      "chat_endpoint_sha256": "8bc0c3bfe94ce5bf05700b94f0d39c5a00ca6916089f5602633138319461f4dd",
+      "embedding_model": "text-embedding-v4",
+      "embedding_dimensions": 1024,
+      "embedding_endpoint_sha256": "3ea8be3f25ff080578de5900ad8b03aae3f1ee04a40f4e629d36d935e0d67172",
+      "chat_parameters": {
+        "model": "deepseek-v4.1-flash",
+        "stream": false,
+        "enable_thinking": false,
+        "max_tokens": 3000
+      },
+      "qa_parameters": {
+        "model": "deepseek-v4.1-flash",
+        "stream": false,
+        "enable_thinking": false,
+        "max_tokens": 1500
+      },
+      "tool_definitions_sha256": "08cfc337bdcd9e58fa79cb3ea67323666b932d54524d16b8e5d0e92be9c82c1e",
+      "prompt_templates_sha256": {
+        "AGENT_SYSTEM_PROMPT": "a0d26d2c809c986ed28c710c68a313aff51c79dad9d8d86c64c9ee2cbeabb599",
+        "PLAN_SYSTEM_PROMPT": "bddbe6dc67d343a5210b0ea720181ebb2b9b2c59a6fc05e50217afb503113356",
+        "PLAN_FINAL_INSTRUCTION": "904c0a2a9f2acc9ba4f47684e6c74e56c0c7f6928a4f8b252279fb31c3bce357",
+        "PLAN_RESEARCH_SYSTEM_PROMPT": "1751655a4ab54e1303c5351d62c77e08ef96fabf30986d533a1ba7e6bef0bcee",
+        "EDIT_SYSTEM_PROMPT": "24b510996565c6fe821644f99ce5b2cff126ca9ffee07b54868fbd843d2238d3",
+        "EDIT_FINAL_INSTRUCTION": "4d5c1a67f7ba9af4e5f3dd720b2820cc59cb564e5d14aba8724fa654db566fa5",
+        "REFLECTION_SYSTEM_PROMPT": "514063a401eef38492d87c3a11f2733246a817a16d0a7546617ee09c7799e78a",
+        "REFLECTION_FINAL_INSTRUCTION": "e833353796f1e2b9d2647c9dee141b17aa2ce707ba4723f6d38eb1552d383c60"
+      },
+      "context_budget_chars": 40000,
+      "implementation_sha256": {
+        "rag/generation.py": "945bfb83d506961ebe4b0aeca23828690a5279f77e0472486e43deeb9fb6990c",
+        "rag/embedding.py": "00f9e57ff814de1e818fbe42a3c96a6cbb8dafc12a4df15a6ef6844f1b59897f",
+        "rag/prompts.py": "6c80c3c29db450a987c0795028a2baeb4762354149c48a81f7f1abcd94f977a2",
+        "rag/tool_chat.py": "0129c41024c1848bfd68bca5bc51eb36c804b65f4cfeaeb7cc3b8095ff9e2b8c",
+        "rag/fusion.py": "d237d40ac8ff96bca1eed32818715a82a67afae32513afec006e2c815f57d906",
+        "agent/policy.py": "3718e29ffaec00c87f674a4588e437f8e3f888eb3a82b9625339723af885dadc",
+        "agent/plan_generation.py": "3d0e042069bd3bedba58d8e110d15a151f8785f11e187140b0959f128a05fb8d",
+        "agent/edit_generation.py": "08d319831d73b8d3ac94fec59d3f2ef28cd4b7bd575d663385daebed35611b06",
+        "agent/reflection_generation.py": "7e5234d87be2e24f37d8dcde06674fe8591b6118127ff91c092191f4bedbb0b3",
+        "schemas/tools.py": "770b035fa75c59947f27c90dc2f91ff03e8fbae6204a4d6f74af1264fa6f8c5a",
+        "services/retrieval_service.py": "0b77eac1ab1ab9073b2c8dab9bdca5a596cb5f1415d36a9b2254a4ee0ca085aa",
+        "services/docker_test_service.py": "8b5b27403ea2b9f968d2b1748422a179dd089e9edb1f4238ba322bfb03fb4e4a",
+        "core/test_profiles.py": "574b64eac66435d79fd5014e9d9b12dac0dc06db24eed1dee301e126ae5adccc",
+        "agent/nodes.py": "ad3cbc31024cc1ad8438bedcc657ae02b6071edf4326a4da83e7c9ff6adde998",
+        "services/tool_service.py": "aeff90ffc15753b508e783125606546c2c68671d9e9d9193cf1a4d199d79947e"
+      },
+      "provider_internal_version": null
+    },
+    "runtime_fingerprint": "3da554dd021701722395600115d5b87715f05f98adca79a668c97ceb83b134ba",
+    "index_fingerprint": "8c257a4b2f570f9e273907dbe73e6239f0aa4640bda4c0d27847caa53009440c",
+    "test_image": {
+      "tag": "repopilot-pytest:py311",
+      "id": "sha256:14ae9449013b4c5cf1ac42d09ae368570eda7315f3b8757c6274e9e48fab1d28",
+      "repo_digests": [
+        "repopilot-pytest@sha256:14ae9449013b4c5cf1ac42d09ae368570eda7315f3b8757c6274e9e48fab1d28"
+      ],
+      "error_type": null
+    }
+  },
+  "embedding_observations": [
+    {
+      "status": "started",
+      "observation": {
+        "call_id": "bcb8e0a8-2828-4597-ab9e-4b001fe7fffb",
+        "observation_version": 1,
+        "request_kind": "embedding",
+        "request_attempted": false,
+        "request_status": "not_started",
+        "failure_stage": null,
+        "error_type": null,
+        "requested_model": null,
+        "response_model": null,
+        "response_id": null,
+        "finish_reason": null,
+        "http_status": null,
+        "started_at": null,
+        "completed_at": null,
+        "duration_ms": null,
+        "request_parameters": {},
+        "usage": {
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null,
+          "cached_input_tokens": null,
+          "reasoning_output_tokens": null
+        },
+        "usage_status": "missing",
+        "validation_stage": "preflight",
+        "operation_status": "pending"
+      },
+      "scope": "preparation_index",
+      "experiment_id": "c1a22071-0dac-4998-86bc-923179fbae25",
+      "repository_id": "3b64de3b-a5b3-4749-afd6-364e89256153"
+    },
+    {
+      "status": "completed",
+      "observation": {
+        "call_id": "bcb8e0a8-2828-4597-ab9e-4b001fe7fffb",
+        "observation_version": 1,
+        "request_kind": "embedding",
+        "request_attempted": true,
+        "request_status": "response_received",
+        "failure_stage": null,
+        "error_type": null,
+        "requested_model": "text-embedding-v4",
+        "response_model": "text-embedding-v4",
+        "response_id": "d64cc492-97ba-9515-bc16-c1d1e0497445",
+        "finish_reason": null,
+        "http_status": 200,
+        "started_at": "2026-10-13T14:07:26.560526+00:00",
+        "completed_at": "2026-10-13T14:07:27.871980+00:00",
+        "duration_ms": 1311,
+        "request_parameters": {
+          "dimensions": 1024,
+          "encoding_format": "float",
+          "tools_present": false
+        },
+        "usage": {
+          "input_tokens": 443,
+          "output_tokens": null,
+          "total_tokens": 443,
+          "cached_input_tokens": null,
+          "reasoning_output_tokens": null
+        },
+        "usage_status": "complete",
+        "validation_stage": "response_validation",
+        "operation_status": "succeeded"
+      },
+      "scope": "preparation_index",
+      "experiment_id": "c1a22071-0dac-4998-86bc-923179fbae25",
+      "repository_id": "3b64de3b-a5b3-4749-afd6-364e89256153"
+    }
+  ],
+  "definition": {
+    "schema_version": 1,
+    "suite_id": "core-platform-pipeline",
+    "suite_version": "v1",
+    "config_version": "v1",
+    "repeat_index": 1,
+    "changed_parameter": "retrieval_policy",
+    "baseline": "vector",
+    "candidate": "hybrid",
+    "max_tool_calls": 4,
+    "max_retries": 1,
+    "test_timeout_seconds": 120,
+    "intervention_policy": "approve_generated_candidate_only",
+    "acceptance": {
+      "version": "task-list-tests-v1",
+      "required_tests": [
+        {
+          "classname": "tests.test_task_list",
+          "name": "test_filter_and_pagination[completed-2-0-expected_ids0]"
+        },
+        {
+          "classname": "tests.test_task_list",
+          "name": "test_filter_and_pagination[completed-2-1-expected_ids1]"
+        },
+        {
+          "classname": "tests.test_task_list",
+          "name": "test_filter_and_pagination[None-2-1-expected_ids2]"
+        },
+        {
+          "classname": "tests.test_task_list",
+          "name": "test_filter_and_pagination[running-2-0-expected_ids3]"
+        },
+        {
+          "classname": "tests.test_task_list",
+          "name": "test_filter_and_pagination[completed-2-10-expected_ids4]"
+        },
+        {
+          "classname": "tests.test_task_list",
+          "name": "test_input_is_not_modified"
+        },
+        {
+          "classname": "tests.test_task_list",
+          "name": "test_invalid_pagination[0-0]"
+        },
+        {
+          "classname": "tests.test_task_list",
+          "name": "test_invalid_pagination[2--1]"
+        }
+      ],
+      "baseline_failure_tests": [
+        {
+          "classname": "tests.test_task_list",
+          "name": "test_filter_and_pagination[completed-2-0-expected_ids0]"
+        },
+        {
+          "classname": "tests.test_task_list",
+          "name": "test_filter_and_pagination[completed-2-1-expected_ids1]"
+        }
+      ],
+      "manual_criteria": []
+    }
+  },
+  "baseline_test": {
+    "exit_code": 1,
+    "stdout": "FF......                                                                 [100%]\n=================================== FAILURES ===================================\n___________ test_filter_and_pagination[completed-2-0-expected_ids0] ____________\n\ntasks = [{'id': 1, 'status': 'created'}, {'id': 2, 'status': 'completed'}, {'id': 3, 'status': 'failed'}, {'id': 4, 'status': 'completed'}, {'id': 5, 'status': 'completed'}]\nstatus = 'completed', limit = 2, offset = 0, expected_ids = [2, 4]\n\n    @pytest.mark.parametrize(\n        \"status, limit, offset, expected_ids\",\n        [\n            (\"completed\", 2, 0, [2, 4]),\n            (\"completed\", 2, 1, [4, 5]),\n            (None, 2, 1, [2, 3]),\n            (\"running\", 2, 0, []),\n            (\"completed\", 2, 10, []),\n        ],\n    )\n    def test_filter_and_pagination(tasks, status, limit, offset, expected_ids):\n        result = list_tasks(tasks, status=status, limit=limit, offset=offset)\n>       assert [task[\"id\"] for task in result] == expected_ids\nE       assert [2] == [2, 4]\nE         \nE         Right contains one more item: 4\nE         Use -v to get more diff\n\ntests/test_task_list.py:31: AssertionError\n___________ test_filter_and_pagination[completed-2-1-expected_ids1] ____________\n\ntasks = [{'id': 1, 'status': 'created'}, {'id': 2, 'status': 'completed'}, {'id': 3, 'status': 'failed'}, {'id': 4, 'status': 'completed'}, {'id': 5, 'status': 'completed'}]\nstatus = 'completed', limit = 2, offset = 1, expected_ids = [4, 5]\n\n    @pytest.mark.parametrize(\n        \"status, limit, offset, expected_ids\",\n        [\n            (\"completed\", 2, 0, [2, 4]),\n            (\"completed\", 2, 1, [4, 5]),\n            (None, 2, 1, [2, 3]),\n            (\"running\", 2, 0, []),\n            (\"completed\", 2, 10, []),\n        ],\n    )\n    def test_filter_and_pagination(tasks, status, limit, offset, expected_ids):\n        result = list_tasks(tasks, status=status, limit=limit, offset=offset)\n>       assert [task[\"id\"] for task in result] == expected_ids\nE       assert [2] == [4, 5]\nE         \nE         At index 0 diff: 2 != 4\nE         Right contains one more item: 5\nE         Use -v to get more diff\n\ntests/test_task_list.py:31: AssertionError\n----------------- generated xml file: /test-results/junit.xml ------------------\n=========================== short test summary info ============================\nFAILED tests/test_task_list.py::test_filter_and_pagination[completed-2-0-expected_ids0]\nFAILED tests/test_task_list.py::test_filter_and_pagination[completed-2-1-expected_ids1]\n2 failed, 6 passed in 0.18s\n",
+    "stderr": "",
+    "timed_out": false,
+    "stdout_truncated": false,
+    "stderr_truncated": false,
+    "test_report": {
+      "version": 1,
+      "format": "pytest_junit",
+      "status": "recorded",
+      "sha256": "f5870f06efe0e26db0af5ca3d2b550f6507e42058d010866be825d6c86cc1da2",
+      "counts": {
+        "passed": 6,
+        "failed": 2,
+        "errors": 0,
+        "skipped": 0
+      },
+      "xml": "<?xml version=\"1.0\" encoding=\"utf-8\"?><testsuites name=\"pytest tests\"><testsuite name=\"pytest\" errors=\"0\" failures=\"2\" skipped=\"0\" tests=\"8\" time=\"0.176\" timestamp=\"2026-10-13T14:07:29.558028+00:00\" hostname=\"06e6d9df9216\"><testcase classname=\"tests.test_task_list\" name=\"test_filter_and_pagination[completed-2-0-expected_ids0]\" time=\"0.001\"><failure message=\"assert [2] == [2, 4]&#10;  &#10;  Right contains one more item: 4&#10;  Use -v to get more diff\">tasks = [{'id': 1, 'status': 'created'}, {'id': 2, 'status': 'completed'}, {'id': 3, 'status': 'failed'}, {'id': 4, 'status': 'completed'}, {'id': 5, 'status': 'completed'}]\nstatus = 'completed', limit = 2, offset = 0, expected_ids = [2, 4]\n\n    @pytest.mark.parametrize(\n        \"status, limit, offset, expected_ids\",\n        [\n            (\"completed\", 2, 0, [2, 4]),\n            (\"completed\", 2, 1, [4, 5]),\n            (None, 2, 1, [2, 3]),\n            (\"running\", 2, 0, []),\n            (\"completed\", 2, 10, []),\n        ],\n    )\n    def test_filter_and_pagination(tasks, status, limit, offset, expected_ids):\n        result = list_tasks(tasks, status=status, limit=limit, offset=offset)\n&gt;       assert [task[\"id\"] for task in result] == expected_ids\nE       assert [2] == [2, 4]\nE         \nE         Right contains one more item: 4\nE         Use -v to get more diff\n\ntests/test_task_list.py:31: AssertionError</failure></testcase><testcase classname=\"tests.test_task_list\" name=\"test_filter_and_pagination[completed-2-1-expected_ids1]\" time=\"0.001\"><failure message=\"assert [2] == [4, 5]&#10;  &#10;  At index 0 diff: 2 != 4&#10;  Right contains one more item: 5&#10;  Use -v to get more diff\">tasks = [{'id': 1, 'status': 'created'}, {'id': 2, 'status': 'completed'}, {'id': 3, 'status': 'failed'}, {'id': 4, 'status': 'completed'}, {'id': 5, 'status': 'completed'}]\nstatus = 'completed', limit = 2, offset = 1, expected_ids = [4, 5]\n\n    @pytest.mark.parametrize(\n        \"status, limit, offset, expected_ids\",\n        [\n            (\"completed\", 2, 0, [2, 4]),\n            (\"completed\", 2, 1, [4, 5]),\n            (None, 2, 1, [2, 3]),\n            (\"running\", 2, 0, []),\n            (\"completed\", 2, 10, []),\n        ],\n    )\n    def test_filter_and_pagination(tasks, status, limit, offset, expected_ids):\n        result = list_tasks(tasks, status=status, limit=limit, offset=offset)\n&gt;       assert [task[\"id\"] for task in result] == expected_ids\nE       assert [2] == [4, 5]\nE         \nE         At index 0 diff: 2 != 4\nE         Right contains one more item: 5\nE         Use -v to get more diff\n\ntests/test_task_list.py:31: AssertionError</failure></testcase><testcase classname=\"tests.test_task_list\" name=\"test_filter_and_pagination[None-2-1-expected_ids2]\" time=\"0.001\" /><testcase classname=\"tests.test_task_list\" name=\"test_filter_and_pagination[running-2-0-expected_ids3]\" time=\"0.001\" /><testcase classname=\"tests.test_task_list\" name=\"test_filter_and_pagination[completed-2-10-expected_ids4]\" time=\"0.001\" /><testcase classname=\"tests.test_task_list\" name=\"test_input_is_not_modified\" time=\"0.001\" /><testcase classname=\"tests.test_task_list\" name=\"test_invalid_pagination[0-0]\" time=\"0.001\" /><testcase classname=\"tests.test_task_list\" name=\"test_invalid_pagination[2--1]\" time=\"0.001\" /></testsuite></testsuites>"
+    },
+    "snapshot_hash": "e41b694f021e08881174e6643efb8d52ce5359fc577111dd22538f4169dee19c",
+    "image": "sha256:14ae9449013b4c5cf1ac42d09ae368570eda7315f3b8757c6274e9e48fab1d28",
+    "timeout_seconds": 120,
+    "repository_commit": "4629a3a98cb62c989ed4e1e67be9514703b3d346",
+    "protected_test_file_hashes": {
+      "tests/test_task_list.py": "82dc949554c0a262566d7cdcee6ee21b272ab6468381213633916a36e8f94552"
+    },
+    "recorded_at": "2026-10-13T14:07:29.914355+00:00"
+  }
+}

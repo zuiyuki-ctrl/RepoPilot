@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "experiment_id": "dcc0e13f-d19a-4823-b6b6-93cbca712806",
+  "task_id": "1704cb77-8250-4126-825e-034006062975",
+  "inspected_at": "2026-10-13T14:28:12.593567Z",
+  "task_status": "awaiting_review",
+  "scope_status": "valid",
+  "outside_scope_files": [],
+  "task": {
+    "id": "1704cb77-8250-4126-825e-034006062975",
+    "repository_id": "a67c9555-e29f-4ee9-a24c-b78efa009b78",
+    "user_request": "list_tasks 同时使用状态筛选和分页时，部分结果数量及偏移不符合预期。请定位并修复，保持原顺序、不修改输入列表；非法分页参数仍抛 ValueError。只修改 task_list.py，不修改固定验收测试。",
+    "task_type": "plan",
+    "status": "awaiting_review",
+    "created_at": "2026-10-13T14:08:34.274397Z",
+    "started_at": "2026-10-13T14:27:57.177772Z",
+    "completed_at": null,
+    "result": {
+      "repository_id": "a67c9555-e29f-4ee9-a24c-b78efa009b78",
+      "plan": {
+        "summary": "修复 task_list.py 中 list_tasks 的筛选与分页顺序错误：当前实现先对未筛选的完整列表做 tasks[offset:offset+limit] 切片，再按 status 过滤，导致 offset 作用于未筛选集合、limit 为筛选前窗口，筛选后返回条数与偏移均不符合预期。应改为先按 status 过滤生成新列表，再对新列表切片，并保留非法分页参数抛 ValueError 的校验。只改 task_list.py，不改动固定验收测试。",
+        "steps": [
+          {
+            "id": 1,
+            "description": "在 task_list.py 中调整 list_tasks 的执行顺序：保留开头的非法分页参数校验（limit < 1 或 offset < 0 时抛出 ValueError），先按 status 构造新的筛选结果列表（status 为 None 时不筛选），再对该筛选结果执行 [offset:offset + limit] 切片并返回。全程通过列表推导式构造新列表，不原地修改传入的 tasks，从而保证元素相对顺序不变。",
+            "files": [
+              "task_list.py"
+            ],
+            "source_ids": [
+              "S1",
+              "S11",
+              "S5",
+              "S10"
+            ],
+            "verification": "对 fixtures 中的 5 条任务调用 list_tasks：status=\"completed\", limit=2, offset=0 返回 id [2, 4]；status=\"completed\", limit=2, offset=1 返回 id [4, 5]（证明 offset 作用于筛选后集合）；status=None, limit=2, offset=1 返回 id [2, 3]；status=\"running\", limit=2, offset=0 返回空前；status=\"completed\", limit=2, offset=10 返回空且不抛异常；返回元素顺序与输入列表中出现的先后顺序一致。"
+          },
+          {
+            "id": 2,
+            "description": "核验不修改输入列表与非法分页参数行为在调整后保持不变：筛选与分页均基于新建列表，传入的 tasks 列表及其中的 dict 对象内容不被改动；limit 为 0、offset 为负数时仍在执行筛选/切片之前抛出 ValueError。",
+            "files": [
+              "task_list.py"
+            ],
+            "source_ids": [
+              "S3",
+              "S9",
+              "S4",
+              "S6",
+              "S12"
+            ],
+            "verification": "调用前后用深拷贝对比，传入的 tasks 列表与其元素内容完全相等，未被修改；以 limit=0 和 limit=2, offset=-1 调用时均抛出 ValueError，且不返回任何结果。"
+          }
+        ]
+      }
+    },
+    "error": null,
+    "review_decision": null,
+    "review_comment": null,
+    "reviewed_at": null,
+    "retry_count": 0,
+    "max_retries": 1,
+    "run_config": {
+      "schema_version": 1,
+      "retrieval_policy": "hybrid",
+      "max_tool_calls": 4,
+      "runtime_fingerprint": "3da554dd021701722395600115d5b87715f05f98adca79a668c97ceb83b134ba",
+      "index_fingerprint": "8c257a4b2f570f9e273907dbe73e6239f0aa4640bda4c0d27847caa53009440c",
+      "test_image_id": "sha256:14ae9449013b4c5cf1ac42d09ae368570eda7315f3b8757c6274e9e48fab1d28",
+      "experiment_contract_sha256": "c89389ea2b4281674f78505171744f67468f8c62a44cc979ace62e945cf539fd"
+    }
+  }
+}

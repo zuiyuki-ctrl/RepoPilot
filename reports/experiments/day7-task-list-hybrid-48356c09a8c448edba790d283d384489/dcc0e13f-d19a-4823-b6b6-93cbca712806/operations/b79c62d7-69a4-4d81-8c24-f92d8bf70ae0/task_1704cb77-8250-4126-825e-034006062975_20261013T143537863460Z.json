@@ -1,0 +1,712 @@
+{
+  "metrics": {
+    "version": 1,
+    "source": "task_events_through_terminal",
+    "terminal_sequence": 37,
+    "event_scope_complete": true,
+    "started": true,
+    "request_observations": [
+      {
+        "call_id": "5f4d5f17-e8ea-4e47-b3c1-cb54e3903f0a",
+        "kind": "chat",
+        "phase": "model",
+        "scope": "task",
+        "started_sequences": [
+          2
+        ],
+        "finished_sequences": [
+          3
+        ],
+        "observation": {
+          "usage": {
+            "input_tokens": 1028,
+            "total_tokens": 1192,
+            "output_tokens": 164,
+            "cached_input_tokens": 0,
+            "reasoning_output_tokens": null
+          },
+          "call_id": "5f4d5f17-e8ea-4e47-b3c1-cb54e3903f0a",
+          "error_type": null,
+          "started_at": "2026-10-13T14:27:57.227586+00:00",
+          "duration_ms": 1810,
+          "http_status": 200,
+          "response_id": "chatcmpl-d539761f-39da-9186-994b-c7d8cd842e93",
+          "completed_at": "2026-10-13T14:27:59.036587+00:00",
+          "request_kind": "chat",
+          "usage_status": "complete",
+          "failure_stage": null,
+          "finish_reason": "tool_calls",
+          "request_status": "response_received",
+          "response_model": "deepseek-v4.1-flash",
+          "requested_model": "deepseek-v4.1-flash",
+          "operation_status": "succeeded",
+          "validation_stage": "response_validation",
+          "request_attempted": true,
+          "request_parameters": {
+            "stream": false,
+            "max_tokens": 3000,
+            "tool_choice": "auto",
+            "tools_present": true,
+            "enable_thinking": false
+          },
+          "observation_version": 1
+        },
+        "completeness": "recorded"
+      },
+      {
+        "call_id": "1ef3b79f-984a-4923-a602-ae5e32cc6adb",
+        "kind": "embedding",
+        "phase": "query_embedding",
+        "scope": "task_query",
+        "started_sequences": [
+          5
+        ],
+        "finished_sequences": [
+          6
+        ],
+        "observation": {
+          "usage": {
+            "input_tokens": 11,
+            "total_tokens": 11,
+            "output_tokens": null,
+            "cached_input_tokens": null,
+            "reasoning_output_tokens": null
+          },
+          "call_id": "1ef3b79f-984a-4923-a602-ae5e32cc6adb",
+          "error_type": null,
+          "started_at": "2026-10-13T14:27:59.115377+00:00",
+          "duration_ms": 818,
+          "http_status": 200,
+          "response_id": "4b913ed6-ca99-98f5-9f52-037aa850a15a",
+          "completed_at": "2026-10-13T14:27:59.935086+00:00",
+          "request_kind": "embedding",
+          "usage_status": "complete",
+          "failure_stage": null,
+          "finish_reason": null,
+          "request_status": "response_received",
+          "response_model": "text-embedding-v4",
+          "requested_model": "text-embedding-v4",
+          "operation_status": "succeeded",
+          "validation_stage": "response_validation",
+          "request_attempted": true,
+          "request_parameters": {
+            "dimensions": 1024,
+            "tools_present": false,
+            "encoding_format": "float"
+          },
+          "observation_version": 1
+        },
+        "completeness": "recorded"
+      },
+      {
+        "call_id": "13870620-ef61-46b1-949e-f57e798f2d3e",
+        "kind": "embedding",
+        "phase": "query_embedding",
+        "scope": "task_query",
+        "started_sequences": [
+          11
+        ],
+        "finished_sequences": [
+          12
+        ],
+        "observation": {
+          "usage": {
+            "input_tokens": 9,
+            "total_tokens": 9,
+            "output_tokens": null,
+            "cached_input_tokens": null,
+            "reasoning_output_tokens": null
+          },
+          "call_id": "13870620-ef61-46b1-949e-f57e798f2d3e",
+          "error_type": null,
+          "started_at": "2026-10-13T14:28:00.074736+00:00",
+          "duration_ms": 729,
+          "http_status": 200,
+          "response_id": "79c6f54c-d650-9c28-8609-1a5e69bf6a32",
+          "completed_at": "2026-10-13T14:28:00.804194+00:00",
+          "request_kind": "embedding",
+          "usage_status": "complete",
+          "failure_stage": null,
+          "finish_reason": null,
+          "request_status": "response_received",
+          "response_model": "text-embedding-v4",
+          "requested_model": "text-embedding-v4",
+          "operation_status": "succeeded",
+          "validation_stage": "response_validation",
+          "request_attempted": true,
+          "request_parameters": {
+            "dimensions": 1024,
+            "tools_present": false,
+            "encoding_format": "float"
+          },
+          "observation_version": 1
+        },
+        "completeness": "recorded"
+      },
+      {
+        "call_id": "88df9664-dc6d-4000-a1ef-b8e43ba0e1a8",
+        "kind": "chat",
+        "phase": "model",
+        "scope": "task",
+        "started_sequences": [
+          16
+        ],
+        "finished_sequences": [
+          17
+        ],
+        "observation": {
+          "usage": {
+            "input_tokens": 4412,
+            "total_tokens": 4560,
+            "output_tokens": 148,
+            "cached_input_tokens": 1024,
+            "reasoning_output_tokens": null
+          },
+          "call_id": "88df9664-dc6d-4000-a1ef-b8e43ba0e1a8",
+          "error_type": null,
+          "started_at": "2026-10-13T14:28:00.919216+00:00",
+          "duration_ms": 1358,
+          "http_status": 200,
+          "response_id": "chatcmpl-62f0df6f-010a-94da-8f78-62505637555a",
+          "completed_at": "2026-10-13T14:28:02.277900+00:00",
+          "request_kind": "chat",
+          "usage_status": "complete",
+          "failure_stage": null,
+          "finish_reason": "tool_calls",
+          "request_status": "response_received",
+          "response_model": "deepseek-v4.1-flash",
+          "requested_model": "deepseek-v4.1-flash",
+          "operation_status": "succeeded",
+          "validation_stage": "response_validation",
+          "request_attempted": true,
+          "request_parameters": {
+            "stream": false,
+            "max_tokens": 3000,
+            "tool_choice": "auto",
+            "tools_present": true,
+            "enable_thinking": false
+          },
+          "observation_version": 1
+        },
+        "completeness": "recorded"
+      },
+      {
+        "call_id": "9ff86ad8-9e8a-442a-a08a-41006c7f3c3a",
+        "kind": "chat",
+        "phase": "model",
+        "scope": "task",
+        "started_sequences": [
+          24
+        ],
+        "finished_sequences": [
+          25
+        ],
+        "observation": {
+          "usage": {
+            "input_tokens": 4862,
+            "total_tokens": 5311,
+            "output_tokens": 449,
+            "cached_input_tokens": 0,
+            "reasoning_output_tokens": null
+          },
+          "call_id": "9ff86ad8-9e8a-442a-a08a-41006c7f3c3a",
+          "error_type": null,
+          "started_at": "2026-10-13T14:28:02.398427+00:00",
+          "duration_ms": 3935,
+          "http_status": 200,
+          "response_id": "chatcmpl-139fa960-d1ec-97bf-8af3-429bdb6a63ba",
+          "completed_at": "2026-10-13T14:28:06.334044+00:00",
+          "request_kind": "chat",
+          "usage_status": "complete",
+          "failure_stage": null,
+          "finish_reason": "stop",
+          "request_status": "response_received",
+          "response_model": "deepseek-v4.1-flash",
+          "requested_model": "deepseek-v4.1-flash",
+          "operation_status": "succeeded",
+          "validation_stage": "response_validation",
+          "request_attempted": true,
+          "request_parameters": {
+            "stream": false,
+            "max_tokens": 3000,
+            "tools_present": false,
+            "enable_thinking": false
+          },
+          "observation_version": 1
+        },
+        "completeness": "recorded"
+      },
+      {
+        "call_id": "971a61e8-e269-4d32-804f-5d1ee073c0ea",
+        "kind": "chat",
+        "phase": "plan",
+        "scope": "task",
+        "started_sequences": [
+          26
+        ],
+        "finished_sequences": [
+          27
+        ],
+        "observation": {
+          "usage": {
+            "input_tokens": 6094,
+            "total_tokens": 6640,
+            "output_tokens": 546,
+            "cached_input_tokens": 0,
+            "reasoning_output_tokens": null
+          },
+          "call_id": "971a61e8-e269-4d32-804f-5d1ee073c0ea",
+          "error_type": null,
+          "started_at": "2026-10-13T14:28:06.377589+00:00",
+          "duration_ms": 6172,
+          "http_status": 200,
+          "response_id": "chatcmpl-e403f0d8-207c-9c75-a15c-178939cf7283",
+          "completed_at": "2026-10-13T14:28:12.549993+00:00",
+          "request_kind": "chat",
+          "usage_status": "complete",
+          "failure_stage": null,
+          "finish_reason": "stop",
+          "request_status": "response_received",
+          "response_model": "deepseek-v4.1-flash",
+          "requested_model": "deepseek-v4.1-flash",
+          "operation_status": "succeeded",
+          "validation_stage": "business_validation",
+          "request_attempted": true,
+          "request_parameters": {
+            "stream": false,
+            "max_tokens": 3000,
+            "tools_present": false,
+            "enable_thinking": false
+          },
+          "observation_version": 1
+        },
+        "completeness": "recorded"
+      },
+      {
+        "call_id": "937ad88d-b92a-4998-874d-c8899475e2f7",
+        "kind": "chat",
+        "phase": "edit",
+        "scope": "task",
+        "started_sequences": [
+          32
+        ],
+        "finished_sequences": [
+          33
+        ],
+        "observation": {
+          "usage": {
+            "input_tokens": 1106,
+            "total_tokens": 1374,
+            "output_tokens": 268,
+            "cached_input_tokens": 0,
+            "reasoning_output_tokens": null
+          },
+          "call_id": "937ad88d-b92a-4998-874d-c8899475e2f7",
+          "error_type": null,
+          "started_at": "2026-10-13T14:30:51.695136+00:00",
+          "duration_ms": 2085,
+          "http_status": 200,
+          "response_id": "chatcmpl-fe004bac-c217-9db4-ac92-276cb20cb4f2",
+          "completed_at": "2026-10-13T14:30:53.779390+00:00",
+          "request_kind": "chat",
+          "usage_status": "complete",
+          "failure_stage": null,
+          "finish_reason": "stop",
+          "request_status": "response_received",
+          "response_model": "deepseek-v4.1-flash",
+          "requested_model": "deepseek-v4.1-flash",
+          "operation_status": "succeeded",
+          "validation_stage": "business_validation",
+          "request_attempted": true,
+          "request_parameters": {
+            "stream": false,
+            "max_tokens": 3000,
+            "tools_present": false,
+            "enable_thinking": false
+          },
+          "observation_version": 1
+        },
+        "completeness": "recorded"
+      }
+    ],
+    "resources": {
+      "scope_complete": true,
+      "observed_calls": 7,
+      "known_not_attempted": 0,
+      "attempted_calls": 7,
+      "unknown_attempt_calls": 0,
+      "usage_known_calls": 7,
+      "usage_expected_calls": 7,
+      "usage_coverage": 1.0,
+      "known_total_tokens": 19097,
+      "total_tokens": 19097,
+      "token_fields": {
+        "input_tokens": {
+          "known_subtotal": 17522,
+          "recorded_calls": 7
+        },
+        "output_tokens": {
+          "known_subtotal": 1575,
+          "recorded_calls": 5
+        },
+        "cached_input_tokens": {
+          "known_subtotal": 1024,
+          "recorded_calls": 5
+        },
+        "reasoning_output_tokens": {
+          "known_subtotal": 0,
+          "recorded_calls": 0
+        }
+      },
+      "request_duration_ms_known_sum": 16907,
+      "duration_known_calls": 7,
+      "duration_note": "请求耗时之和，不是运行墙钟时间；不累加嵌套工具 span",
+      "status": "complete"
+    },
+    "resources_by_kind": {
+      "chat": {
+        "scope_complete": true,
+        "observed_calls": 5,
+        "known_not_attempted": 0,
+        "attempted_calls": 5,
+        "unknown_attempt_calls": 0,
+        "usage_known_calls": 5,
+        "usage_expected_calls": 5,
+        "usage_coverage": 1.0,
+        "known_total_tokens": 19077,
+        "total_tokens": 19077,
+        "token_fields": {
+          "input_tokens": {
+            "known_subtotal": 17502,
+            "recorded_calls": 5
+          },
+          "output_tokens": {
+            "known_subtotal": 1575,
+            "recorded_calls": 5
+          },
+          "cached_input_tokens": {
+            "known_subtotal": 1024,
+            "recorded_calls": 5
+          },
+          "reasoning_output_tokens": {
+            "known_subtotal": 0,
+            "recorded_calls": 0
+          }
+        },
+        "request_duration_ms_known_sum": 15360,
+        "duration_known_calls": 5,
+        "duration_note": "请求耗时之和，不是运行墙钟时间；不累加嵌套工具 span",
+        "status": "complete"
+      },
+      "embedding": {
+        "scope_complete": true,
+        "observed_calls": 2,
+        "known_not_attempted": 0,
+        "attempted_calls": 2,
+        "unknown_attempt_calls": 0,
+        "usage_known_calls": 2,
+        "usage_expected_calls": 2,
+        "usage_coverage": 1.0,
+        "known_total_tokens": 20,
+        "total_tokens": 20,
+        "token_fields": {
+          "input_tokens": {
+            "known_subtotal": 20,
+            "recorded_calls": 2
+          },
+          "output_tokens": {
+            "known_subtotal": 0,
+            "recorded_calls": 0
+          },
+          "cached_input_tokens": {
+            "known_subtotal": 0,
+            "recorded_calls": 0
+          },
+          "reasoning_output_tokens": {
+            "known_subtotal": 0,
+            "recorded_calls": 0
+          }
+        },
+        "request_duration_ms_known_sum": 1547,
+        "duration_known_calls": 2,
+        "duration_note": "请求耗时之和，不是运行墙钟时间；不累加嵌套工具 span",
+        "status": "complete"
+      }
+    },
+    "resources_by_phase": {
+      "edit": {
+        "scope_complete": true,
+        "observed_calls": 1,
+        "known_not_attempted": 0,
+        "attempted_calls": 1,
+        "unknown_attempt_calls": 0,
+        "usage_known_calls": 1,
+        "usage_expected_calls": 1,
+        "usage_coverage": 1.0,
+        "known_total_tokens": 1374,
+        "total_tokens": 1374,
+        "token_fields": {
+          "input_tokens": {
+            "known_subtotal": 1106,
+            "recorded_calls": 1
+          },
+          "output_tokens": {
+            "known_subtotal": 268,
+            "recorded_calls": 1
+          },
+          "cached_input_tokens": {
+            "known_subtotal": 0,
+            "recorded_calls": 1
+          },
+          "reasoning_output_tokens": {
+            "known_subtotal": 0,
+            "recorded_calls": 0
+          }
+        },
+        "request_duration_ms_known_sum": 2085,
+        "duration_known_calls": 1,
+        "duration_note": "请求耗时之和，不是运行墙钟时间；不累加嵌套工具 span",
+        "status": "complete"
+      },
+      "model": {
+        "scope_complete": true,
+        "observed_calls": 3,
+        "known_not_attempted": 0,
+        "attempted_calls": 3,
+        "unknown_attempt_calls": 0,
+        "usage_known_calls": 3,
+        "usage_expected_calls": 3,
+        "usage_coverage": 1.0,
+        "known_total_tokens": 11063,
+        "total_tokens": 11063,
+        "token_fields": {
+          "input_tokens": {
+            "known_subtotal": 10302,
+            "recorded_calls": 3
+          },
+          "output_tokens": {
+            "known_subtotal": 761,
+            "recorded_calls": 3
+          },
+          "cached_input_tokens": {
+            "known_subtotal": 1024,
+            "recorded_calls": 3
+          },
+          "reasoning_output_tokens": {
+            "known_subtotal": 0,
+            "recorded_calls": 0
+          }
+        },
+        "request_duration_ms_known_sum": 7103,
+        "duration_known_calls": 3,
+        "duration_note": "请求耗时之和，不是运行墙钟时间；不累加嵌套工具 span",
+        "status": "complete"
+      },
+      "plan": {
+        "scope_complete": true,
+        "observed_calls": 1,
+        "known_not_attempted": 0,
+        "attempted_calls": 1,
+        "unknown_attempt_calls": 0,
+        "usage_known_calls": 1,
+        "usage_expected_calls": 1,
+        "usage_coverage": 1.0,
+        "known_total_tokens": 6640,
+        "total_tokens": 6640,
+        "token_fields": {
+          "input_tokens": {
+            "known_subtotal": 6094,
+            "recorded_calls": 1
+          },
+          "output_tokens": {
+            "known_subtotal": 546,
+            "recorded_calls": 1
+          },
+          "cached_input_tokens": {
+            "known_subtotal": 0,
+            "recorded_calls": 1
+          },
+          "reasoning_output_tokens": {
+            "known_subtotal": 0,
+            "recorded_calls": 0
+          }
+        },
+        "request_duration_ms_known_sum": 6172,
+        "duration_known_calls": 1,
+        "duration_note": "请求耗时之和，不是运行墙钟时间；不累加嵌套工具 span",
+        "status": "complete"
+      },
+      "query_embedding": {
+        "scope_complete": true,
+        "observed_calls": 2,
+        "known_not_attempted": 0,
+        "attempted_calls": 2,
+        "unknown_attempt_calls": 0,
+        "usage_known_calls": 2,
+        "usage_expected_calls": 2,
+        "usage_coverage": 1.0,
+        "known_total_tokens": 20,
+        "total_tokens": 20,
+        "token_fields": {
+          "input_tokens": {
+            "known_subtotal": 20,
+            "recorded_calls": 2
+          },
+          "output_tokens": {
+            "known_subtotal": 0,
+            "recorded_calls": 0
+          },
+          "cached_input_tokens": {
+            "known_subtotal": 0,
+            "recorded_calls": 0
+          },
+          "reasoning_output_tokens": {
+            "known_subtotal": 0,
+            "recorded_calls": 0
+          }
+        },
+        "request_duration_ms_known_sum": 1547,
+        "duration_known_calls": 2,
+        "duration_note": "请求耗时之和，不是运行墙钟时间；不累加嵌套工具 span",
+        "status": "complete"
+      }
+    },
+    "cost": {
+      "kind": "estimate",
+      "pricing": null,
+      "known_subtotal": null,
+      "total": null,
+      "priced_calls": 0,
+      "unpriced_calls": 0,
+      "status": "pricing_missing"
+    },
+    "wall_clock_ms": 430394,
+    "wall_clock_includes_human_wait": true,
+    "human_wait_ms": null,
+    "tests": {
+      "source": "TestRun.test_report",
+      "test_run_id": "d5fac977-10f6-48c5-a0cd-f5dfaa8d83c0",
+      "counts": {
+        "passed": 8,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "pass_rate": 1.0,
+      "report_status": "recorded",
+      "report_sha256": "cf9d4c2d68f5be2cadd6635ca5173e36891b33e527f92fc9ef9ae3d9ce6a9a4c",
+      "count_unit": "junit_testcase_records"
+    },
+    "acceptance": {
+      "outcome": "unknown",
+      "rule_version": "evidence-conservative-v1",
+      "reason": "versioned_acceptance_evidence_missing",
+      "source_test_run_id": "d5fac977-10f6-48c5-a0cd-f5dfaa8d83c0"
+    }
+  },
+  "task": {
+    "id": "1704cb77-8250-4126-825e-034006062975",
+    "repository_id": "a67c9555-e29f-4ee9-a24c-b78efa009b78",
+    "user_request": "list_tasks 同时使用状态筛选和分页时，部分结果数量及偏移不符合预期。请定位并修复，保持原顺序、不修改输入列表；非法分页参数仍抛 ValueError。只修改 task_list.py，不修改固定验收测试。",
+    "task_type": "plan",
+    "status": "completed",
+    "created_at": "2026-10-13T14:08:34.274397Z",
+    "started_at": "2026-10-13T14:27:57.177772Z",
+    "completed_at": "2026-10-13T14:35:07.572681Z",
+    "result": {
+      "repository_id": "a67c9555-e29f-4ee9-a24c-b78efa009b78",
+      "plan": {
+        "summary": "修复 task_list.py 中 list_tasks 的筛选与分页顺序错误：当前实现先对未筛选的完整列表做 tasks[offset:offset+limit] 切片，再按 status 过滤，导致 offset 作用于未筛选集合、limit 为筛选前窗口，筛选后返回条数与偏移均不符合预期。应改为先按 status 过滤生成新列表，再对新列表切片，并保留非法分页参数抛 ValueError 的校验。只改 task_list.py，不改动固定验收测试。",
+        "steps": [
+          {
+            "id": 1,
+            "description": "在 task_list.py 中调整 list_tasks 的执行顺序：保留开头的非法分页参数校验（limit < 1 或 offset < 0 时抛出 ValueError），先按 status 构造新的筛选结果列表（status 为 None 时不筛选），再对该筛选结果执行 [offset:offset + limit] 切片并返回。全程通过列表推导式构造新列表，不原地修改传入的 tasks，从而保证元素相对顺序不变。",
+            "files": [
+              "task_list.py"
+            ],
+            "source_ids": [
+              "S1",
+              "S11",
+              "S5",
+              "S10"
+            ],
+            "verification": "对 fixtures 中的 5 条任务调用 list_tasks：status=\"completed\", limit=2, offset=0 返回 id [2, 4]；status=\"completed\", limit=2, offset=1 返回 id [4, 5]（证明 offset 作用于筛选后集合）；status=None, limit=2, offset=1 返回 id [2, 3]；status=\"running\", limit=2, offset=0 返回空前；status=\"completed\", limit=2, offset=10 返回空且不抛异常；返回元素顺序与输入列表中出现的先后顺序一致。"
+          },
+          {
+            "id": 2,
+            "description": "核验不修改输入列表与非法分页参数行为在调整后保持不变：筛选与分页均基于新建列表，传入的 tasks 列表及其中的 dict 对象内容不被改动；limit 为 0、offset 为负数时仍在执行筛选/切片之前抛出 ValueError。",
+            "files": [
+              "task_list.py"
+            ],
+            "source_ids": [
+              "S3",
+              "S9",
+              "S4",
+              "S6",
+              "S12"
+            ],
+            "verification": "调用前后用深拷贝对比，传入的 tasks 列表与其元素内容完全相等，未被修改；以 limit=0 和 limit=2, offset=-1 调用时均抛出 ValueError，且不返回任何结果。"
+          }
+        ]
+      }
+    },
+    "error": null,
+    "review_decision": "approved",
+    "review_comment": "批准仅修改 task_list.py，先筛选后分页，保留参数校验和输入不变性，不修改固定测试。",
+    "reviewed_at": "2026-10-13T14:30:19.942937Z",
+    "retry_count": 0,
+    "max_retries": 1,
+    "run_config": {
+      "schema_version": 1,
+      "retrieval_policy": "hybrid",
+      "max_tool_calls": 4,
+      "runtime_fingerprint": "3da554dd021701722395600115d5b87715f05f98adca79a668c97ceb83b134ba",
+      "index_fingerprint": "8c257a4b2f570f9e273907dbe73e6239f0aa4640bda4c0d27847caa53009440c",
+      "test_image_id": "sha256:14ae9449013b4c5cf1ac42d09ae368570eda7315f3b8757c6274e9e48fab1d28",
+      "experiment_contract_sha256": "c89389ea2b4281674f78505171744f67468f8c62a44cc979ace62e945cf539fd"
+    }
+  },
+  "completion_event_sequence": 37,
+  "test_run": {
+    "test_report": {
+      "xml": "<?xml version=\"1.0\" encoding=\"utf-8\"?><testsuites name=\"pytest tests\"><testsuite name=\"pytest\" errors=\"0\" failures=\"0\" skipped=\"0\" tests=\"8\" time=\"0.108\" timestamp=\"2026-10-13T14:33:29.990410+00:00\" hostname=\"8d4e85d3d2d6\"><testcase classname=\"tests.test_task_list\" name=\"test_filter_and_pagination[completed-2-0-expected_ids0]\" time=\"0.001\" /><testcase classname=\"tests.test_task_list\" name=\"test_filter_and_pagination[completed-2-1-expected_ids1]\" time=\"0.001\" /><testcase classname=\"tests.test_task_list\" name=\"test_filter_and_pagination[None-2-1-expected_ids2]\" time=\"0.001\" /><testcase classname=\"tests.test_task_list\" name=\"test_filter_and_pagination[running-2-0-expected_ids3]\" time=\"0.000\" /><testcase classname=\"tests.test_task_list\" name=\"test_filter_and_pagination[completed-2-10-expected_ids4]\" time=\"0.001\" /><testcase classname=\"tests.test_task_list\" name=\"test_input_is_not_modified\" time=\"0.000\" /><testcase classname=\"tests.test_task_list\" name=\"test_invalid_pagination[0-0]\" time=\"0.001\" /><testcase classname=\"tests.test_task_list\" name=\"test_invalid_pagination[2--1]\" time=\"0.000\" /></testsuite></testsuites>",
+      "counts": {
+        "errors": 0,
+        "failed": 0,
+        "passed": 8,
+        "skipped": 0
+      },
+      "format": "pytest_junit",
+      "sha256": "cf9d4c2d68f5be2cadd6635ca5173e36891b33e527f92fc9ef9ae3d9ce6a9a4c",
+      "status": "recorded",
+      "version": 1
+    },
+    "id": "d5fac977-10f6-48c5-a0cd-f5dfaa8d83c0",
+    "task_id": "1704cb77-8250-4126-825e-034006062975",
+    "status": "finished",
+    "image": "sha256:14ae9449013b4c5cf1ac42d09ae368570eda7315f3b8757c6274e9e48fab1d28",
+    "timeout_seconds": 120,
+    "started_at": "2026-10-13T14:33:28.831352Z",
+    "completed_at": "2026-10-13T14:33:30.281990Z",
+    "exit_code": 0,
+    "timed_out": false,
+    "stdout": "........                                                                 [100%]\n----------------- generated xml file: /test-results/junit.xml ------------------\n8 passed in 0.11s\n",
+    "stderr": "",
+    "stdout_truncated": false,
+    "stderr_truncated": false,
+    "error": null,
+    "snapshot_hash": "18b9edc7f926cd59dbd0de31e427de27d11138df9e9208ebdb04151c4b75b653"
+  },
+  "final_diff": {
+    "task_id": "1704cb77-8250-4126-825e-034006062975",
+    "repository_id": "a67c9555-e29f-4ee9-a24c-b78efa009b78",
+    "diff": "diff --git a/task_list.py b/task_list.py\nindex 7994d7c..58e8d55 100644\n--- a/task_list.py\n+++ b/task_list.py\n@@ -9,7 +9,10 @@ def list_tasks(\n     if limit < 1 or offset < 0:\n         raise ValueError(\"limit must be at least 1 and offset must be non-negative\")\n \n-    page = tasks[offset:offset + limit]\n     if status is not None:\n-        page = [task for task in page if task[\"status\"] == status]\n+        filtered = [task for task in tasks if task[\"status\"] == status]\n+    else:\n+        filtered = list(tasks)\n+\n+    page = filtered[offset:offset + limit]\n     return page\n",
+    "changed_files": [
+      "task_list.py"
+    ],
+    "untracked_files": [],
+    "truncated": false
+  },
+  "failure": null,
+  "diff_scope": "workspace_against_head"
+}

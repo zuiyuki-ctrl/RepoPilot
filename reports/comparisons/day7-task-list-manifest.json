@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "runs": [
+    {
+      "role": "primary",
+      "preparation": "../experiments/day7-task-list-vector-d5d8d3e625f24eba9a1a4e99abda4b11/c1a22071-0dac-4998-86bc-923179fbae25/preparation.json",
+      "report": "../experiments/day7-task-list-vector-d5d8d3e625f24eba9a1a4e99abda4b11/c1a22071-0dac-4998-86bc-923179fbae25/operations/de08c55b-6746-49df-8341-f46ad25688af/task_302c289e-852f-47af-bdd6-01dfdbef6f8c_20261013T143528729021Z.json",
+      "evidence": "../experiments/day7-task-list-vector-d5d8d3e625f24eba9a1a4e99abda4b11/c1a22071-0dac-4998-86bc-923179fbae25/evidence/retrieval_302c289e-852f-47af-bdd6-01dfdbef6f8c_b8b063076cf447688f96703b423b4505/evidence.json"
+    },
+    {
+      "role": "primary",
+      "preparation": "../experiments/day7-task-list-hybrid-48356c09a8c448edba790d283d384489/dcc0e13f-d19a-4823-b6b6-93cbca712806/preparation.json",
+      "report": "../experiments/day7-task-list-hybrid-48356c09a8c448edba790d283d384489/dcc0e13f-d19a-4823-b6b6-93cbca712806/operations/b79c62d7-69a4-4d81-8c24-f92d8bf70ae0/task_1704cb77-8250-4126-825e-034006062975_20261013T143537863460Z.json",
+      "evidence": "../experiments/day7-task-list-hybrid-48356c09a8c448edba790d283d384489/dcc0e13f-d19a-4823-b6b6-93cbca712806/evidence/retrieval_1704cb77-8250-4126-825e-034006062975_d2b92408072e47dca6503e38e34b8455/evidence.json"
+    }
+  ]
+}

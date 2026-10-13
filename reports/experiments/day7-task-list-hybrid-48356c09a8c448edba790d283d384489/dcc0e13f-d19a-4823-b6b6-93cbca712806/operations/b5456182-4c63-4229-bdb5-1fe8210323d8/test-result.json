@@ -1,0 +1,35 @@
+{
+  "experiment_id": "dcc0e13f-d19a-4823-b6b6-93cbca712806",
+  "task_id": "1704cb77-8250-4126-825e-034006062975",
+  "operation_id": "b5456182-4c63-4229-bdb5-1fe8210323d8",
+  "test_run": {
+    "test_report": {
+      "xml": "<?xml version=\"1.0\" encoding=\"utf-8\"?><testsuites name=\"pytest tests\"><testsuite name=\"pytest\" errors=\"0\" failures=\"0\" skipped=\"0\" tests=\"8\" time=\"0.108\" timestamp=\"2026-10-13T14:33:29.990410+00:00\" hostname=\"8d4e85d3d2d6\"><testcase classname=\"tests.test_task_list\" name=\"test_filter_and_pagination[completed-2-0-expected_ids0]\" time=\"0.001\" /><testcase classname=\"tests.test_task_list\" name=\"test_filter_and_pagination[completed-2-1-expected_ids1]\" time=\"0.001\" /><testcase classname=\"tests.test_task_list\" name=\"test_filter_and_pagination[None-2-1-expected_ids2]\" time=\"0.001\" /><testcase classname=\"tests.test_task_list\" name=\"test_filter_and_pagination[running-2-0-expected_ids3]\" time=\"0.000\" /><testcase classname=\"tests.test_task_list\" name=\"test_filter_and_pagination[completed-2-10-expected_ids4]\" time=\"0.001\" /><testcase classname=\"tests.test_task_list\" name=\"test_input_is_not_modified\" time=\"0.000\" /><testcase classname=\"tests.test_task_list\" name=\"test_invalid_pagination[0-0]\" time=\"0.001\" /><testcase classname=\"tests.test_task_list\" name=\"test_invalid_pagination[2--1]\" time=\"0.000\" /></testsuite></testsuites>",
+      "counts": {
+        "errors": 0,
+        "failed": 0,
+        "passed": 8,
+        "skipped": 0
+      },
+      "format": "pytest_junit",
+      "sha256": "cf9d4c2d68f5be2cadd6635ca5173e36891b33e527f92fc9ef9ae3d9ce6a9a4c",
+      "status": "recorded",
+      "version": 1
+    },
+    "id": "d5fac977-10f6-48c5-a0cd-f5dfaa8d83c0",
+    "task_id": "1704cb77-8250-4126-825e-034006062975",
+    "status": "finished",
+    "image": "sha256:14ae9449013b4c5cf1ac42d09ae368570eda7315f3b8757c6274e9e48fab1d28",
+    "timeout_seconds": 120,
+    "started_at": "2026-10-13T14:33:28.831352Z",
+    "completed_at": "2026-10-13T14:33:30.281990Z",
+    "exit_code": 0,
+    "timed_out": false,
+    "stdout": "........                                                                 [100%]\n----------------- generated xml file: /test-results/junit.xml ------------------\n8 passed in 0.11s\n",
+    "stderr": "",
+    "stdout_truncated": false,
+    "stderr_truncated": false,
+    "error": null,
+    "snapshot_hash": "18b9edc7f926cd59dbd0de31e427de27d11138df9e9208ebdb04151c4b75b653"
+  }
+}

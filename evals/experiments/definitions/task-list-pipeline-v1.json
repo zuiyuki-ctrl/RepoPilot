@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "suite_id": "core-platform-pipeline",
+  "suite_version": "v1",
+  "config_version": "v1",
+  "repeat_index": 1,
+  "changed_parameter": "retrieval_policy",
+  "baseline": "vector",
+  "candidate": "hybrid",
+  "max_tool_calls": 4,
+  "max_retries": 1,
+  "test_timeout_seconds": 120,
+  "intervention_policy": "approve_generated_candidate_only",
+  "acceptance": {
+    "version": "task-list-tests-v1",
+    "required_tests": [
+      {"classname": "tests.test_task_list", "name": "test_filter_and_pagination[completed-2-0-expected_ids0]"},
+      {"classname": "tests.test_task_list", "name": "test_filter_and_pagination[completed-2-1-expected_ids1]"},
+      {"classname": "tests.test_task_list", "name": "test_filter_and_pagination[None-2-1-expected_ids2]"},
+      {"classname": "tests.test_task_list", "name": "test_filter_and_pagination[running-2-0-expected_ids3]"},
+      {"classname": "tests.test_task_list", "name": "test_filter_and_pagination[completed-2-10-expected_ids4]"},
+      {"classname": "tests.test_task_list", "name": "test_input_is_not_modified"},
+      {"classname": "tests.test_task_list", "name": "test_invalid_pagination[0-0]"},
+      {"classname": "tests.test_task_list", "name": "test_invalid_pagination[2--1]"}
+    ],
+    "baseline_failure_tests": [
+      {"classname": "tests.test_task_list", "name": "test_filter_and_pagination[completed-2-0-expected_ids0]"},
+      {"classname": "tests.test_task_list", "name": "test_filter_and_pagination[completed-2-1-expected_ids1]"}
+    ],
+    "manual_criteria": []
+  }
+}

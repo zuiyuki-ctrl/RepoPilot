@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "experiment_id": "c1a22071-0dac-4998-86bc-923179fbae25",
+  "task_id": "302c289e-852f-47af-bdd6-01dfdbef6f8c",
+  "inspected_at": "2026-10-13T14:30:18.989959Z",
+  "task_status": "approved",
+  "scope_status": "valid",
+  "outside_scope_files": [],
+  "task": {
+    "id": "302c289e-852f-47af-bdd6-01dfdbef6f8c",
+    "repository_id": "3b64de3b-a5b3-4749-afd6-364e89256153",
+    "user_request": "list_tasks 同时使用状态筛选和分页时，部分结果数量及偏移不符合预期。请定位并修复，保持原顺序、不修改输入列表；非法分页参数仍抛 ValueError。只修改 task_list.py，不修改固定验收测试。",
+    "task_type": "plan",
+    "status": "approved",
+    "created_at": "2026-10-13T14:07:29.931014Z",
+    "started_at": "2026-10-13T14:27:39.140679Z",
+    "completed_at": null,
+    "result": {
+      "repository_id": "3b64de3b-a5b3-4749-afd6-364e89256153",
+      "plan": {
+        "summary": "list_tasks 当前先对原始列表按 offset/limit 切片、再在切片窗口内按 status 过滤，导致筛选与分页组合时偏移与数量错误（如 tasks[1:3]=[2,3] 再筛选 completed 只得 [2]，期望 [4,5]）。修复方式为调整顺序：先按 status 过滤全部任务生成新列表，再对过滤后序列应用 offset/limit，从而保持原顺序、不修改输入列表，并保留 limit<1 或 offset<0 抛 ValueError 的校验。仅修改 task_list.py，不动固定验收测试。",
+        "steps": [
+          {
+            "id": 1,
+            "description": "在 task_list.py 的 list_tasks 中保留参数校验（limit < 1 or offset < 0 时抛 ValueError，错误信息不变），先按 status 过滤任务生成新列表，再在过滤后的序列上应用切片 [offset:offset+limit]；过滤使用列表推导等非原地方式，保证不修改输入 tasks 且维持原始顺序；status 为 None 时不过滤。",
+            "files": [
+              "task_list.py"
+            ],
+            "source_ids": [
+              "S1",
+              "S2",
+              "S3",
+              "S4",
+              "S5"
+            ],
+            "verification": "对 test_task_list.py 的 tasks 样例数据（id 1 created、2 completed、3 failed、4 completed、5 completed）调用 list_tasks，status='completed', limit=2, offset=0 返回 id [2,4]；status='completed', limit=2, offset=1 返回 id [4,5]；status=None, limit=2, offset=1 返回 id [2,3]；status='running', limit=2, offset=0 返回空列表；status='completed', limit=2, offset=10 返回空列表；调用前后 tasks 与 deepcopy 副本相等；limit=0 或 offset=-1 时抛出 ValueError，且断言任务状态顺序与输入中出现的先后一致。"
+          }
+        ]
+      }
+    },
+    "error": null,
+    "review_decision": "approved",
+    "review_comment": "批准仅修改 task_list.py，先筛选后分页，保留参数校验和输入不变性，不修改固定测试。",
+    "reviewed_at": "2026-10-13T14:30:18.969499Z",
+    "retry_count": 0,
+    "max_retries": 1,
+    "run_config": {
+      "schema_version": 1,
+      "retrieval_policy": "vector",
+      "max_tool_calls": 4,
+      "runtime_fingerprint": "3da554dd021701722395600115d5b87715f05f98adca79a668c97ceb83b134ba",
+      "index_fingerprint": "8c257a4b2f570f9e273907dbe73e6239f0aa4640bda4c0d27847caa53009440c",
+      "test_image_id": "sha256:14ae9449013b4c5cf1ac42d09ae368570eda7315f3b8757c6274e9e48fab1d28",
+      "experiment_contract_sha256": "fd8557bdea2fb625166130de811d2ffe2c9daeb56907506dc649c0ab17c5551d"
+    }
+  }
+}

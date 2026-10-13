@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "experiment_id": "dcc0e13f-d19a-4823-b6b6-93cbca712806",
+  "created_at": "2026-10-13T14:30:53.793390Z",
+  "candidate": {
+    "task_id": "1704cb77-8250-4126-825e-034006062975",
+    "repository_id": "a67c9555-e29f-4ee9-a24c-b78efa009b78",
+    "base_file_hash": "2bcc1a76ad665ab96ec71789ff24baae6db9d98464e1abb6a7e9283a4d37aa5f",
+    "proposal": {
+      "file_path": "task_list.py",
+      "summary": "调整 list_tasks 的执行顺序：先按 status 构造筛选后的新列表（status 为 None 时不筛选），再对筛选结果执行分页切片，确保 offset/limit 作用于筛选后集合，保持原顺序且不修改输入列表；保留非法分页参数的 ValueError 校验。",
+      "content": "def list_tasks(\r\n    tasks: list[dict],\r\n    *,\r\n    status: str | None = None,\r\n    limit: int = 20,\r\n    offset: int = 0,\r\n) -> list[dict]:\r\n    \"\"\"返回任务列表的查询结果，不修改输入列表。\"\"\"\r\n    if limit < 1 or offset < 0:\r\n        raise ValueError(\"limit must be at least 1 and offset must be non-negative\")\r\n\r\n    if status is not None:\r\n        filtered = [task for task in tasks if task[\"status\"] == status]\r\n    else:\r\n        filtered = list(tasks)\r\n\r\n    page = filtered[offset:offset + limit]\r\n    return page\r\n"
+    }
+  }
+}
