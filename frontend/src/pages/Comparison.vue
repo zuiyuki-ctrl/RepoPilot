@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { readComparison, type ComparisonSnapshot } from '../data/comparison'
+import { label } from '../data/assessment'
+import DecisionPanel from '../components/DecisionPanel.vue'
+import ResourceDelta from '../components/ResourceDelta.vue'
+import FailureEvidence from '../components/FailureEvidence.vue'
 
 const snapshot = ref<ComparisonSnapshot | null>(null)
 const error = ref('')
@@ -22,10 +26,17 @@ onMounted(load)
   <p v-if="loading" role="status">正在读取历史快照…</p>
   <div v-else-if="error" role="alert" class="error-state">{{ error }} <button @click="load">重新读取</button></div>
   <template v-else-if="snapshot">
-    <div class="snapshot-note">{{ snapshot.pairs.length }} 组用例 · 每种策略每组仅一次主运行。结果不能证明 Hybrid 整体优于 Vector；证据快照也不等于完整任务轨迹。</div>
-    <section v-for="pair in snapshot.pairs" :key="`${pair.caseId}/${pair.caseVersion}`" class="comparison-group">
-      <div class="case-title"><h2>{{ pair.caseId }} <small>{{ pair.caseVersion }}</small></h2><span>{{ pair.complete ? '配对齐全' : '配对缺失' }}</span></div>
-      <p class="condition-note">{{ pair.differences.length ? `已记录条件存在差异：${pair.differences.join('、')}` : '已记录的对照条件一致；未记录的条件不作一致性保证。' }}</p>
+    <div class="snapshot-note">{{ snapshot.pairs.length }} 组配对 · 按用例版本与预声明重复序号配对，全部保留，不择优。结果不能证明 Hybrid 整体优于 Vector。</div>
+    <DecisionPanel :decision="snapshot.decision" :counts="snapshot.analysisCounts" />
+    <section v-for="pair in snapshot.pairs" :key="`${pair.caseId}/${pair.caseVersion}/${pair.repeatIndex}`" class="comparison-group">
+      <div class="case-title"><h2>{{ pair.caseId }} <small>{{ pair.caseVersion }} / repeat {{ pair.repeatIndex }}</small></h2><span>{{ pair.complete ? '配对齐全' : '配对缺失' }}</span></div>
+      <p><strong>{{ pair.analysis ? label(pair.analysis.category) : '分类未记录' }}</strong> · {{ pair.analysis?.reason ?? '旧报告未生成分析' }}</p>
+      <p class="condition-note">{{ pair.comparability ? label(pair.comparability.status) : '条件证据未记录，不能认定一致' }} · {{ pair.differences.length ? `其他已记录差异：${pair.differences.join('、')}` : '无额外已记录差异不代表全面可比。' }}</p>
+      <details v-if="pair.comparability" class="comparison-details"><summary>查看条件差异与缺失字段</summary>
+        <p>缺失：{{ pair.comparability.missing.join('、') || '已检查字段无缺失' }}</p>
+        <p v-for="(difference, index) in pair.comparability.differences" :key="index">{{ difference.field }} · baseline {{ value(difference.baseline ?? difference.expected) }} → candidate {{ value(difference.candidate ?? difference.actual) }}</p>
+      </details>
+      <ResourceDelta :resources="pair.resources" />
       <div class="comparison-columns">
         <article v-for="(run, index) in pair.runs" :key="index" class="strategy-card">
           <h3>{{ index === 0 ? 'Vector' : 'Hybrid' }}</h3>
@@ -33,10 +44,16 @@ onMounted(load)
           <template v-else>
             <div class="run-outcome"><strong>{{ run.status }}</strong><span>重试 {{ value(run.retryCount) }}</span></div>
             <dl class="comparison-metrics">
+              <dt>独立验收</dt><dd>{{ label(run.acceptance?.outcome) }} · {{ run.acceptance?.reason ?? '规则证据未记录' }}</dd>
+              <dt>Token</dt><dd>{{ value(run.metrics?.resources.total_tokens) }} · 已知小计 {{ value(run.metrics?.resources.known_total_tokens) }} · 覆盖率 {{ value(run.metrics?.resources.usage_coverage) }}</dd>
+              <dt>估算成本</dt><dd>{{ value(run.metrics?.cost.total) }} {{ run.metrics?.cost.currency ?? '' }} · {{ run.metrics?.cost.status ?? '未记录' }}</dd>
+              <dt>墙钟时长</dt><dd>{{ value(run.metrics?.wall_clock_ms) }} ms（含人工等待）</dd>
               <dt>测试进程</dt><dd>{{ run.test ? (run.test.passed ? '通过' : '未通过') : '未记录' }} · exit {{ value(run.test?.exitCode) }}</dd>
               <dt>完成事件</dt><dd>{{ value(run.completionSequence) }}</dd>
               <dt>检索证据</dt><dd>{{ traceLabel(run.traceStatus) }} · 快照截止 {{ value(run.traceLastSequence) }}</dd>
             </dl>
+            <p class="condition-note">结构化测试计数：{{ run.metrics?.tests.counts ? `passed=${run.metrics.tests.counts.passed} / failed=${run.metrics.tests.counts.failed} / errors=${run.metrics.tests.counts.errors} / skipped=${run.metrics.tests.counts.skipped}` : '未记录；不解析历史 stdout 补造' }}</p>
+            <FailureEvidence :analysis="run.failureAnalysis" :experiment-id="run.experimentId" />
             <p class="run-id">实验 {{ run.experimentId }}</p>
             <RouterLink v-if="run.detailMatches" :to="`/runs/${run.experimentId}`">查看运行详情 →</RouterLink>
             <p v-else class="condition-note">现有详情与本次选定报告不一致，暂不跳转。</p>

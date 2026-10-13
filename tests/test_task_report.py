@@ -162,7 +162,7 @@ class TaskReportTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         report = response.json()
         self.assertEqual(report["failure"], dict(reason=self.task.error, event_sequence=10,
-            event_type="REFLECTION_FINISHED",
+            event_type="REFLECTION_FINISHED", reason_code=None,
             reflection=self.failure_events["REFLECTION_FINISHED"].payload["decision"]))
         self.assertEqual(report["test_run"]["id"], str(self.run_id))
         self.assertIsNone(report["final_diff"])
@@ -285,6 +285,7 @@ class TaskReportTests(unittest.TestCase):
         report = service.get_task_execution_report(self.task_id)
         self.assertEqual(report.failure.event_type, "TASK_FAILED")
         self.assertEqual(report.failure.event_sequence, 12)
+        self.assertEqual(report.failure.reason_code, "retry_budget_exhausted")
         self.assertIsNone(report.failure.reflection)
         self.assertIsNone(report.final_diff)
         self.assertEqual(report.test_run.id, self.run_id)

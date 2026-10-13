@@ -68,3 +68,36 @@ test('只投影诊断字段并脱敏查询，不把未知属性发布到页面',
   assert.equal(result.diagnostics.vector_candidate_count, null)
   assert.equal(result.diagnostics.unknown, undefined)
 })
+
+test('新分析直接投影后端结果，未知不填零，旧数据不推断可比', () => {
+  const input = fixture()
+  assert.equal(build(input).decision, null)
+  assert.equal(build(input).pairs[0].comparability, null)
+  input.report.decision = { verdict: 'insufficient_evidence', policy_source: 'not_configured',
+    checks: [], quality: { coverage: 0, delta_pp: null }, resource_deltas: {},
+    review: null, next_steps: ['先补证据'], internal: 'private' }
+  input.report.pairs[0].analysis = { category: 'undecided', reason: 'unknown', both_test_processes_passed: true }
+  input.report.pairs[0].repeat_index = 2
+  const output = build(input)
+  assert.equal(output.decision.verdict, 'insufficient_evidence')
+  assert.equal(output.decision.quality.coverage, 0)
+  assert.equal(output.decision.resources.tokens.baseline, null)
+  assert.equal(output.pairs[0].analysis.category, 'undecided')
+  assert.equal(output.pairs[0].repeatIndex, 2)
+  assert.equal(output.decision.internal, undefined)
+})
+
+test('失败与人工决策白名单投影，不携带原文或本机路径', () => {
+  const input = fixture()
+  input.report.decision = { verdict: 'meets_batch_rules', policy_source: 'exploratory',
+    review: { action: 'continue_experiment', rationale: 'api_key=fixture-secret C:/Users/private/data', secret: 'private' } }
+  input.run.failure_analysis = { facts: [{ kind: 'test_timeout', evidence_ids: ['final_test'] }],
+    evidence: [{ id: 'final_test', source: 'report.test_run', value: { id: 'test', sha256: 'hash', stdout: 'private-log', xml: 'private-xml' } }],
+    hypotheses: [{ statement: 'secret_key=fixture-value', evidence_ids: ['final_test'], review_status: 'unreviewed' }] }
+  const result = build(input)
+  const serialized = JSON.stringify(result)
+  for (const secret of ['fixture-secret', 'fixture-value', 'C:/Users', 'private-log', 'private-xml']) assert.ok(!serialized.includes(secret))
+  assert.equal(result.decision.policy_source, 'exploratory')
+  assert.deepEqual(result.pairs[0].runs[0].failureAnalysis.facts[0].evidenceIds, ['final_test'])
+  assert.equal(result.pairs[0].runs[0].failureAnalysis.evidence[0].reference.id, 'test')
+})

@@ -12,9 +12,12 @@ from ..schemas.run_config import AgentRunConfig
 from .retrieval_report_service import build_retrieval_report
 from .evaluation_metrics_service import test_metrics, aggregate_metrics, estimate_cost, preparation_resources
 from .experiment_contract_service import require_contract, evaluate_acceptance, compare_conditions
+from .experiment_analysis_service import analyze_failure, analyze_pair, summarize_pairs
+from .experiment_decision_service import pair_resources, build_decision
 
 
-def summarize_run(preparation: dict, report: dict | None, evidence: dict | None, acceptance_review: dict | None = None) -> dict:
+def summarize_run(preparation: dict, report: dict | None, evidence: dict | None,
+                  acceptance_review: dict | None = None, failure_review: dict | None = None) -> dict:
     """核对三个 artifact 的身份，再提取本次终态与规划阶段观测。"""
     prep = ExperimentPreparation.model_validate(preparation)
     if prep.status == "prepared":
@@ -24,6 +27,7 @@ def summarize_run(preparation: dict, report: dict | None, evidence: dict | None,
         raise ValueError("Comparison requires a fixed vector/hybrid policy")
     row = {
         "experiment_id": str(prep.experiment_id), "case": prep.case.model_dump(mode="json"),
+        "prepared_at": prep.created_at.isoformat(),
         "strategy": strategy, "run_config": prep.run_config.model_dump(mode="json"),
         "task_id": str(prep.task_id) if prep.task_id else None,
         "preparation_status": prep.status, "preparation_stage": prep.stage,
@@ -36,12 +40,16 @@ def summarize_run(preparation: dict, report: dict | None, evidence: dict | None,
         "definition": prep.definition.model_dump(mode="json") if prep.definition else None,
         "repeat_index": prep.definition.repeat_index if prep.definition else 1,
         "acceptance": None,
+        "completed_at": None,
+        "failure_review": failure_review,
         "preparation_embedding_observations": prep.embedding_observations,
         "request_observations": None,
         "metrics": None,
         "preparation_resources": preparation_resources(prep.embedding_observations, preparation_complete=prep.status == "prepared"),
     }
     if report is None:
+        if failure_review is not None:
+            raise ValueError("Failure review requires a terminal task report")
         if evidence is not None:
             raise ValueError("Evidence without a task report is not supported in this comparison")
         if prep.status == "error":
@@ -91,6 +99,7 @@ def summarize_run(preparation: dict, report: dict | None, evidence: dict | None,
     if prep.definition is not None and row["metrics"] is not None:
         row["metrics"]["acceptance"] = row["acceptance"]
     row.update(status=task.status, retry_count=task.retry_count,
+               completed_at=task.completed_at.isoformat() if task.completed_at else None,
                max_retries=task.max_retries,
                completion_event_sequence=task_report.completion_event_sequence,
                failure=task_report.failure.model_dump(mode="json") if task_report.failure else None,
@@ -165,12 +174,14 @@ def summarize_run(preparation: dict, report: dict | None, evidence: dict | None,
     return row
 
 
-def build_comparison(rows: list[dict], *, pricing: dict | None = None) -> dict:
+def build_comparison(rows: list[dict], *, pricing: dict | None = None,
+                     decision_policy: dict | None = None, decision_review: dict | None = None) -> dict:
     """显式主运行一例两组，准备失败/中断单列，绝不自动选择最佳运行。"""
     rows = deepcopy(rows)
     seen_experiments, seen_tasks = set(), set()
     groups, additional = {}, []
     for row in rows:
+        row["failure_analysis"] = analyze_failure(row, review=row.pop("failure_review", None))
         prepared_resources = row.get("preparation_resources")
         if prepared_resources is not None:
             prepared_resources["cost"] = estimate_cost(prepared_resources["request_observations"], pricing,
@@ -213,16 +224,21 @@ def build_comparison(rows: list[dict], *, pricing: dict | None = None) -> dict:
                                    if call["model"] is not None})
                 if models(left) != models(right):
                     differences.append("observed_models")
+        comparability = compare_conditions(left, right)
         pairs.append({"case_id": case_id, "case_version": version, "repeat_index": repeat_index, "runs": pair,
-                      "comparability": compare_conditions(left, right),
+                      "comparability": comparability,
+                      "analysis": analyze_pair(left, right, comparability, observed_differences=differences),
                       "recorded_condition_differences": differences,
                       "pair_complete": left is not None and right is not None})
+        pairs[-1]["resource_deltas"] = pair_resources(pairs[-1])
     counts = {strategy: {status: sum(
         row["role"] == "primary" and row["strategy"] == strategy and row["status"] == status
         for row in rows) for status in ("completed", "failed", "report_missing",
                                       "preparation_error", "preparation_incomplete")}
         for strategy in ("vector", "hybrid")}
     return {"schema_version": 1, "generated_at": datetime.now(timezone.utc).isoformat(),
+            "analysis_version": 1, "paired_analysis_summary": summarize_pairs(pairs),
+            "decision": build_decision(pairs, policy=decision_policy, review=decision_review),
             "primary_status_counts": counts,
             "evaluation_by_strategy": {strategy: aggregate_metrics([
                 row.get("metrics") for row in rows if row["role"] == "primary" and row["strategy"] == strategy
@@ -261,6 +277,19 @@ def render_comparison(report: dict) -> str:
     for pair in report["pairs"]:
         lines.extend(["", f"{cell(pair['case_id'])} / repeat={pair.get('repeat_index', 1)}", ""])
         lines.extend("    " + line for line in json.dumps(pair.get("comparability"), ensure_ascii=False, indent=2).splitlines())
+        lines.extend(["", "资源差额（candidate - baseline；准备开销排除、墙钟包含人工等待）：", ""])
+        lines.extend("    " + line for line in json.dumps(pair.get("resource_deltas"), ensure_ascii=False, indent=2).splitlines())
+    lines.extend(["", "## 本批门槛与独立人工采用记录", ""])
+    lines.extend("    " + line for line in json.dumps(report.get("decision"), ensure_ascii=False, indent=2).splitlines())
+    lines.extend(["", "## 配对变化（独立验收口径）", "",
+                  "| 用例 / 重复 | 分类 | 原因 | 仅测试进程双方通过 |", "|---|---|---|---|"])
+    for pair in report["pairs"]:
+        analysis = pair.get("analysis", {})
+        lines.append(f"| {cell(pair['case_id'])} / {pair.get('repeat_index', 1)} | "
+                     f"{cell(analysis.get('category'))} | {cell(analysis.get('reason'))} | "
+                     f"{cell(analysis.get('both_test_processes_passed'))} |")
+    lines.extend(["", "旧记录双方测试进程通过，不代表新版验收成功；未决与不可比不剔除。", ""])
+    lines.extend("    " + line for line in json.dumps(report.get("paired_analysis_summary"), ensure_ascii=False, indent=2).splitlines())
     lines.extend(["", "## 口径与限制", ""])
     lines.extend(f"- {item}" for item in report["limitations"])
     if report.get("evaluation_by_strategy") is not None:
@@ -285,6 +314,8 @@ def render_comparison(report: dict) -> str:
         if row["test"]:
             lines.extend(["", "测试输出（原文；不将其解析成结构化计数）：", ""])
             lines.extend("    " + line for line in row["test"]["stdout"].splitlines())
+        lines.extend(["", "失败证据分析（阶段不是根因，人工复核不改变验收）：", ""])
+        lines.extend("    " + line for line in json.dumps(row.get("failure_analysis"), ensure_ascii=False, indent=2).splitlines())
         retrieval = row["retrieval"]
         lines.extend(["", "检索证据：" + (retrieval["trace_status"] if retrieval else "未提供"), ""])
         if retrieval:

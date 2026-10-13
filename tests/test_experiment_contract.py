@@ -130,3 +130,16 @@ class ExperimentContractTests(unittest.TestCase):
         duplicate["experiment_id"] = "extra"
         with self.assertRaises(ValueError):
             build_comparison(rows + [duplicate])
+
+    def test_synthetic_controlled_pairs_classify_but_do_not_modify_inputs(self):
+        for left, right, expected in (("passed", "passed", "stayed_success"),
+                ("not_passed", "passed", "improved"), ("passed", "not_passed", "regressed"),
+                ("not_passed", "not_passed", "both_not_success")):
+            with self.subTest(expected=expected):
+                a, b = self.row(), self.row("hybrid")
+                a["acceptance"], b["acceptance"] = {"outcome": left}, {"outcome": right}
+                before = deepcopy([a, b])
+                result = build_comparison([a, b])
+                self.assertEqual(result["pairs"][0]["analysis"]["category"], expected)
+                self.assertEqual(result["paired_analysis_summary"]["counts"][expected], 1)
+                self.assertEqual([a, b], before)

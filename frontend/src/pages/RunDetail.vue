@@ -14,12 +14,17 @@ import PlanView from '../components/PlanView.vue'
 import CodeBlock from '../components/CodeBlock.vue'
 import TestView from '../components/TestView.vue'
 import EventView from '../components/EventView.vue'
+import FailureEvidence from '../components/FailureEvidence.vue'
+import { readComparison, type ComparisonRun } from '../data/comparison'
+import { label, display } from '../data/assessment'
 
 const route = useRoute()
 const router = useRouter()
 const run = ref<HistoricalRun | null>(null)
 // 历史报告整体替换，不需要为递归 JSON 建立深层响应式代理。
 const detail = shallowRef<RunDetail | null>(null)
+const assessment = shallowRef<ComparisonRun | null>(null)
+const assessmentNote = ref('')
 const loading = ref(true)
 const error = ref('')
 const allRecords = ref(false)
@@ -41,6 +46,8 @@ async function load() {
   error.value = ''
   run.value = null
   detail.value = null
+  assessment.value = null
+  assessmentNote.value = ''
   try {
     const snapshot = await snapshotReader.read()
     const found = snapshot.runs.find(r => r.experimentId === route.params.experimentId)
@@ -50,6 +57,17 @@ async function load() {
     if (version !== loadVersion) return
     run.value = found
     detail.value = data
+    try {
+      const comparison = await readComparison()
+      if (version !== loadVersion) return
+      const matched = comparison.pairs.flatMap(p => p.runs).find(r => r?.experimentId === found.experimentId)
+      if (matched?.detailMatches && matched.taskId === found.taskId && matched.test?.id === found.test?.id) {
+        assessment.value = matched
+        assessmentNote.value = matched.detailEvidenceMatches ? '分析来自选定的对比报告。' : '分析使用对比清单指定的证据，可能不同于下方时间线的证据导出。'
+      } else assessmentNote.value = '选定对比报告未包含与本详情匹配的终态证据；不混用其他分析。'
+    } catch {
+      if (version === loadVersion) assessmentNote.value = '对比分析快照不可用；下方历史详情仍可阅读。'
+    }
   } catch (cause) {
     if (version === loadVersion) error.value = cause instanceof Error ? cause.message : '运行详情读取失败'
   } finally { if (version === loadVersion) loading.value = false }
@@ -65,6 +83,14 @@ watch(() => selected.value?.id, () => { reportTab.value = 'diff' })
   <template v-else-if="run && detail">
     <div class="detail-heading"><div><p class="eyebrow">运行详情 · 历史快照</p><h1>{{ run.caseId }} <span class="heading-strategy">/ {{ strategyText(run.strategy) }}</span></h1></div><span class="quiet">{{ run.caseVersion }}</span></div>
     <p class="run-goal">{{ run.goal }}</p>
+    <section class="inline-details">
+      <p>{{ assessmentNote }} <RouterLink to="/comparisons">查看批次决策与门槛 →</RouterLink></p>
+      <template v-if="assessment">
+        <p>独立验收：{{ label(assessment.acceptance?.outcome) }} · {{ assessment.acceptance?.reason ?? '证据未记录' }}</p>
+        <p>Token {{ display(assessment.metrics?.resources.total_tokens) }}（已知小计 {{ display(assessment.metrics?.resources.known_total_tokens) }}） · 估算成本 {{ display(assessment.metrics?.cost.total) }} {{ assessment.metrics?.cost.currency ?? '' }} · 墙钟 {{ display(assessment.metrics?.wall_clock_ms) }} ms（包含人工等待）</p>
+        <FailureEvidence :analysis="assessment.failureAnalysis" :experiment-id="assessment.experimentId" />
+      </template>
+    </section>
     <div class="run-status-strip"><span class="status" :class="{ success: run.taskStatus === 'completed' }">{{ taskStatusText(run.taskStatus) }}</span><span>测试：{{ run.test ? run.test.passed ? 'pytest 执行通过' : 'pytest 未通过' : '未记录' }}</span><span>{{ evidenceLabel }}</span><span class="quiet">全流程事件未完整导出</span></div>
     <p class="drawer-note">数据来源：<code>reports/experiments</code> · {{ run.reportSource ? '终态任务报告与关联快照' : '计划、候选等已有快照' }}。只读历史记录，不反映当前任务状态。</p>
     <details class="run-config inline-details"><summary>运行配置、完整 ID 与来源</summary>

@@ -2,6 +2,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { redactText } from './run-detail.mjs'
+import { projectDecision, projectPair, projectRun } from './decision-projection.mjs'
 
 const frontend = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const repo = path.resolve(frontend, '..')
@@ -23,6 +24,7 @@ export function buildComparisonSnapshot(report, source, history) {
     const detailEvidenceMatches = Boolean(detailMatches && found.evidence?.source
       && normalize(run.artifacts?.evidence?.path)?.endsWith('/' + found.evidence.source))
     return {
+      ...projectRun(run),
       experimentId: run.experiment_id, taskId: run.task_id, strategy, status: run.status,
       retryCount: run.retry_count, stage: run.preparation_stage, errorType: run.preparation_error_type,
       completionSequence: run.completion_event_sequence, detailMatches, detailEvidenceMatches,
@@ -43,8 +45,13 @@ export function buildComparisonSnapshot(report, source, history) {
     }
   }
   return { schemaVersion: 1, generatedAt: report.generated_at, source,
+    decision: projectDecision(report.decision),
+    analysisCounts: report.paired_analysis_summary ? Object.fromEntries(
+      ['stayed_success', 'improved', 'regressed', 'both_not_success', 'undecided', 'non_comparable']
+        .map(key => [key, report.paired_analysis_summary.counts?.[key] ?? null])) : null,
     limitations: report.limitations.map(redactText),
     pairs: report.pairs.map(pair => ({ caseId: pair.case_id, caseVersion: pair.case_version,
+      ...projectPair(pair),
       differences: pair.recorded_condition_differences, complete: pair.pair_complete,
       runs: ['vector', 'hybrid'].map(strategy => pair.runs[strategy]
         ? row(pair.runs[strategy], pair.case_id, pair.case_version, strategy) : null) })),

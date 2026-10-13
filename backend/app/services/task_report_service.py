@@ -167,6 +167,8 @@ def _build_failed_report(
                 reason=task.error,
                 event_sequence=failure_event.sequence,
                 event_type=failure_event.event_type,
+                reason_code=("retry_budget_exhausted" if failure_event.event_type == "TASK_FAILED"
+                    and failure_event.payload.get("reason_code") == "retry_budget_exhausted" else None),
                 reflection=reflection,
             ),
             test_run=test_run_read,

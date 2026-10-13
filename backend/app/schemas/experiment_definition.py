@@ -2,7 +2,8 @@
 from typing import Literal
 from datetime import datetime
 from uuid import UUID
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator, model_serializer
+from .experiment_decision import DecisionPolicy
 
 
 class RequiredTest(BaseModel):
@@ -47,6 +48,15 @@ class ExperimentDefinition(BaseModel):
     test_timeout_seconds: Literal[120] = 120
     intervention_policy: Literal["approve_generated_candidate_only"] = "approve_generated_candidate_only"
     acceptance: AcceptanceRule
+    decision_policy: DecisionPolicy | None = None
+
+    @model_serializer(mode="wrap")
+    def preserve_legacy_contract(self, handler):
+        result = handler(self)
+        # 新可选字段不能改变旧定义的规范序列化与已冻结 SHA256。
+        if self.decision_policy is None:
+            result.pop("decision_policy", None)
+        return result
 
 
 class AcceptanceReview(BaseModel):

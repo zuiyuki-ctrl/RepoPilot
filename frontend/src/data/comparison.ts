@@ -1,4 +1,9 @@
+import type { Decision, FailureAnalysis, Fields, Resources } from './assessment'
 export interface ComparisonRun {
+  acceptance: Fields | null
+  metrics: { started: boolean | null; event_scope_complete: boolean | null; wall_clock_ms: number | null;
+    resources: Fields; cost: Fields; tests: { report_status: string | null; source: string | null; test_run_id: string | null; counts: Fields | null } } | null
+  failureAnalysis: FailureAnalysis | null
   experimentId: string
   taskId: string | null
   strategy: string
@@ -19,11 +24,15 @@ export interface ComparisonRun {
   artifactHashes: { name: string; sha256: string }[]
 }
 export interface ComparisonSnapshot {
+  decision: Decision | null
+  analysisCounts: Record<string, number | null> | null
   schemaVersion: 1
   generatedAt: string
   source: string
   limitations: string[]
-  pairs: { caseId: string; caseVersion: string; differences: string[]; complete: boolean; runs: (ComparisonRun | null)[] }[]
+  pairs: { caseId: string; caseVersion: string; repeatIndex: number; analysis: Fields | null;
+    comparability: { status: string; missing: string[]; differences: Fields[] } | null;
+    resources: Resources | null; differences: string[]; complete: boolean; runs: (ComparisonRun | null)[] }[]
   additional: (ComparisonRun & { caseId: string })[]
 }
 export async function readComparison(): Promise<ComparisonSnapshot> {

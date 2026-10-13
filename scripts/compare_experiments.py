@@ -8,6 +8,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 from backend.app.schemas.pricing import PricingSnapshot
+from backend.app.schemas.experiment_decision import DecisionPolicy
 
 from backend.app.services.experiment_comparison_service import (
     build_comparison, render_comparison, summarize_run,
@@ -21,6 +22,7 @@ class RunArtifacts(BaseModel):
     report: str | None = None
     evidence: str | None = None
     acceptance_review: str | None = None
+    failure_review: str | None = None
 
 
 class ComparisonManifest(BaseModel):
@@ -28,6 +30,9 @@ class ComparisonManifest(BaseModel):
     schema_version: Literal[1] = 1
     runs: list[RunArtifacts] = Field(min_length=1)
     pricing: PricingSnapshot | None = None
+    # manifest 临时门槛始终标为 exploratory；预声明值来自冻结 definition。
+    decision_policy: DecisionPolicy | None = None
+    decision_review: str | None = None
 
 
 def load_comparison(manifest_path: Path) -> dict:
@@ -35,7 +40,7 @@ def load_comparison(manifest_path: Path) -> dict:
     rows = []
     for entry in manifest.runs:
         data, artifacts = {}, {}
-        for name in ("preparation", "report", "evidence", "acceptance_review"):
+        for name in ("preparation", "report", "evidence", "acceptance_review", "failure_review"):
             reference = getattr(entry, name)
             if reference is None:
                 data[name] = artifacts[name] = None
@@ -48,7 +53,17 @@ def load_comparison(manifest_path: Path) -> dict:
         row = summarize_run(**data)
         row.update(role=entry.role, artifacts=artifacts)
         rows.append(row)
-    result = build_comparison(rows, pricing=manifest.pricing.model_dump(mode="json") if manifest.pricing else None)
+    review = None
+    review_artifact = None
+    if manifest.decision_review is not None:
+        path = (manifest_path.resolve().parent / manifest.decision_review).resolve()
+        content = path.read_bytes()
+        review = json.loads(content)
+        review_artifact = {"path": str(path), "uri": path.as_uri(), "sha256": hashlib.sha256(content).hexdigest()}
+    result = build_comparison(rows, pricing=manifest.pricing.model_dump(mode="json") if manifest.pricing else None,
+        decision_policy=manifest.decision_policy.model_dump(mode="json") if manifest.decision_policy else None,
+        decision_review=review)
+    result["decision_review_artifact"] = review_artifact
     result["manifest"] = str(manifest_path.resolve())
     return result
 

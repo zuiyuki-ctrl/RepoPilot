@@ -18,6 +18,9 @@ class TaskFailureSummary(BaseModel):
     # 规划执行失败，还是 Reflection 决定停止
     event_type: Literal["TASK_FAILED", "REFLECTION_FINISHED"]
 
+    # 仅来自终止事件的结构化代码；旧记录缺失时不解析错误文字猜测。
+    reason_code: Literal["retry_budget_exhausted"] | None = None
+
     # 只有 Reflection 决定停止时，返回当时保存的诊断和决定
     reflection: ReflectionDecision | None = None
 

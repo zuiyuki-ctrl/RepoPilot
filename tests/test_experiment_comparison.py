@@ -37,6 +37,11 @@ class ExperimentComparisonTests(unittest.TestCase):
         self.assertEqual(old["retrieval"]["trace_status"], "not_recorded")
         self.assertIsNone(old["token_usage"])
         self.assertIsNone(old["test"]["structured_test_counts"])
+        self.assertEqual(result["paired_analysis_summary"]["primary_pairs"], 3)
+        self.assertEqual(result["paired_analysis_summary"]["counts"]["undecided"], 3)
+        self.assertEqual(result["paired_analysis_summary"]["classified_pairs"], 0)
+        self.assertTrue(all(p["analysis"]["both_test_processes_passed"] for p in result["pairs"]))
+        self.assertTrue(all(p["analysis"]["category"] != "improved" for p in result["pairs"]))
 
     def test_no_input_mutation_and_raw_events_override_edited_summary(self):
         data = deepcopy(self.fixture)
@@ -141,6 +146,9 @@ class ExperimentComparisonTests(unittest.TestCase):
             self.assertIn("12 passed in 0.11s", text)
             self.assertIn("preparation_incomplete", text)
             self.assertIn("not_recorded", text)
+            self.assertIn("配对变化（独立验收口径）", text)
+            self.assertIn("失败证据分析", text)
+            self.assertIn("undecided", text)
 
     def test_missing_file_rejected_without_export(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -148,6 +156,74 @@ class ExperimentComparisonTests(unittest.TestCase):
             path.write_text(json.dumps({"runs": [{"preparation": "missing.json"}]}))
             with self.assertRaises(OSError):
                 load_comparison(path)
+
+    def test_synthetic_failure_review_manifest_roundtrip(self):
+        # 复制历史结构构造模拟失败；只写临时目录，不改真实六条记录。
+        data = deepcopy(self.fixture)
+        data["report"]["task"].update(status="failed", error="Synthetic failure")
+        data["report"].update(completion_event_sequence=None, final_diff=None,
+            failure=dict(reason="Synthetic failure", event_sequence=31, event_type="TASK_FAILED"))
+        data["report"]["test_run"]["exit_code"] = 1
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            entry = {name: name + ".json" for name in data}
+            for name, value in data.items():
+                (root / entry[name]).write_text(json.dumps(value), encoding="utf-8")
+            manifest = root / "manifest.json"
+            manifest.write_text(json.dumps({"runs": [entry]}), encoding="utf-8")
+            initial = load_comparison(manifest)
+            row = initial["pairs"][0]["runs"]["hybrid"]
+            review = dict(task_id=row["task_id"], analysis_sha256=row["failure_analysis"]["analysis_sha256"],
+                reviewer="synthetic-reviewer", recorded_at=row["completed_at"], primary_category="UNKNOWN",
+                hypothesis="Insufficient synthetic evidence", evidence_ids=["terminal_event", "final_test"],
+                rationale="Test process failed; no causal conclusion")
+            (root / "review.json").write_text(json.dumps(review), encoding="utf-8")
+            entry["failure_review"] = "review.json"
+            manifest.write_text(json.dumps({"runs": [entry]}), encoding="utf-8")
+            reviewed = load_comparison(manifest)
+            actual = reviewed["pairs"][0]["runs"]["hybrid"]
+            self.assertEqual(actual["failure_analysis"]["review_status"], "reviewed")
+            self.assertEqual(actual["failure_analysis"]["root_cause_status"], "unknown")
+            self.assertEqual(actual["acceptance"], row["acceptance"])
+            self.assertEqual(reviewed["paired_analysis_summary"], initial["paired_analysis_summary"])
+            self.assertIsNotNone(actual["artifacts"]["failure_review"]["sha256"])
+            paths = export_comparison(reviewed, root)
+            self.assertIn("synthetic-reviewer", paths[1].read_text(encoding="utf-8"))
+            data["report"]["test_run"]["stdout"] += " changed"
+            (root / "report.json").write_text(json.dumps(data["report"]), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "Failure review differs"):
+                load_comparison(manifest)
+
+    def test_review_without_terminal_report_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "terminal task report"):
+            summarize_run(self.fixture["preparation"], None, None, failure_review={})
+
+    def test_synthetic_batch_decision_review_is_not_plan_approval(self):
+        # 仅读取历史文件；复核是测试夹具，只保存在临时目录。
+        manifest_data = json.loads(MANIFEST.read_bytes())
+        for entry in manifest_data["runs"]:
+            for name in ("preparation", "report", "evidence"):
+                if entry.get(name):
+                    entry[name] = str((MANIFEST.parent / entry[name]).resolve())
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest = root / "manifest.json"
+            manifest.write_text(json.dumps(manifest_data), encoding="utf-8")
+            initial = load_comparison(manifest)
+            self.assertEqual(initial["decision"]["verdict"], "insufficient_evidence")
+            review = dict(decision_sha256=initial["decision"]["decision_sha256"], reviewer="synthetic",
+                recorded_at="2026-10-13T00:00:00Z", action="continue_experiment", rationale="Synthetic test only")
+            (root / "review.json").write_text(json.dumps(review), encoding="utf-8")
+            manifest_data["decision_review"] = "review.json"
+            manifest.write_text(json.dumps(manifest_data), encoding="utf-8")
+            checked = load_comparison(manifest)
+            self.assertEqual(checked["decision"]["review"]["action"], "continue_experiment")
+            self.assertEqual(checked["decision"]["verdict"], initial["decision"]["verdict"])
+            self.assertIsNotNone(checked["decision_review_artifact"]["sha256"])
+            review["decision_sha256"] = "0" * 64
+            (root / "review.json").write_text(json.dumps(review), encoding="utf-8")
+            with self.assertRaises(ValueError):
+                load_comparison(manifest)
 
 
 if __name__ == "__main__":

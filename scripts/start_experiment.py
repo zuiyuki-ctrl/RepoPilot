@@ -48,6 +48,8 @@ def prepare_experiment_run(
     """创建一次独立实验所需的仓库、索引和 created 状态任务。"""
     if definition is not None:
         validate_definition(case, definition)
+        if definition.decision_policy and definition.decision_policy.declared_at > datetime.now(timezone.utc):
+            raise ValueError("Decision policy cannot be declared in the future")
         if case.task_type == "bug_fix" and not allow_baseline_tests:
             raise ValueError("Controlled bug-fix preparation requires --allow-baseline-tests")
     summary = inspect_experiment_source(case, source_path=source_path)

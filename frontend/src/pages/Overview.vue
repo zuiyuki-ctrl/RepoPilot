@@ -54,6 +54,7 @@ onMounted(load)
   <ElSkeleton v-if="loading" :rows="8" animated class="loading" />
   <div v-else-if="error" role="alert" class="error-state"><h2>无法读取历史快照</h2><p>{{ error }}</p><ElButton @click="load">重新读取</ElButton></div>
   <template v-else-if="snapshot">
+    <p class="snapshot-note">任务完成与独立验收是两种口径。<RouterLink to="/comparisons">查看选定批次的门槛、改善／退化与证据缺口 →</RouterLink></p>
     <div class="table-toolbar"><div><strong>逐例运行</strong><span class="quiet">{{ runs.length }} 条任务记录 · 按用例版本分组</span></div><ElSelect v-model="filter" aria-label="筛选运行" style="width: 155px"><ElOption label="全部运行" value="all" /><ElOption label="任务已完成" value="completed" /><ElOption label="未记录终态报告" value="incomplete" /></ElSelect></div>
     <p class="mobile-table-note">横向滚动表格，可查看测试、证据与来源。</p>
     <ElEmpty v-if="!groups.length" description="没有符合条件的历史运行" />

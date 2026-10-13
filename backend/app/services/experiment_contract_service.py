@@ -20,6 +20,10 @@ def contract_digest(preparation) -> str:
 
 
 def validate_definition(case, definition):
+    if definition.decision_policy is not None and not any(
+            p.case_id == case.case_id and p.case_version == case.case_version
+            and p.repeat_index == definition.repeat_index for p in definition.decision_policy.expected_pairs):
+        raise ValueError("Case/repeat is not in the declared decision batch")
     if case.task_type == "bug_fix" and not definition.acceptance.baseline_failure_tests:
         raise ValueError("Bug-fix acceptance requires declared baseline failure tests")
     modules = [p[:-3].replace("/", ".") for p in case.protected_test_files]
