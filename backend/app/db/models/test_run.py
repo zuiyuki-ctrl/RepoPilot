@@ -16,6 +16,10 @@ class TestRun(Base):
 
     __table_args__ = (
         CheckConstraint(
+            '(task_id IS NOT NULL) <> (run_id IS NOT NULL)',
+            name='ck_test_runs_single_owner',
+        ),
+        CheckConstraint(
             "status IN ('running', 'finished', 'error')",
             name="ck_test_runs_status"
         ),
@@ -36,10 +40,14 @@ class TestRun(Base):
         default=uuid.uuid4
     )
 
-    task_id : Mapped[UUID] = mapped_column(
+    task_id : Mapped[UUID | None] = mapped_column(
         ForeignKey("agent_tasks.id"),
-        nullable=False,
+        nullable=True,
         index=True
+    )
+
+    run_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey('platform_runs.id'), nullable=True, index=True,
     )
 
     status: Mapped[str] = mapped_column(

@@ -1,7 +1,8 @@
 from uuid import UUID
 
 import httpx
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from ..native_task_guard import guard_native_task
 from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -37,7 +38,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/tasks", tags=["tasks"])
+router = APIRouter(prefix="/api/v1/tasks", tags=["tasks"], dependencies=[Depends(guard_native_task)])
 
 
 @router.post("", response_model=TaskRead, status_code=201)

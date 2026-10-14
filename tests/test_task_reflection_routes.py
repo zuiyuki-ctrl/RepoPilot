@@ -23,6 +23,8 @@ class TaskReflectionRouteTests(unittest.TestCase):
         self.url = f"/api/v1/tasks/{self.task_id}/reflect"
         app = FastAPI()
         app.include_router(tasks.router)
+        # 本文件测试旧业务路由；v2 所有权守卫在 test_platform_day2 单独验证。
+        app.dependency_overrides[tasks.guard_native_task] = lambda: None
         self.client = self.enterContext(TestClient(app))
         self.run_reflection = self.enterContext(
             patch.object(tasks.reflection_service, "run_task_reflection")

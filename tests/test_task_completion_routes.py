@@ -25,6 +25,8 @@ class TaskCompletionRouteTests(unittest.TestCase):
         self.body = {"test_run_id": str(self.test_run_id)}
         app = FastAPI()
         app.include_router(tasks.router)
+        # 本文件测试旧业务路由；v2 所有权守卫在 test_platform_day2 单独验证。
+        app.dependency_overrides[tasks.guard_native_task] = lambda: None
         self.client = self.enterContext(TestClient(app))
         self.complete = self.enterContext(
             patch.object(tasks.task_completion_service, "complete_plan_task")
