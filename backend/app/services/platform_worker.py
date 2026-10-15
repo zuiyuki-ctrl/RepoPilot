@@ -107,6 +107,20 @@ def run_worker(*, once=False, allow_model=False):
                 claim = store.claim_next(allow_model=allow_model)
                 if claim and not claim.get('settled'):
                     supervise(claim)
+                if not claim:
+                    from .platform_catalog_service import claim_validation
+                    from .catalog_validation_service import execute_validation
+                    claim = claim_validation()
+                    if claim:
+                        logger.info('Catalog validation %s kind=%s token=%s', claim['id'], claim['kind'], claim['token'])
+                        execute_validation(claim)
+                if not claim:
+                    from .platform_experiment_service import claim_preparation
+                    from .experiment_preparation import execute_preparation
+                    claim=claim_preparation(allow_model=allow_model)
+                    if claim:
+                        logger.info('Experiment preparation %s token=%s',claim['id'],claim['token'])
+                        execute_preparation(claim)
                 if once:
                     return
                 if not claim:

@@ -9,11 +9,15 @@ def main():
     parser.add_argument('--once', action='store_true')
     parser.add_argument('--allow-model', action='store_true')
     parser.add_argument('--recover-run', type=UUID)
+    parser.add_argument('--recover-validation', type=UUID)
+    parser.add_argument('--recover-preparation', type=UUID)
     parser.add_argument('--token', type=UUID)
     parser.add_argument('--confirm-writers-stopped', action='store_true')
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO)
-    if args.recover_run:
+    if sum(bool(x) for x in (args.recover_run,args.recover_validation,args.recover_preparation)) > 1:
+        parser.error('Choose one recovery target')
+    if args.recover_run or args.recover_validation or args.recover_preparation:
         if not args.token or not args.confirm_writers_stopped:
             parser.error('Recovery requires the exact step token and --confirm-writers-stopped')
         from sqlalchemy import text
@@ -23,10 +27,17 @@ def main():
             if not connection.scalar(text('SELECT pg_try_advisory_lock(:key)'), {'key': WORKER_LOCK}):
                 raise RuntimeError('Stop the existing worker before recovery')
             try:
-                recover_interrupted(args.recover_run, args.token)
+                if args.recover_preparation:
+                    from backend.app.services.platform_experiment_service import recover_preparation
+                    recover_preparation(args.recover_preparation,args.token)
+                elif args.recover_validation:
+                    from backend.app.services.platform_catalog_service import recover_validation
+                    recover_validation(args.recover_validation, args.token)
+                else:
+                    recover_interrupted(args.recover_run, args.token)
             finally:
                 connection.execute(text('SELECT pg_advisory_unlock(:key)'), {'key': WORKER_LOCK})
-        print('Run marked interrupted/unknown; no calls or writes were replayed.')
+        print('Ownership recovered without replay; target remains unsuccessful.')
         return
     if args.token or args.confirm_writers_stopped:
         parser.error('Recovery options require --recover-run')

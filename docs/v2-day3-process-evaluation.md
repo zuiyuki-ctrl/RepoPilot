@@ -62,7 +62,7 @@ L0 来自平台执行、Diff、TestRun 证据；L0 不需要向量化或模型�
 
 ## 5. 需要操作者执行的真实验收
 
-下面命令由你决定何时执行，助手没有代为构建镜像、迁移数据库或运行真实 Agent。全部使用项目根目录；先启动 Docker Desktop，并确认 Linux engine 正常。
+下面保留可复现的操作步骤；初次编写时尚未执行，2026-10-15 的真实验收结果见第 7 节。全部使用项目根目录；先启动 Docker Desktop，并确认 Linux engine 正常。
 
 ### 5.1 环境与镜像
 
@@ -126,3 +126,26 @@ Native 如需完整新链路，用同一准备命令的 `--task-id <新建create
 4. **诚实说限制。** 固定 Python profile、无网络 Demo、单 worker、无敌对代码防作弊保证；没有真实容器结果时就说只完成离线验证。不要把这组 fixture 当作 Agent 成功率提升实验。
 
 推荐用一句话开场：**“我把 Agent 的执行结果和平台验收分开，同一套固定测试可以评测内置 Agent 与独立外部程序；缺少内部轨迹不会阻止评测，也不会被包装成完整证据。”**
+
+## 7. 2026-10-15 本机真实验收
+
+使用实际 PostgreSQL、持久 worker、Docker 29.1.3 与无模型协议 Demo，共运行六条独立 Run。数据库此前已在 `d714a02b0001`，本次没有补跑 Day 2 迁移。Demo 基于已有本地 pytest 镜像构建，没有下载依赖、调用模型或 Embedding。
+
+| 场景 | Run ID | execution | evaluation | 核查结果 |
+| --- | --- | --- | --- | --- |
+| noop | `f1c7c515-5e89-426a-935b-62cc16cbd699` | completed | not_passed | 基线和最终均为 2 failed / 6 passed，无文件改动 |
+| fix | `58f52820-ea71-488b-bc06-c3b3350afb3a` | completed | passed | 基线 2 failed / 6 passed，最终 8 passed；只修改 task_list.py |
+| wrong-id | `a638f061-447f-4077-9b6f-07d02c5e6104` | failed | not_passed | 错误结果身份被拒绝，原因 execution_failed |
+| timeout | `6e4f6418-7e5d-4a1b-9077-d725b4c0c227` | timed_out | not_passed | 10 秒 Agent 预算到期，平台评测仍独立结束 |
+| tamper | `781341e8-a2d2-4f89-839f-54c95859005e` | completed | not_passed | tests/test_task_list.py 被修改，workspace_constraints_violated；不执行最终测试 |
+| outside | `e51154eb-4b88-44f8-90c4-7fedac1d827a` | completed | not_passed | 新增越界 outside.txt，workspace_constraints_violated；不执行最终测试 |
+
+六条 Run 均为 finished，清理记录均为 confirmed，active_token 均为空；结束后 `docker ps -a --filter name=repopilot-v2` 无残留。用户目视确认 noop/fix 页面正常展示基线/最终测试、Diff，以及独立的执行与验收结果。
+
+fix 的最终 TestRun 为 `2ca9b7f9-0e7f-448e-bdcf-9a6fe2e7af7c`，最终快照为 `a0b6a0edf7bcbee65a3bc6bed8dd7ac7baed899a5dc00cfa3eae500ff5ce330a`。报告通过已有 report 服务从持久证据导出到 `.platform-artifacts/day3-acceptance-20261015/<mode>-report.json`；目录被 gitignore，跨机不会自动带走。
+
+测试镜像：`sha256:14ae9449013b4c5cf1ac42d09ae368570eda7315f3b8757c6274e9e48fab1d28`。Demo 镜像：`sha256:7f80a6f974f9e481701db8ab7bdeb174a813e89da936f2f17775e4b7952fcba4`。
+
+本次补充 CLI `--timeout-seconds`（1～3600，默认 600），控制 Agent 预算，平台测试保留独立预算。没有更改执行/验收判定来迎合结果。
+
+结论：Day 3 外部协议 Demo 的正常与上述异常链路真实验收通过，可进入 Day 4。不代表真实模型效果、Native 新审批全流程、所有异常组合或任意恶意代码防护已通过；取消和其他协议错误本轮没有另做真实容器复测。

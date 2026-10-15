@@ -8,7 +8,10 @@ const route = useRoute()
     <aside class="sidebar">
       <a class="brand" href="#/experiments"><span class="brand-logo"><img :src="logoUrl" alt="RepoPilot" /></span><span class="brand-caption">实验工作台</span></a>
       <nav aria-label="主导航">
-        <RouterLink to="/live/runs" :class="route.path.startsWith('/live/') ? 'nav-item' : 'nav-plain'">实时运行 · v2</RouterLink>
+        <RouterLink to="/live/experiments" :class="route.path === '/live/experiments' ? 'nav-item' : 'nav-plain'">Experiments · 批次运行</RouterLink>
+        <RouterLink to="/live/runs" :class="route.path.startsWith('/live/runs') ? 'nav-item' : 'nav-plain'">实时运行 · v2</RouterLink>
+        <RouterLink to="/live/agents" :class="route.path === '/live/agents' ? 'nav-item' : 'nav-plain'">Agents · 版本登记</RouterLink>
+        <RouterLink to="/live/benchmarks" :class="route.path === '/live/benchmarks' ? 'nav-item' : 'nav-plain'">Benchmarks · 导入</RouterLink>
         <RouterLink to="/experiments" :class="route.path === '/experiments' ? 'nav-item' : 'nav-plain'">实验总览</RouterLink>
         <span :class="route.path.startsWith('/runs/') ? 'nav-item' : 'nav-pending'">运行详情 <small v-if="!route.path.startsWith('/runs/')">从总览选择运行</small></span>
         <RouterLink to="/comparisons" :class="route.path === '/comparisons' ? 'nav-item' : 'nav-plain'">策略对比</RouterLink>

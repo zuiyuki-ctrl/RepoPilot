@@ -1,0 +1,21 @@
+{
+  "protocol_version": 1,
+  "name": "Protocol Demo",
+  "version": "v1",
+  "adapter": "process",
+  "process": {
+    "protocol_version": 1,
+    "image": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "argv": [
+      "python",
+      "-I",
+      "/agent/demo.py",
+      "--mode",
+      "noop"
+    ],
+    "trace": false
+  },
+  "declared_capabilities": [
+    "execution"
+  ]
+}

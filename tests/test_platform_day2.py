@@ -251,7 +251,7 @@ class WorkerTests(unittest.TestCase):
     def test_model_disabled_filter_and_resumption_take_new_token(self):
         run, work = rows('awaiting_input'); work.active_token = None
         work.stage = 'review_plan'; work.ready = True
-        session = MagicMock(); session.scalar.side_effect = [None, run]; session.get.return_value = work
+        session = MagicMock(); session.scalar.side_effect = [None, None, None, run]; session.get.return_value = work
         with patch.object(worker.SessionLocal, 'begin', return_value=nullcontext(session)), patch.object(worker.repo, 'append_event'):
             claim = worker.claim_next(allow_model=False)
         sql = str(session.scalar.call_args.args[0].compile(dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}))

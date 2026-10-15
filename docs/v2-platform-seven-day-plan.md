@@ -178,11 +178,11 @@ Day 1 固定版本化的能力字段及摘要推导规则，并由后端统一�
 
 ## 8. 当前接续点与记录模板
 
-Day 1 代码与离线验证完成，用户已反馈前端显示“已连接”、后端日志正常。Day 2 完成 Native/持久 worker/审批检查点代码及离线验证；Day 3 完成 Process/权威测试采集/报告页面代码与集中离线验证。Day 4—7 尚未开始。Day 2 新迁移、真实 worker、真实模型与新审批页面联调，以及 Day 3 真实容器验收仍待执行，不把 Day 1 的连接验收扩展成这些能力已验收。
+Day 1—3 已完成代码、离线验证及 Day 3 六条真实容器验收。Day 4 目录登记/校验和 Day 5 核心实验创建/批次调度已实现，本机已迁移到 d715a05b0001。Day 5 真实 noop/fix 批次分别 not_passed/passed，启动与整批取消幂等验证通过。Day 4—5 新页面用户初次遇到 404，已通过运行中 OpenAPI 确认 API 进程未加载新路由，重启后浏览器反馈待确认。Native 真实模型批次与非正常中断恢复尚未真实联调。Day 6—7 尚未开始。
 
 2026-10-14 草案审阅修订：明确本周为 Native + 外部无网络协议 Demo 的页面闭环；分级表示观测深度而非能力评分。补充 Day 1 固定字段与摘要规则、Day 2 落地最小 worker、Day 5 接入批次调度，以及 Day 3 Python/pytest 权威测试配置边界。本次仅修改计划文档，未将任何开发日标为已完成。
 
-下一步：确认迁移 `d714a02b0001` 及 Docker 环境，按 [Day 3 操作说明](v2-day3-process-evaluation.md) 跑离线 Demo 的真实 noop/fix 与异常支线。新入口冻结测试包后，Native/Process 都可调度独立验收；旧 Day 2 未绑定测试包的 Run 仍保持 pending，不补造基线。通过 Day 3 容器检查点后继续 Day 4 Registry/Benchmark 页面，不跳过异常与清理验收，不重复历史实验。
+下一步：进入 Day 6 分级观测、固定实验比较和决策。本机 API 重启后 agents/benchmarks/experiments 均实测 HTTP 200，用户已确认页面刷新正常；浏览器内新建/启动等完整操作不由此推定通过。Day 5 可选发布门槛输入/判定顺延到 Day 6 一起落地；当前只支持 Suite 全部 Case 与 adapter_default 干预，需要子集时登记新 Suite 版本。实现与验证边界见 [Day 5 文档](v2-day5-experiments.md)。无需重跑既有历史实验。
 
 ### 2026-10-14 / Day 1 实际记录
 
@@ -219,6 +219,38 @@ Day 1 代码与离线验证完成，用户已反馈前端显示“已连接”�
 - 初轮发现 Windows 文本换行导致权威配置字节不一致，改为固定字节写入；运行器来源元数据与精确 JUnit 校验分层，避免破坏原报告验证。Windows 沙箱的临时路径权限和 TestClient 挂起后，经授权在沙箱外完成上述回归；未跳过用例伪装为全通过。
 - 前端类型检查、生产构建和 **21 项原有快照测试通过**。Vite 首次在沙箱内 realpath EPERM，授权后构建通过；这不代表新 live 页面的浏览器验收。本轮未启动真实 API/worker、未迁移数据库、未调用模型或安装依赖。
 - Docker 只读检查先遇权限限制，授权后仍长时间无响应，已停止等待。**没有真实容器运行结果，不能声称 A1—A5 已真实验收或 Day 3 全部完成。** 所需操作者步骤、Demo 配置及适合面试亲手演示的场景见 [Day 3 文档](v2-day3-process-evaluation.md)。
+
+### 2026-10-15 / Day 3 真实验收补充
+
+- PostgreSQL 已核实为 `d714a02b0001`；复用本地镜像构建标准库 Demo，在真实 Docker 与持久 worker 上运行 noop、fix、wrong-id、timeout、tamper、outside 六条独立 Run，没有模型或 Embedding 调用。
+- noop 执行完成但最终仍 2 failed / 6 passed，验收不通过；fix 最终 8 passed、只修改 task_list.py，验收通过。错误身份、超时分别为 failed、timed_out；篡改保护测试和越界文件均因 workspace_constraints_violated 不通过，不跑最终测试。
+- 六条 Run 均 finished，清理 confirmed，active_token 为空；Docker 检查无 repopilot-v2 容器残留。用户确认 noop/fix 的基线/最终测试、Diff、独立结果页面展示正常。
+- 完整 Run ID、镜像 ID、关键 TestRun 和本机证据位置已记录在 Day 3 文档第 7 节；未改写此前离线检查的历史记录。本轮不声称取消、Native 真实模型审批及所有异常分支已验证。
+- `prepare_platform_run` 新增有界 `--timeout-seconds`，用于短预算真实验收；平台测试预算独立。Day 3 检查点通过，进入 Day 4。
+
+### 2026-10-15 / Day 4 实际记录
+
+- 新增 AgentVersion、BenchmarkVersion、CatalogValidation 三表与 d715a04b0001 迁移，本机已真实升级。名称/版本绑定内容 hash，重复相同登记幂等，不同内容 409；校验请求键幂等、校验历史持久保存。
+- `platform_catalog_service.py` 负责登记/领取/结算，`catalog_validation_service.py` 负责协议和环境检查。沿用原 worker 全局锁，Run 与校验 token 互相阻塞，未确认清理不重放；新增显式恢复 CLI。长 Docker/git 操作不占数据库行锁。
+- Process 在无网络容器跑十秒协议 fixture，检查身份、退出码、范围、声明 trace 和清理；Native 只检查实现/配置，不运行模型。能力声明和实际验证分开，协议校验不计任务成功率。
+- Benchmark 固定有序 Case、仓库 commit、范围/规则/测试镜像；校验干净状态、文件/保护测试 hash、本地镜像和真实 pytest 导入。登记阶段不跑任务基线；后续 Run 必须再次核对环境。
+- 新增 v2 catalog API 与 Agents/Benchmarks 页面，支持 JSON 导入、参数生成、版本详情、显式校验及刷新；无主机路径或秘密配置导出。`examples/catalog` 提供示例与占位值替换说明。
+- Day 1—4 离线 **75 项通过**，含 Day 4 新增 11 项；前端类型检查与生产构建通过。测试中数据库/Docker 为模拟；本次另使用真实 PostgreSQL 的 TestClient 验证重复登记、版本冲突、校验幂等和持久读取。
+- 真实 worker/Docker：Native 和 noop 通过，错误身份/缺镜像按预期失败，Suite 环境及 pytest 镜像探针通过。六个校验记录最终 4 passed / 2 failed，所有 active_token 清除；未调用模型或 Embedding。ID 与证据位置见 Day 4 文档，不把 fixture 校验率称为 Agent 成功率。
+- 未完：Day 4 新页面的浏览器目视/导入操作仍待用户反馈；真实 Native 模型审批本轮未跑。Day 5 批次实验尚未开始。
+
+### 2026-10-15 / Day 5 实际记录
+
+- 新增 PlatformExperiment、ExperimentMember 两表及 d715a05b0001，本机迁移已完成。预览冻结目录内容、规则、镜像、运行器指纹、Native 索引指纹及预算/顺序；旧预览漂移拒绝，启动请求键幂等。
+- 实现 controlled 精确声明差异与 benchmark 多变量模式，名称标签和派生运行指纹不冒充策略变化。不同适配器/实现/镜像/能力使用 benchmark。
+- `experiment_preparation.py` 复用独立工作区与权威测试管线。Native 克隆独立注册仓库、复制已验证且与冻结指纹相同的现成索引，不自动 Embedding；Native 需 API allow_model 与 worker --allow-model 双重开启。
+- 原 worker 接入持久准备队列，三类所有权互相阻塞，未确认清理禁止重放；新增准备恢复 CLI。失败成员保留，不隐藏准备失败。整批取消幂等，准备结算与取消协调，审批及单次取消沿用 Run 详情。
+- 新增 Experiments 页面，选择固定版本、预览差异/Run 数/费用提示、确认入队、轮询成员进度、查看冻结清单、整批取消与 Run 链接。当前只支持 Suite 全部 Case 和固定干预规则，门槛与高级干预选择不冒充已完成。
+- Day 1—5 **87 项离线回归通过**（Day 5 新增 12 项），前端类型检查与生产构建通过。模拟覆盖准备失败和清理不确定；未声称所有中断分支都做过真实联调。
+- 真实 API/DB：启动重复返回同一实验、同键不同请求 409；整批重复取消成功，无多余 Run。真实 Docker 批次 `12955175-7643-45d4-9f18-8dfdf149e58d`：noop completed/not_passed，最终 2 failed / 6 passed；fix completed/passed，最终 8 passed，容器无残留。取消实验为 `e2cd826e-7574-4573-b7b6-2c609186be77`。真实过程不含模型/Embedding 调用，不把 fixture 当通用模型效果。
+- 用户报告新页面 API 404，已核对 main.py 注册与 8000 端口 OpenAPI，确认运行中的旧 API 未加载新路由；已指导项目 .venv 重启 uvicorn，仅监听 backend。浏览器验收仍待重启后确认。详细 ID、证据位置、限制见 Day 5 文档。
+
+2026-10-15 Day 5 收尾补充：API 重启后三个新增入口实测 HTTP 200；用户明确确认页面刷新正常。Day 4—5 页面展示验收通过，旧的 404 已解决，先前记录保留为排障经过。浏览器内新建/启动全流程及 Native 真实模型批次仍未由此覆盖。
 
 每个模块完成后在本节追加：
 

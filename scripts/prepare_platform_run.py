@@ -16,7 +16,11 @@ def main():
     parser.add_argument('--agent-name', default='Protocol Demo (fixture)')
     parser.add_argument('--agent-version', default='v1')
     parser.add_argument('--creation-key', required=True)
+    parser.add_argument('--timeout-seconds', type=int, default=600,
+                        help='Agent execution budget, 1..3600; platform tests have their own budget')
     args = parser.parse_args()
+    if not 1 <= args.timeout_seconds <= 3600:
+        parser.error('timeout-seconds must be between 1 and 3600')
     if bool(args.task_id) == bool(args.process_config):
         parser.error('Choose exactly one of --task-id and --process-config')
     from backend.app.db.session import SessionLocal
@@ -62,13 +66,13 @@ def main():
         identity = dict(name=args.agent_name, version=args.agent_version, adapter='process',
                         implementation_sha256=process.image.removeprefix('sha256:'))
         config_hash = digest(process.model_dump(mode='json'))
-        budget = {}
+        budget = {'timeout_seconds': args.timeout_seconds}
     else:
         from backend.app.agent.adapters.native import NativeAdapter
         metadata = NativeAdapter().metadata()
         identity = {key: metadata[key] for key in ('name', 'version', 'adapter', 'implementation_sha256')}
         config_hash = digest(config.model_dump(mode='json'))
-        budget = {'max_tool_calls': config.max_tool_calls}
+        budget = {'max_tool_calls': config.max_tool_calls, 'timeout_seconds': args.timeout_seconds}
     # Read-only checks; Docker never downloads an absent image here.
     for image in [args.test_image, *([process.image] if process else [])]:
         import re

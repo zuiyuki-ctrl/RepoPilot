@@ -6,12 +6,17 @@ import RunDetail from './pages/RunDetail.vue'
 import Comparison from './pages/Comparison.vue'
 import LiveRuns from './pages/LiveRuns.vue'
 import LiveRunDetail from './pages/LiveRunDetail.vue'
+import LiveCatalog from './pages/LiveCatalog.vue'
+import LiveExperiments from './pages/LiveExperiments.vue'
 import './style.css'
 import './detail.css'
 
 const router = createRouter({
   history: createWebHashHistory(),
   routes: [
+    { path: '/live/experiments', component: LiveExperiments },
+    { path: '/live/agents', component: LiveCatalog },
+    { path: '/live/benchmarks', component: LiveCatalog },
     { path: '/live/runs', component: LiveRuns },
     { path: '/live/runs/:runId', component: LiveRunDetail },
     { path: '/', redirect: '/experiments' },

@@ -1,0 +1,18 @@
+{
+  "protocol_version": 1,
+  "name": "RepoPilot Native",
+  "version": "v1",
+  "adapter": "native",
+  "native": {
+    "retrieval_policy": "vector",
+    "max_tool_calls": 4
+  },
+  "declared_capabilities": [
+    "execution",
+    "planning",
+    "retrieval",
+    "context",
+    "tool_trace",
+    "model_usage"
+  ]
+}

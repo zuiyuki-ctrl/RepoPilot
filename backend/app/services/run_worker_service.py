@@ -47,6 +47,10 @@ def claim_next(*, allow_model: bool):
     with SessionLocal.begin() as session:
         # 即使 session advisory lock 的连接丢失，第二个进程也不得越过未清除的 active 栅栏。
         session.execute(text('SELECT pg_advisory_xact_lock(:key)'), {'key': WORKER_LOCK + 1})
+        from .platform_catalog_service import assert_no_catalog_writer
+        assert_no_catalog_writer(session)
+        from .platform_experiment_service import assert_no_preparation
+        assert_no_preparation(session)
         if session.scalar(select(RunWork.run_id).where(RunWork.active_token.is_not(None)).limit(1)):
             raise RunConflictError('Unsettled worker step exists; stop writers and explicitly recover it')
         statement = select(PlatformRun).join(RunWork).where(RunWork.ready.is_(True),
