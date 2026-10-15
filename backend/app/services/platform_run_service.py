@@ -1,5 +1,6 @@
 """Day 1 内部写入口与公开只读查询；不启动 Agent 或读取真实工作区。"""
 from uuid import UUID
+from contextlib import nullcontext
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from ..db.session import SessionLocal
@@ -72,10 +73,10 @@ def transition_run(run_id: UUID, *, expected_version: int, target: str, executio
         return as_read(run)
 
 
-def finish_evaluation(evidence: EvaluationInput, *, expected_version: int):
+def finish_evaluation(evidence: EvaluationInput, *, expected_version: int, _session=None):
     """平台内部采集入口，验证 TestRun 归属/内容后原子保存评测与终态。"""
     result = evaluate_run(evidence)
-    with SessionLocal.begin() as session:
+    with (nullcontext(_session) if _session is not None else SessionLocal.begin()) as session:
         run = repo.get_run(session, evidence.run_id, for_update=True)
         if run is None:
             return None

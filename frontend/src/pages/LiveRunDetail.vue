@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { readLive, type PlatformRun, type PlatformEvent, type RunControl } from '../data/platform-runs'
+import { readLive, type PlatformRun, type PlatformEvent, type RunControl, type PlatformReport } from '../data/platform-runs'
 const route = useRoute()
 const run = ref<PlatformRun | null>(null)
 const events = ref<PlatformEvent[]>([])
@@ -9,6 +9,7 @@ const error = ref('')
 const loading = ref(false)
 const more = ref(false)
 const control = ref<RunControl | null>(null)
+const report = ref<PlatformReport | null>(null)
 const submitting = ref(false)
 const comment = ref('')
 let generation = 0
@@ -16,17 +17,19 @@ async function load(append = false) {
   const current = ++generation
   const id = encodeURIComponent(String(route.params.runId))
   loading.value = true; error.value = ''
-  if (!append) { run.value = null; control.value = null; events.value = []; more.value = false }
+  if (!append) { run.value = null; control.value = null; report.value = null; events.value = []; more.value = false }
   try {
     const after = append ? events.value.at(-1)?.sequence ?? 0 : 0
-    const [detail, page, controls] = await Promise.all([
+    const [detail, page, controls, evidence] = await Promise.all([
       readLive<PlatformRun>(`/${id}`),
       readLive<{ items: PlatformEvent[]; next_after_sequence: number }>(`/${id}/events?after_sequence=${after}&limit=50`),
       readLive<RunControl | null>(`/${id}/control`),
+      readLive<PlatformReport>(`/${id}/report`),
     ])
     if (current !== generation) return
     run.value = detail; events.value = append ? [...events.value, ...page.items] : page.items
     control.value = controls
+    report.value = evidence
     more.value = page.items.length === 50
   } catch (e) { if (current === generation) error.value = e instanceof Error ? e.message : '读取失败' }
   finally { if (current === generation) loading.value = false }
@@ -59,7 +62,7 @@ watch(() => route.params.runId, () => { comment.value = ''; void load() }, { imm
 const timer = window.setInterval(() => {
   if (!loading.value && !submitting.value && run.value
       && (run.value.lifecycle !== 'awaiting_input' || control.value?.checkpoint?.decision)
-      && !['finished', 'interrupted', 'evaluating'].includes(run.value.lifecycle)) void load()
+      && !['finished', 'interrupted'].includes(run.value.lifecycle)) void load()
 }, 3000)
 onUnmounted(() => { window.clearInterval(timer); generation++ })
 </script>
@@ -90,7 +93,25 @@ onUnmounted(() => { window.clearInterval(timer); generation++ })
             <button :disabled="submitting || loading" @click="decide('rejected')">拒绝并终止</button>
           </template>
         </template>
-        <p v-if="run.lifecycle === 'evaluating'">Agent 执行已结束。独立验收采集将在 Day 3 接通；这里不会提前显示通过。</p>
+        <p v-if="run.lifecycle === 'evaluating'">Agent 执行已结束，等待平台独立验收。旧开发入口未绑定权威测试包的 Run 仍保持待验收。</p>
+      </section>
+      <section v-if="report">
+        <h2>平台独立评测</h2>
+        <p>结论：{{ report.evaluation_outcome }} · 原因：{{ report.reason ?? '尚未生成' }}</p>
+        <p>最终源码快照：{{ report.final_snapshot_hash ?? '未采集' }}</p>
+        <details><summary>原始基线与最终测试（平台采集）</summary>
+          <pre class="approval-content">基线：{{ JSON.stringify(report.baseline_test, null, 2) }}
+最终：{{ JSON.stringify(report.final_test, null, 2) }}</pre>
+        </details>
+        <p>Diff 证据：{{ report.artifact_status }} · 修改文件：{{ report.changed_files.join(', ') || '无记录' }}</p>
+        <pre v-if="report.diff !== null" class="approval-content">{{ report.diff || '无源码差异' }}</pre>
+        <p v-if="report.diff_truncated">页面仅展示前 50,000 字符；后台保存完整 Diff。</p>
+        <p v-if="report.process.protocol_error" role="alert">Agent 协议错误：{{ report.process.protocol_error }}</p>
+        <p v-if="run.agent.adapter === 'process'">外部上报轨迹：{{ report.process.trace_status }}。未上报用量不代表 Token 为零。</p>
+        <details v-if="report.process.stdout !== null"><summary>外部 Agent 日志（不是平台验收结果）</summary>
+          <pre class="approval-content">{{ report.process.stdout }}{{ report.process.stderr }}</pre>
+          <p v-if="report.process.stdout_truncated || report.process.stderr_truncated">日志已截断，不代表完整输出。</p>
+        </details>
       </section>
       <p>观测摘要：{{ run.observation.level }} / {{ run.observation.completeness }}。层级不是任务能力评分。</p>
       <table><thead><tr><th>能力</th><th>声明 / 校验</th><th>实际证据</th><th>阶段发生</th><th>来源</th><th>记录数 / 应有数</th><th>事件序号</th></tr></thead>

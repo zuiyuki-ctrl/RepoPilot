@@ -3,6 +3,14 @@ from ..schemas.platform_evaluation import EvaluationInput, EvaluationDecision
 from .experiment_contract_service import digest, test_outcomes
 
 
+def platform_test_outcomes(report):
+    """v2 adds platform provenance; JUnit content still passes the exact v1 integrity check."""
+    if not isinstance(report, dict):
+        return None
+    junit = {key: value for key, value in report.items() if key != 'runner_sha256'}
+    return test_outcomes(junit)
+
+
 def evaluate_run(evidence: EvaluationInput) -> EvaluationDecision:
     def decision(outcome, reason):
         return EvaluationDecision(run_id=evidence.run_id, outcome=outcome, reason=reason,
@@ -22,9 +30,16 @@ def evaluate_run(evidence: EvaluationInput) -> EvaluationDecision:
         return decision('unknown', 'workspace_evidence_missing')
 
     def linked(test, snapshot):
+        if test is None:
+            return False
+        identity = {'image': test.image, 'timeout_seconds': test.timeout_seconds}
+        if test.runner_sha256 is not None:
+            identity['runner_sha256'] = test.runner_sha256
+            if not test.test_report or test.test_report.get('runner_sha256') != test.runner_sha256:
+                return False
         return (test is not None and test.run_id == evidence.run_id and test.snapshot_hash == snapshot
                 and test.environment_sha256 == evidence.environment_sha256
-                and digest({'image': test.image, 'timeout_seconds': test.timeout_seconds}) == test.environment_sha256)
+                and digest(identity) == test.environment_sha256)
 
     final = evidence.final_test
     if not linked(final, evidence.final_snapshot_hash):
@@ -33,7 +48,7 @@ def evaluate_run(evidence: EvaluationInput) -> EvaluationDecision:
         return decision('unknown', 'test_not_finished')
     if final.status != 'finished' or final.exit_code != 0 or final.timed_out or final.error:
         return decision('not_passed', 'test_process_failed')
-    outcomes = test_outcomes(final.test_report)
+    outcomes = platform_test_outcomes(final.test_report)
     if outcomes is None:
         return decision('unknown', 'test_report_invalid_or_missing')
     if any(value != 'passed' for value in outcomes.values()):
@@ -44,7 +59,7 @@ def evaluate_run(evidence: EvaluationInput) -> EvaluationDecision:
         before = evidence.baseline_test
         if not linked(before, evidence.initial_snapshot_hash) or not evidence.rule.baseline_failure_tests:
             return decision('unknown', 'baseline_evidence_missing')
-        results = test_outcomes(before.test_report)
+        results = platform_test_outcomes(before.test_report)
         if (before.status != 'finished' or before.exit_code != 1 or before.timed_out or before.error
                 or results is None or any(v in ('errors', 'skipped') for v in results.values())
                 or any(results.get((t.classname, t.name)) != 'failed' for t in evidence.rule.baseline_failure_tests)):

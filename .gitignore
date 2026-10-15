@@ -15,3 +15,6 @@ __pycache__/
 
 # 本地测试仓库及工作副本
 /test-data/
+
+# v2 平台本机原始快照、容器产物；按需显式导出脱敏报告
+/.platform-artifacts/

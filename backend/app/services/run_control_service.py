@@ -9,7 +9,7 @@ from ..schemas.run_control import ControlRead, CheckpointRead
 from .run_lifecycle import RunConflictError
 
 
-def enqueue_native(run_id):
+def enqueue_native(run_id, *, bundle_sha256=None):
     """内部开发/未来调度入口；只接纳已冻结且绑定 fresh task 的 Native Run。"""
     with SessionLocal.begin() as session:
         run = repo.get_run(session, run_id, for_update=True)
@@ -30,10 +30,33 @@ def enqueue_native(run_id):
             PlatformRun.repository_id == run.repository_id, PlatformRun.id != run.id))
         if occupied:
             raise RunConflictError('Use an independent repository workspace for each run')
-        session.add(RunWork(run_id=run_id, stage='prepare', state={
-            'task_id': str(task.id), 'repository_id': str(run.repository_id)}, ready=True,
+        state = {'task_id': str(task.id), 'repository_id': str(run.repository_id)}
+        if bundle_sha256:
+            state['bundle_sha256'] = bundle_sha256
+        session.add(RunWork(run_id=run_id, stage='baseline' if bundle_sha256 else 'prepare', state=state, ready=True,
             cancel_requested=False, active_seconds=0, cleanup_status='not_needed', legacy_cursor=0))
         repo.append_event(session, run, event_type='WORK_ENQUEUED', payload={})
+
+
+def enqueue_process(run_id, *, bundle_sha256):
+    from .platform_test_collector import checked_bundle
+    with SessionLocal.begin() as session:
+        run = repo.get_run(session, run_id, for_update=True)
+        if run is None:
+            raise RunConflictError('Run not found')
+        existing = session.get(RunWork, run_id)
+        if existing:
+            if existing.state.get('bundle_sha256') != bundle_sha256:
+                raise RunConflictError('Run already bound to another bundle')
+            return
+        request = AgentRunRequest.model_validate(run.request)
+        if run.lifecycle != 'queued' or request.agent.adapter != 'process' or run.legacy_task_id is not None:
+            raise RunConflictError('Expected fresh independent Process Run')
+        state = {'bundle_sha256': bundle_sha256, 'repository_id': str(run.repository_id)}
+        checked_bundle(request, state)
+        session.add(RunWork(run_id=run.id, stage='baseline', state=state, ready=True,
+            cancel_requested=False, active_seconds=0, cleanup_status='not_needed', legacy_cursor=0))
+        repo.append_event(session, run, event_type='WORK_ENQUEUED', payload={'adapter': 'process'})
 
 
 def latest_checkpoint(session, run_id):

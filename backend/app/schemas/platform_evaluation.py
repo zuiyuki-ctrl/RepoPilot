@@ -13,6 +13,7 @@ class TestEvidence(ProtocolModel):
     environment_sha256: Hash
     image: str = Field(min_length=1)
     timeout_seconds: int = Field(ge=1, strict=True)
+    runner_sha256: Hash | None = None
     status: Literal['running', 'finished', 'error']
     exit_code: int | None = None
     timed_out: bool = False

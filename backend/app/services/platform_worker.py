@@ -16,16 +16,28 @@ def execute_step(claim):
     result = {}
     try:
         request = AgentRunRequest.model_validate(claim['request'])
-        step = (adapter.prepare(request, claim['state']) if claim['stage'] == 'prepare'
-                else adapter.run(request, claim['stage'], claim['state']))
-        result['step'] = step.model_dump(mode='json')
+        if claim['stage'] == 'evaluate':
+            from .platform_test_collector import collect_final
+            evidence = collect_final(request, claim['state'], claim['execution_status'])
+            result['evaluation'] = evidence.model_dump(mode='json')
+        else:
+            if claim['stage'] == 'baseline':
+                from .platform_test_collector import prepare_baseline
+                step = prepare_baseline(request, claim['state'])
+            else:
+                step = (adapter.prepare(request, claim['state']) if claim['stage'] == 'prepare'
+                        else adapter.run(request, claim['stage'], claim['state']))
+            result['step'] = step.model_dump(mode='json')
     except Exception as exc:
         # 顶层 worker 边界保存错误类别；网络/模型错误不变成用户 422。
-        logger.exception('Native step failed; run_id=%s stage=%s', claim['run_id'], claim['stage'])
+        logger.exception('Run step failed; run_id=%s stage=%s', claim['run_id'], claim['stage'])
         result['error_code'] = type(exc).__name__
     finally:
         try:
             result['cleanup'] = adapter.cleanup()
+            if claim['stage'] in ('baseline', 'evaluate'):
+                from .platform_container import remove_owned
+                remove_owned(claim['run_id'], 'baseline' if claim['stage'] == 'baseline' else 'final')
         except Exception as exc:
             logger.exception('Adapter cleanup failed; run_id=%s', claim['run_id'])
             result['cleanup'] = {'status': 'failed', 'error_code': type(exc).__name__}
@@ -49,7 +61,8 @@ def supervise(claim, *, process_factory=None):
                 child.join(timeout=0.5)
                 if not child.is_alive():
                     break
-                if store.is_cancelled(claim['run_id'], claim['token']):
+                # A previously accepted Agent cancellation must not cancel its platform assessment.
+                if claim.get('stage') != 'evaluate' and store.is_cancelled(claim['run_id'], claim['token']):
                     forced = 'cancelled_during_step'
                     break
                 if time.monotonic() - started >= claim['remaining_seconds']:
@@ -67,6 +80,18 @@ def supervise(claim, *, process_factory=None):
                 raise RuntimeError('Child stop unconfirmed; durable ownership fence retained')
         if child.pid is not None:
             child.close()
+        uses_container = (claim.get('request', {}).get('agent', {}).get('adapter') == 'process'
+                          or claim.get('stage') in ('baseline', 'evaluate'))
+        if uses_container and claim.get('state', {}).get('bundle_sha256'):
+            # Also covers an abrupt child crash with no result, not just parent timeouts.
+            # Killing docker CLI does not stop its container.
+            from .platform_container import remove_owned
+            for purpose in ('agent', 'baseline', 'final'):
+                try:
+                    remove_owned(claim['run_id'], purpose)
+                except Exception:
+                    forced = forced or 'container_cleanup_unconfirmed'
+                    logger.exception('Owned container cleanup unconfirmed; durable fence retained')
     store.settle_step(claim['run_id'], claim['token'],
                       elapsed=time.monotonic() - started, forced_reason=forced)
 

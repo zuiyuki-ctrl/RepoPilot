@@ -13,6 +13,14 @@ export interface PlatformRun {
 }
 export interface PlatformEvent { id: string; sequence: number; event_type: string; source: string; created_at: string }
 
+export interface PlatformReport {
+  evaluation_outcome: string; reason: string | null; final_snapshot_hash: string | null
+  baseline_test: unknown; final_test: unknown; diff: string | null; diff_truncated: boolean
+  changed_files: string[]; artifact_status: string
+  process: { protocol_error: string | null; trace_status: string; stdout: string | null; stderr: string | null;
+    stdout_truncated: boolean | null; stderr_truncated: boolean | null }
+}
+
 export interface Checkpoint {
   id: string; run_id: string; kind: 'plan' | 'candidate'; run_version: number
   payload: Record<string, unknown>; payload_sha256: string; decision: string | null

@@ -1,0 +1,6 @@
+{
+  "protocol_version": 1,
+  "image": "REPLACE_WITH_EXISTING_SHA256_IMAGE_ID",
+  "argv": ["python", "-I", "/agent/demo.py", "--mode", "noop"],
+  "trace": false
+}

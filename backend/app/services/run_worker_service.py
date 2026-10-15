@@ -50,7 +50,7 @@ def claim_next(*, allow_model: bool):
         if session.scalar(select(RunWork.run_id).where(RunWork.active_token.is_not(None)).limit(1)):
             raise RunConflictError('Unsettled worker step exists; stop writers and explicitly recover it')
         statement = select(PlatformRun).join(RunWork).where(RunWork.ready.is_(True),
-            PlatformRun.lifecycle.in_(['queued', 'preparing', 'running', 'awaiting_input']))
+            PlatformRun.lifecycle.in_(['queued', 'preparing', 'running', 'awaiting_input', 'evaluating']))
         if not allow_model:
             statement = statement.where((RunWork.stage.not_in(['plan', 'generate'])) | RunWork.cancel_requested)
         run = session.scalar(statement.order_by(PlatformRun.created_at, PlatformRun.id)
@@ -58,14 +58,19 @@ def claim_next(*, allow_model: bool):
         if run is None:
             return None
         work = session.get(RunWork, run.id)
-        if work.cancel_requested:
+        if work.cancel_requested and run.lifecycle != 'evaluating':
             target = 'finished' if run.lifecycle == 'queued' else 'evaluating'
             transition(run, expected_version=run.version, target=target, execution_status='cancelled')
             work.ready = False
+            if target == 'evaluating' and work.state.get('bundle_sha256'):
+                work.stage, work.ready = 'evaluate', True
             repo.append_event(session, run, event_type='EXECUTION_CANCELLED', payload={'writers_stopped': True})
             return {'settled': True}
         if run.lifecycle == 'queued':
             transition(run, expected_version=run.version, target='preparing')
+        elif run.lifecycle == 'preparing' and work.stage == 'prepare':
+            # Baseline/preparation failures must not count as started Agent executions.
+            run.version += 1
         elif run.lifecycle in ('preparing', 'awaiting_input'):
             transition(run, expected_version=run.version, target='running')
         else:
@@ -75,8 +80,15 @@ def claim_next(*, allow_model: bool):
         work.result = None
         repo.append_event(session, run, event_type='STEP_STARTED', payload={'stage': work.stage, 'token': str(token)})
         request = AgentRunRequest.model_validate(run.request)
+        # Evaluation has its own 120s container limit; do not consume the Agent budget.
+        remaining = max(0, request.budget.timeout_seconds - work.active_seconds)
+        if work.stage in ('baseline', 'evaluate'):
+            remaining = 240
+        elif request.agent.adapter == 'process':
+            # Inner Docker timeout controls the workload. Allow time to confirm cleanup.
+            remaining = request.budget.timeout_seconds + 90
         return {'run_id': run.id, 'token': token, 'request': run.request, 'stage': work.stage,
-                'state': work.state, 'remaining_seconds': max(0, request.budget.timeout_seconds - work.active_seconds)}
+                'state': work.state, 'execution_status': run.execution_status, 'remaining_seconds': remaining}
 
 
 def save_step_result(run_id, token, result):
@@ -104,7 +116,8 @@ def settle_step(run_id, token, *, elapsed, forced_reason=None):
             raise RunConflictError('Worker no longer owns this step')
         completed_stage = work.stage
         work.ready = False
-        work.active_seconds += max(0, elapsed)
+        if completed_stage not in ('baseline', 'evaluate'):
+            work.active_seconds += max(0, elapsed)
         import_native_events(session, run, work)
         result = work.result
         if forced_reason or result is None:
@@ -122,12 +135,56 @@ def settle_step(run_id, token, *, elapsed, forced_reason=None):
             repo.append_event(session, run, event_type='CLEANUP_FAILED', payload={'error_code': work.error_code})
             return
         work.active_token, work.active_since = None, None
+        if completed_stage == 'evaluate':
+            if result.get('error_code') or 'evaluation' not in result:
+                transition(run, expected_version=run.version, target='interrupted')
+                repo.append_event(session, run, event_type='EVALUATION_ERROR', payload={'error_code': work.error_code})
+                return
+            from ..schemas.platform_evaluation import EvaluationInput
+            from .platform_run_service import finish_evaluation
+            evidence = EvaluationInput.model_validate(result['evaluation'])
+            # All capability references point at this Run's platform events, not agent claims.
+            capabilities = dict(run.capabilities)
+            for field, present in (('execution', run.started_at is not None), ('diff', evidence.diff_sha256 is not None),
+                                   ('tests', evidence.final_test is not None)):
+                if present:
+                    event = repo.append_event(session, run, event_type=f'{field.upper()}_EVIDENCE',
+                        payload={'snapshot_hash': evidence.final_snapshot_hash})
+                    availability = 'available'
+                    if field == 'tests':
+                        report = evidence.final_test.test_report or {}
+                        if report.get('status') != 'recorded':
+                            availability = 'missing' if report.get('status') in (None, 'missing') else 'invalid'
+                    capabilities[field] = dict(declared=True, validated=True, availability=availability,
+                        occurrence='occurred', source='platform', evidence_sequences=[event.sequence],
+                        expected_records=1, recorded_records=1)
+            run.capabilities = capabilities
+            finish_evaluation(evidence, expected_version=run.version, _session=session)
+            return
         if result.get('error_code'):
             transition(run, expected_version=run.version, target='evaluating', execution_status='failed')
             repo.append_event(session, run, event_type='EXECUTION_FAILED', payload={'error_code': work.error_code})
+            if work.state.get('bundle_sha256'):
+                work.stage, work.ready = 'evaluate', True
             return
         step = StepResult.model_validate(result['step'])
         work.state = step.state
+        process_info = step.state.get('process_execution')
+        if process_info:
+            repo.append_event(session, run, event_type='PROCESS_EXECUTION_FINISHED', payload={
+                'exit_code': process_info['exit_code'], 'timed_out': process_info['timed_out'],
+                'protocol_error': process_info['protocol_error'], 'trace_status': process_info['trace']['status']})
+            fields = {'model_call': 'model_usage', 'tool_call': 'tool_trace', 'retrieval': 'retrieval',
+                      'context': 'context', 'planning': 'planning', 'reflection': 'reflection'}
+            capabilities = dict(run.capabilities)
+            for value in process_info['trace']['events']:
+                event = repo.append_event(session, run, event_type='PROCESS_TRACE', source='agent_reported', payload=value)
+                field = fields[value['kind']]
+                refs = [*capabilities.get(field, {}).get('evidence_sequences', []), event.sequence]
+                capabilities[field] = dict(declared=True, validated=False, availability='partial',
+                    occurrence='occurred', source='agent_reported', evidence_sequences=refs,
+                    expected_records=None, recorded_records=len(refs))
+            run.capabilities = capabilities
         if work.cancel_requested:
             transition(run, expected_version=run.version, target='evaluating', execution_status='cancelled')
         elif step.execution_status:
@@ -147,6 +204,8 @@ def settle_step(run_id, token, *, elapsed, forced_reason=None):
             else:
                 work.ready = True
                 run.version += 1
+        if run.lifecycle == 'evaluating' and work.state.get('bundle_sha256'):
+            work.stage, work.ready = 'evaluate', True
         repo.append_event(session, run, event_type='STEP_FINISHED', payload={
             'stage': completed_stage, 'next_stage': work.stage if step.next_stage else None,
             'lifecycle': run.lifecycle, 'execution_status': run.execution_status,

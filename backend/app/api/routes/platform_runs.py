@@ -49,6 +49,15 @@ def get_control(run_id: UUID):
     return read_database(lambda: control.get_control(run_id))
 
 
+@router.get('/{run_id}/report')
+def get_report(run_id: UUID):
+    from ...services.platform_report_service import get_report as read_report
+    result = read_database(lambda: read_report(run_id))
+    if result is None:
+        raise HTTPException(404, 'Run not found')
+    return result
+
+
 @router.post('/{run_id}/checkpoints/{checkpoint_id}/decision', response_model=CheckpointRead)
 def decide(run_id: UUID, checkpoint_id: UUID, data: ApprovalRequest):
     result = read_database(lambda: control.decide_checkpoint(run_id, checkpoint_id, data))

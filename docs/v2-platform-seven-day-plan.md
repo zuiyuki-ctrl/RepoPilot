@@ -2,7 +2,7 @@
 
 起草日期：2026-10-14。建议执行窗口：2026-10-14—2026-10-20；Day 1—7 表示七个开发日，具体启动日如有调整，仅顺延日期，不跳过验收。
 
-状态：**Day 1 页面连接已由用户验收；Day 2 代码与离线验证完成，新迁移及真实 worker/审批联调待执行。** 需求依据：[PRD v2.0](RepoPilot_PRD_v2.0.md)。本文件安排新一轮工作，不覆盖 [v1 七天阶段](core-platform-seven-day-plan.md) 的完成记录。计划不代表七天内无条件交付全部 v2 要求，阶段未通过必须明确记录，不以日期替代验收。
+状态：**Day 1 页面连接已由用户验收；Day 2—3 代码与离线验证完成，新迁移及真实 worker/审批、容器和新页面联调待执行。** 需求依据：[PRD v2.0](RepoPilot_PRD_v2.0.md)。本文件安排新一轮工作，不覆盖 [v1 七天阶段](core-platform-seven-day-plan.md) 的完成记录。计划不代表七天内无条件交付全部 v2 要求，阶段未通过必须明确记录，不以日期替代验收。
 
 ## 1. 本周要演示什么
 
@@ -178,11 +178,11 @@ Day 1 固定版本化的能力字段及摘要推导规则，并由后端统一�
 
 ## 8. 当前接续点与记录模板
 
-Day 1 代码与离线验证完成，用户已反馈前端显示“已连接”、后端日志正常。Day 2 完成 Native/持久 worker/审批检查点代码及离线验证；Day 3—7 尚未开始。Day 2 新迁移、真实 worker、真实模型与新审批页面联调尚未执行，不把 Day 1 的连接验收扩展成这些能力已验收。
+Day 1 代码与离线验证完成，用户已反馈前端显示“已连接”、后端日志正常。Day 2 完成 Native/持久 worker/审批检查点代码及离线验证；Day 3 完成 Process/权威测试采集/报告页面代码与集中离线验证。Day 4—7 尚未开始。Day 2 新迁移、真实 worker、真实模型与新审批页面联调，以及 Day 3 真实容器验收仍待执行，不把 Day 1 的连接验收扩展成这些能力已验收。
 
 2026-10-14 草案审阅修订：明确本周为 Native + 外部无网络协议 Demo 的页面闭环；分级表示观测深度而非能力评分。补充 Day 1 固定字段与摘要规则、Day 2 落地最小 worker、Day 5 接入批次调度，以及 Day 3 Python/pytest 权威测试配置边界。本次仅修改计划文档，未将任何开发日标为已完成。
 
-下一步：执行 Day 2 迁移 `d714a02b0001`，继续 Day 3 Process Adapter 与权威测试采集器。Native 当前执行结束停在 evaluating/pending，Day 3 接通最终验收。操作说明见 [Day 2 接续说明](v2-day2-native-worker.md)。真实模型及完整页面流程按集中联调安排，不重复历史实验。
+下一步：确认迁移 `d714a02b0001` 及 Docker 环境，按 [Day 3 操作说明](v2-day3-process-evaluation.md) 跑离线 Demo 的真实 noop/fix 与异常支线。新入口冻结测试包后，Native/Process 都可调度独立验收；旧 Day 2 未绑定测试包的 Run 仍保持 pending，不补造基线。通过 Day 3 容器检查点后继续 Day 4 Registry/Benchmark 页面，不跳过异常与清理验收，不重复历史实验。
 
 ### 2026-10-14 / Day 1 实际记录
 
@@ -206,6 +206,19 @@ Day 1 代码与离线验证完成，用户已反馈前端显示“已连接”�
 - TaskEvent 按游标映射到 RunEvent，保留旧序号、调用关联、检索及实际上下文摘要。字段先标 partial，不凭事件存在认定完整 L2；原 payload 保存在后台，前端本日展示元信息及审批正文，完整 Trace/覆盖率留 Day 6。
 - 离线集中回归 **135 项：134 通过、1 跳过**，含 Day 2 新增 20 项。跳过原因为 Windows 不具备创建目录符号链接权限。DB、模型、进程调度为模拟；PostgreSQL DDL/迁移 SQL 离线检查通过，Alembic 单一 head。前端 typecheck 与生产构建通过。未运行真实 DB 迁移、真实进程清理或新浏览器审批流程，未调用付费模型。
 - Native 完成仅表示执行结束，当前进入 evaluating，Evaluation 仍 pending。Day 3 尚未接通的权威测试不以旧 TestRun 或假 passed 代替。详细边界与启动/恢复说明见 [Day 2 文档](v2-day2-native-worker.md)。
+
+### 2026-10-15 / Day 3 实际记录
+
+- 新增 Process Adapter、受限容器运行器、冻结证据包和权威测试采集器。Agent 使用已有不可变镜像 ID、参数数组和固定挂载；不下载/构建镜像，不访问网络、宿主凭据、数据库或 Docker socket。独立 Demo 仅依赖标准库，明确是 task-list 协议 fixture，不是通用 Agent。
+- `prepare_platform_run` 可信开发入口检查注册仓库 commit/干净状态、Case/规则和本地镜像，冻结初始文件、平台测试及评测实现指纹后入队；不会调用模型。Native 与 Process 共用 baseline → 执行 → evaluate 管线；准备失败不计为已启动 Agent。原始 TestRun 与最终 TestRun 独立保存并关联 Run，不复用旧任务测试。
+- 固定 Python profile 控制测试来源、命令、工作目录、pytest.ini、导入路径、插件与 PYTEST_* 环境；先停止容器再读取产物/最终快照。完整文件清单检查能发现非 Python 越界文件，拒绝链接、硬链接和不支持的配置。仍不宣称能防止任意恶意 Python 在测试进程中作弊，也未实现绑定目录磁盘配额。
+- 结果身份、JSON 大小/深度/重复键、退出码与状态冲突均检查；无合法结果不会因进程退出 0 就成为 completed。可选 trace 使用有界版本化 schema，冲突/无效/漏报独立记录，外部来源 agent_reported；没有调用总数则 partial，不伪造 Token 或完整 L2。
+- 复用 Day 2 worker 和 RunWork，无新增迁移。补 baseline/evaluate 阶段、单独测试时间预算、父进程容器清理检查与 L0 证据引用。无法确认停止/清理时保留执行栅栏及 unknown，不自动重放。终态评测、事件和工作结算同事务提交，测试/执行长等待不持 ORM 行锁。
+- 新增只读 `/api/v2/runs/{id}/report`，live 详情展示基线/最终测试、终态快照、固定 Diff、协议错误与受限日志；不从当前工作区重算历史 Diff。旧未绑定测试包的 Run 不自动补跑。原始本机产物放 `.platform-artifacts/<run_id>/` 并 gitignore；跨机可移植导出仍待后续模块。
+- 集中回归 **114 项通过，97 个子用例通过**，覆盖 Day 1—3、原沙箱/测试查询/实验约定/任务报告，包括取消 Agent 后不误杀其平台评测。禁用 dotenv、真实数据库与外网，仅放行 TestClient 本机回环；DB/Docker/模型均模拟。另在临时目录用真实本机 pytest 验证固定入口、配置/环境干扰隔离及 JUnit 测试标识，这不是 Docker 安全验收。3 条既有弃用/收集警告。
+- 初轮发现 Windows 文本换行导致权威配置字节不一致，改为固定字节写入；运行器来源元数据与精确 JUnit 校验分层，避免破坏原报告验证。Windows 沙箱的临时路径权限和 TestClient 挂起后，经授权在沙箱外完成上述回归；未跳过用例伪装为全通过。
+- 前端类型检查、生产构建和 **21 项原有快照测试通过**。Vite 首次在沙箱内 realpath EPERM，授权后构建通过；这不代表新 live 页面的浏览器验收。本轮未启动真实 API/worker、未迁移数据库、未调用模型或安装依赖。
+- Docker 只读检查先遇权限限制，授权后仍长时间无响应，已停止等待。**没有真实容器运行结果，不能声称 A1—A5 已真实验收或 Day 3 全部完成。** 所需操作者步骤、Demo 配置及适合面试亲手演示的场景见 [Day 3 文档](v2-day3-process-evaluation.md)。
 
 每个模块完成后在本节追加：
 
