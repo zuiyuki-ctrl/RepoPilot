@@ -52,6 +52,9 @@ def freeze(session, draft):
             raise RunConflictError('Register Native strategy without old per-run bindings')
     if len(suite.descriptor['cases'])*2*draft.repetitions > 40:
         raise RunConflictError('Batch limit is 40 Runs')
+    if draft.decision_policy and (draft.decision_policy.min_cases > len(suite.descriptor['cases'])
+            or draft.decision_policy.min_pairs > len(suite.descriptor['cases'])*draft.repetitions):
+        raise RunConflictError('Decision policy requires more cases/pairs than the frozen suite')
     from .platform_test_collector import runner_fingerprint
     from .experiment_preparation import index_content
     index_hashes={str(item['repository_id']):digest(index_content(session,UUID(item['repository_id'])))

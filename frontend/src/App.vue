@@ -6,20 +6,22 @@ const route = useRoute()
 <template>
   <div class="workbench">
     <aside class="sidebar">
-      <a class="brand" href="#/experiments"><span class="brand-logo"><img :src="logoUrl" alt="RepoPilot" /></span><span class="brand-caption">实验工作台</span></a>
+      <a class="brand" href="#/live/dashboard"><span class="brand-logo"><img :src="logoUrl" alt="RepoPilot" /></span><span class="brand-caption">实验工作台</span></a>
       <nav aria-label="主导航">
+        <RouterLink to="/live/dashboard" :class="route.path === '/live/dashboard' ? 'nav-item' : 'nav-plain'">Dashboard · 实时总览</RouterLink>
+        <RouterLink to="/live/reports" :class="route.path === '/live/reports' ? 'nav-item' : 'nav-plain'">报告文件 · 只读查看</RouterLink>
         <RouterLink to="/live/experiments" :class="route.path === '/live/experiments' ? 'nav-item' : 'nav-plain'">Experiments · 批次运行</RouterLink>
         <RouterLink to="/live/runs" :class="route.path.startsWith('/live/runs') ? 'nav-item' : 'nav-plain'">实时运行 · v2</RouterLink>
         <RouterLink to="/live/agents" :class="route.path === '/live/agents' ? 'nav-item' : 'nav-plain'">Agents · 版本登记</RouterLink>
         <RouterLink to="/live/benchmarks" :class="route.path === '/live/benchmarks' ? 'nav-item' : 'nav-plain'">Benchmarks · 导入</RouterLink>
-        <RouterLink to="/experiments" :class="route.path === '/experiments' ? 'nav-item' : 'nav-plain'">实验总览</RouterLink>
+        <RouterLink to="/experiments" :class="route.path === '/experiments' ? 'nav-item' : 'nav-plain'">历史快照 · archived</RouterLink>
         <span :class="route.path.startsWith('/runs/') ? 'nav-item' : 'nav-pending'">运行详情 <small v-if="!route.path.startsWith('/runs/')">从总览选择运行</small></span>
         <RouterLink to="/comparisons" :class="route.path === '/comparisons' ? 'nav-item' : 'nav-plain'">策略对比</RouterLink>
       </nav>
       <div class="sidebar-note">从结果追溯证据<br />从证据理解差异</div>
     </aside>
     <div class="workspace">
-      <header class="topbar"><span>可观测 · 可评测 · 可实验</span><span class="snapshot-label">{{ route.path.startsWith('/live/') ? '实时数据 / 后端查询 · 连接状态见页面' : '历史快照 / archived · 只读' }}</span></header>
+      <header class="topbar"><span>可观测 · 可评测 · 可实验</span><span class="snapshot-label">{{ route.path === '/live/reports' ? '报告文件 / 只读核验 · 不导入实时数据库' : route.path.startsWith('/live/') ? '实时数据 / 后端查询 · 连接状态见页面' : '历史快照 / archived · 只读' }}</span></header>
       <main><RouterView /></main>
     </div>
   </div>

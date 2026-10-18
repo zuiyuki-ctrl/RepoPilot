@@ -31,3 +31,17 @@ class ExperimentMember(Base):
     run_id: Mapped[UUID | None] = mapped_column(ForeignKey('platform_runs.id'), unique=True)
     error_code: Mapped[str | None] = mapped_column(String(100))
     claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ExperimentReview(Base):
+    __tablename__ = 'experiment_reviews'
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    experiment_id: Mapped[UUID] = mapped_column(ForeignKey('platform_experiments.id'), index=True)
+    request_key: Mapped[UUID] = mapped_column(unique=True)
+    request_sha256: Mapped[str] = mapped_column(String(64))
+    comparison_sha256: Mapped[str] = mapped_column(String(64))
+    snapshot: Mapped[dict] = mapped_column(JSONB)
+    reviewer: Mapped[str] = mapped_column(String(100))
+    action: Mapped[str] = mapped_column(String(32))
+    rationale: Mapped[str] = mapped_column(String(2000))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

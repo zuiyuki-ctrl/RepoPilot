@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { ref, watch, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { readLive, type PlatformRun, type PlatformEvent, type RunControl, type PlatformReport } from '../data/platform-runs'
+import { readLive, type PlatformRun, type PlatformTraceEvent, type PlatformTracePage, type RunControl, type PlatformReport } from '../data/platform-runs'
 const route = useRoute()
 const run = ref<PlatformRun | null>(null)
-const events = ref<PlatformEvent[]>([])
+const events = ref<PlatformTraceEvent[]>([])
+const traceBoundary = ref<number | null>(null)
+const expanded = ref<number | null>(null)
 const error = ref('')
 const loading = ref(false)
 const more = ref(false)
@@ -17,12 +19,12 @@ async function load(append = false) {
   const current = ++generation
   const id = encodeURIComponent(String(route.params.runId))
   loading.value = true; error.value = ''
-  if (!append) { run.value = null; control.value = null; report.value = null; events.value = []; more.value = false }
+  if (!append) { run.value = null; control.value = null; report.value = null; events.value = []; more.value = false; traceBoundary.value = null; expanded.value = null }
   try {
     const after = append ? events.value.at(-1)?.sequence ?? 0 : 0
     const [detail, page, controls, evidence] = await Promise.all([
       readLive<PlatformRun>(`/${id}`),
-      readLive<{ items: PlatformEvent[]; next_after_sequence: number }>(`/${id}/events?after_sequence=${after}&limit=50`),
+      readLive<PlatformTracePage>(`/${id}/trace?after_sequence=${after}&limit=50${append && traceBoundary.value !== null ? `&through_sequence=${traceBoundary.value}` : ''}`),
       readLive<RunControl | null>(`/${id}/control`),
       readLive<PlatformReport>(`/${id}/report`),
     ])
@@ -30,7 +32,8 @@ async function load(append = false) {
     run.value = detail; events.value = append ? [...events.value, ...page.items] : page.items
     control.value = controls
     report.value = evidence
-    more.value = page.items.length === 50
+    traceBoundary.value = page.through_sequence
+    more.value = page.has_more
   } catch (e) { if (current === generation) error.value = e instanceof Error ? e.message : '读取失败' }
   finally { if (current === generation) loading.value = false }
 }
@@ -61,6 +64,7 @@ watch(() => route.params.runId, () => { comment.value = ''; void load() }, { imm
 // 审批内容不自动替换，防止用户阅读途中批准另一份候选；执行阶段定时更新元数据。
 const timer = window.setInterval(() => {
   if (!loading.value && !submitting.value && run.value
+      && expanded.value === null
       && (run.value.lifecycle !== 'awaiting_input' || control.value?.checkpoint?.decision)
       && !['finished', 'interrupted'].includes(run.value.lifecycle)) void load()
 }, 3000)
@@ -114,6 +118,8 @@ onUnmounted(() => { window.clearInterval(timer); generation++ })
         </details>
       </section>
       <p>观测摘要：{{ run.observation.level }} / {{ run.observation.completeness }}。层级不是任务能力评分。</p>
+      <p>available = 有可用证据；partial = 部分记录；missing = 缺失；unsupported = 未支持；invalid = 无效。
+        not_occurred 必须有明确证据，不能从“没有事件”推断。应有数未知时不计算覆盖率；记录数也不等于模型调用数。</p>
       <table><thead><tr><th>能力</th><th>声明 / 校验</th><th>实际证据</th><th>阶段发生</th><th>来源</th><th>记录数 / 应有数</th><th>事件序号</th></tr></thead>
         <tbody><tr v-for="(value, name) in run.observation.capabilities" :key="name">
           <td>{{ name }}</td><td>{{ value.declared }} / {{ value.validated }}</td><td>{{ value.availability }}</td>
@@ -121,8 +127,23 @@ onUnmounted(() => { window.clearInterval(timer); generation++ })
           <td>{{ value.evidence_sequences.join(', ') || '未记录' }}</td>
         </tr></tbody>
       </table>
-      <h2>运行事件</h2><p>Native 阶段结束后映射调用、检索和上下文事件。当前字段标为部分证据，不冒充完整 L2。</p>
-      <ol><li v-for="event in events" :key="event.id">#{{ event.sequence }} · {{ event.event_type }} · {{ event.source }} · {{ event.created_at }}</li></ol>
+      <h2>Trace · 已保存证据</h2>
+      <p>本次翻页截至平台事件 #{{ traceBoundary }}，刷新可查看新增事件。时间为平台落库时间，外部 Agent 的实际发生时间未知。
+        展开详情时暂停自动刷新。未支持的字段不会补造。</p>
+      <p>RETRIEVAL_COMPLETED 是工具返回结果；TOOL_CONTEXT_PREPARED 是预算处理后的消息摘要；
+        MODEL_CALL_STARTED 的 tool_context 是该次请求包含的摘要清单。hash 一致可核对消息身份，但不证明模型理解或采纳了代码。</p>
+      <ol class="trace-list"><li v-for="event in events" :key="event.id">
+        <button :aria-expanded="expanded === event.sequence" @click="expanded = expanded === event.sequence ? null : event.sequence">
+          #{{ event.sequence }} · {{ event.event_type }} · {{ event.source }}
+        </button>
+        <span> · {{ event.created_at }}</span>
+        <section v-if="expanded === event.sequence">
+          <p v-if="event.legacy_sequence !== null">Native 原任务 {{ event.legacy_task_id }} · 原事件 #{{ event.legacy_sequence }} · 节点 {{ event.node_name }}</p>
+          <p>展示状态：{{ event.detail_status }}。仅展示允许公开的已记录字段，不返回原始请求、认证信息或工作区文件正文。</p>
+          <p v-if="event.truncated">详情已截断，仅用于浏览；不能作为完整证据导出。</p>
+          <pre class="approval-content">{{ JSON.stringify(event.details, null, 2) }}</pre>
+        </section>
+      </li></ol>
       <button v-if="more" :disabled="loading" @click="load(true)">加载后续事件</button>
     </template>
   </section>
@@ -130,4 +151,5 @@ onUnmounted(() => { window.clearInterval(timer); generation++ })
 <style scoped>
 .live-detail { padding: 24px; } table { width: 100%; border-collapse: collapse; } th, td { text-align: left; padding: 8px; border-bottom: 1px solid #ddd; } [role=alert] { color: #a52a2a; }
 .approval-content { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 540px; overflow: auto; padding: 16px; background: #f5f7fa; }
+.trace-list { padding-left: 24px; } .trace-list li { margin: 12px 0; } .trace-list button { text-align: left; }
 </style>

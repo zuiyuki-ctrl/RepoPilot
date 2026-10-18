@@ -49,6 +49,19 @@ def get_control(run_id: UUID):
     return read_database(lambda: control.get_control(run_id))
 
 
+@router.get('/{run_id}/trace')
+def get_trace(run_id: UUID, after_sequence: int = Query(0, ge=0),
+              limit: int = Query(50, ge=1, le=100), through_sequence: int | None = Query(None, ge=0)):
+    from ...services.platform_trace_service import list_trace
+    if through_sequence is not None and through_sequence < after_sequence:
+        raise HTTPException(422, 'Trace boundary precedes cursor')
+    result = read_database(lambda: list_trace(run_id, after_sequence=after_sequence,
+                                            limit=limit, through_sequence=through_sequence))
+    if result is None:
+        raise HTTPException(404, 'Run not found')
+    return result
+
+
 @router.get('/{run_id}/report')
 def get_report(run_id: UUID):
     from ...services.platform_report_service import get_report as read_report

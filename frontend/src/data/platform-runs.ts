@@ -12,6 +12,14 @@ export interface PlatformRun {
   observation: { level: string; completeness: string; capabilities: Record<string, Capability> }
 }
 export interface PlatformEvent { id: string; sequence: number; event_type: string; source: string; created_at: string }
+export interface PlatformTraceEvent extends PlatformEvent {
+  legacy_task_id: string | null; legacy_sequence: number | null; node_name: string | null
+  details: Record<string, unknown>; detail_status: string; truncated: boolean
+  timestamp_semantics: 'platform_recorded_at'
+}
+export interface PlatformTracePage {
+  items: PlatformTraceEvent[]; next_after_sequence: number; through_sequence: number; has_more: boolean
+}
 
 export interface PlatformReport {
   evaluation_outcome: string; reason: string | null; final_snapshot_hash: string | null

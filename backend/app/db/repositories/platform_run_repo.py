@@ -31,7 +31,9 @@ def append_event(session: Session, run: PlatformRun, *, event_type: str, payload
     return event
 
 
-def list_events(session: Session, run_id, *, after_sequence: int, limit: int):
-    return list(session.scalars(select(PlatformRunEvent).where(
+def list_events(session: Session, run_id, *, after_sequence: int, limit: int, through_sequence=None):
+    statement = select(PlatformRunEvent).where(
         PlatformRunEvent.run_id == run_id, PlatformRunEvent.sequence > after_sequence)
-        .order_by(PlatformRunEvent.sequence).limit(limit)))
+    if through_sequence is not None:
+        statement = statement.where(PlatformRunEvent.sequence <= through_sequence)
+    return list(session.scalars(statement.order_by(PlatformRunEvent.sequence).limit(limit)))

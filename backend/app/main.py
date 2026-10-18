@@ -5,7 +5,7 @@ import logging
 
 from .db.session import check_database_connection
 from .core.config import APP_NAME
-from .api.routes import repositories, tasks, platform_runs, platform_catalog, platform_experiments
+from .api.routes import repositories, tasks, platform_runs, platform_catalog, platform_experiments, platform_delivery
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -14,6 +14,8 @@ app.include_router(repositories.router)
 app.include_router(tasks.router)
 app.include_router(platform_runs.router)
 app.include_router(platform_experiments.router)
+app.include_router(platform_delivery.router)
+# Specific delivery paths must precede the catalog's /{kind} route.
 app.include_router(platform_catalog.router)
 
 # 增加 GET /health，响应为 {"status": "ok"}。本次先把它定义为进程存活检查；数据库就绪单独验证
