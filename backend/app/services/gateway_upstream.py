@@ -1,8 +1,6 @@
-"""Fixed DashScope protocol, currently reachable only through a trusted fake adapter.
+"""Fixed DashScope protocol; fake default, trusted TLS subclass for explicit live deployment.
 
-There is deliberately no live transport factory, configurable URL, provider key
-loader or environment switch. B3 deployment must establish restricted egress
-before adding those. Injected adapters are test infrastructure, never Agent input.
+Injected adapters are test infrastructure, never Agent-controlled configuration.
 """
 import asyncio
 from datetime import datetime, timezone
@@ -64,10 +62,13 @@ def _normalise(data):
 class DashScopeProtocolTransport:
     """Synchronous exchange boundary with cancellable, bounded async HTTP inside.
 
-The mandatory adapter and fixed dummy key make this a fake-only acceptance path.
-No credential issuer or production runtime accepts its mode.
+This base class uses a fixed dummy key. Live TLS overrides only credential/source.
 """
     mode = 'dashscope_fake'
+    usage_source = 'fake_upstream'
+
+    def authorization(self):
+        return 'Bearer repopilot-fake-upstream-only'
 
     def __init__(self, *, adapter: httpx.AsyncBaseTransport):
         if not isinstance(adapter, httpx.AsyncBaseTransport):
@@ -111,7 +112,7 @@ No credential issuer or production runtime accepts its mode.
             async with httpx.AsyncClient(transport=self._adapter, trust_env=False,
                     follow_redirects=False, timeout=httpx.Timeout(remaining)) as client:
                 async with client.stream('POST', ENDPOINT, content=body, headers={
-                    'Authorization': 'Bearer repopilot-fake-upstream-only',
+                    'Authorization': self.authorization(),
                     'Content-Type': 'application/json', 'Accept': 'application/json',
                     'Accept-Encoding': 'identity',
                 }) as response:
@@ -137,4 +138,6 @@ No credential issuer or production runtime accepts its mode.
                         data.extend(chunk)
                     if declared is not None and len(data) != int(declared):
                         raise UpstreamFailure('invalid_upstream_response')
-                    return _normalise(bytes(data))
+                    result = _normalise(bytes(data))
+                    result['usage_source'] = self.usage_source
+                    return result

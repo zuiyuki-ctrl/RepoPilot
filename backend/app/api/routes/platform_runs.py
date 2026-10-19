@@ -1,6 +1,6 @@
 import logging
 from uuid import UUID
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Response
 from sqlalchemy.exc import SQLAlchemyError
 from ...schemas.platform_run import RunRead, RunPage, RunEventPage
 from ...services import platform_run_service as service
@@ -68,6 +68,25 @@ def get_report(run_id: UUID):
     result = read_database(lambda: read_report(run_id))
     if result is None:
         raise HTTPException(404, 'Run not found')
+    return result
+
+
+@router.get('/{run_id}/model-calls')
+def get_model_calls(run_id: UUID):
+    from ...services.gateway_observation_service import get_ledger
+    result = read_database(lambda: get_ledger(run_id))
+    if result is None:
+        raise HTTPException(404, 'Run not found')
+    return result
+
+
+@router.get('/{run_id}/model-calls/{call_id}/request')
+def get_model_request(run_id: UUID, call_id: UUID, response: Response):
+    from ...services.gateway_request_evidence import get_request_evidence
+    response.headers['Cache-Control'] = 'no-store'
+    result = read_database(lambda: get_request_evidence(run_id, call_id))
+    if result is None:
+        raise HTTPException(404, 'Run model call not found')
     return result
 
 

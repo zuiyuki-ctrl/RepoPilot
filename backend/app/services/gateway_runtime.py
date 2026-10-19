@@ -1,7 +1,7 @@
-"""Opt-in, mock-only Process runtime. Docker resources belong to one fenced attempt.
+"""Opt-in mock, isolated TLS-fake or explicit live runtime; one fenced attempt.
 
 The offline/test runner is deliberately unchanged. No image pulls, port publishing,
-provider keys, Docker socket mounts, host networking or automatic replay here.
+Agent provider keys, Docker socket mounts, host networking or automatic replay here.
 """
 from datetime import datetime, timezone
 import hashlib
@@ -10,9 +10,10 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import stat
 import time
 from uuid import UUID
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from typing import Literal
 from . import platform_artifacts as artifacts
 from .platform_container import docker, ContainerUnconfirmed
@@ -25,12 +26,38 @@ URL = 'http://model-gateway:8080/v1/model-calls'
 CREDENTIAL_TARGET = '/run/repopilot/credential'
 
 
+class TLSFixtureFiles(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    ca: Path
+    certificate: Path
+    server_key: Path
+    provider_key: Path
+
+
+class LiveProviderFiles(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    enabled: Literal[True]
+    region: Literal['cn-beijing']
+    provider_key: Path
+    egress_image: str = Field(pattern=r'^sha256:[0-9a-f]{64}$')
+
+
 class RuntimeSettings(BaseModel):
     model_config = ConfigDict(extra='forbid')
-    mode: Literal['mock']
+    mode: Literal['mock', 'dashscope_fake', 'dashscope_live']
     image: str = Field(pattern=r'^sha256:[0-9a-f]{64}$')
     control_network: str = Field(pattern=r'^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}$')
     database_file: Path
+    tls_fixture: TLSFixtureFiles | None = None
+    live_provider: LiveProviderFiles | None = None
+
+    @model_validator(mode='after')
+    def explicit_fake_fixture(self):
+        if (self.mode == 'dashscope_fake') != (self.tls_fixture is not None):
+            raise ValueError('TLS fake mode requires explicit fixture files')
+        if (self.mode == 'dashscope_live') != (self.live_provider is not None):
+            raise ValueError('Live mode requires explicit operator configuration')
+        return self
 
 
 def safe_path(path, *, directory=False):
@@ -55,12 +82,30 @@ def load_settings():
     # Check a regular, bounded file without exporting its contents. The gateway
     # validates the explicit DB-only schema; the Agent never receives this file.
     artifacts.read_bytes(safe_path(settings.database_file), limit=8192)
+    if settings.tls_fixture:
+        from .gateway_tls import read_mounted_secret, FAKE_SECRET
+        for path in settings.tls_fixture.model_dump().values():
+            if not path.is_absolute():
+                raise ValueError('Fixture paths must be absolute')
+            artifacts.read_bytes(safe_path(path), limit=16384)
+        if read_mounted_secret(settings.tls_fixture.provider_key).get_secret_value() != FAKE_SECRET:
+            raise ValueError('Live provider credential forbidden in fake runtime')
+    if settings.live_provider:
+        # Metadata only on worker. Only gateway reads the provider secret.
+        path = settings.live_provider.provider_key
+        if not path.is_absolute():
+            raise ValueError('Provider credential path must be absolute')
+        info = safe_path(path).stat()
+        if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1
+                or not 16 <= info.st_size <= 256 or info.st_mode & 0o222):
+            raise ValueError('Provider credential must be a bounded read-only regular file')
     return settings
 
 
 def names(run_id, token):
     prefix = f'rpgw-{UUID(str(run_id)).hex}-{UUID(str(token)).hex}'
-    return {kind: prefix + '-' + kind for kind in ('agent', 'gateway', 'network')}
+    return {kind: prefix + '-' + kind for kind in
+            ('agent', 'gateway', 'network', 'proxy', 'supplier', 'proxy-network', 'supplier-network', 'egress-network')}
 
 
 def checked(*args):
@@ -93,7 +138,10 @@ def preflight(settings, agent_image):
     version = json.loads(checked('version', '--format', '{{json .Server}}'))
     if version['Os'] != 'linux' or int(version['Version'].split('.')[0]) < 28:
         raise ValueError('Gateway requires Linux Docker Engine 28 or later')
-    for image in (settings.image, agent_image):
+    images = [settings.image, agent_image]
+    if settings.live_provider:
+        images.append(settings.live_provider.egress_image)
+    for image in images:
         if not re.fullmatch(r'sha256:[0-9a-f]{64}', image):
             raise ValueError('Immutable local image required')
         if checked('image', 'inspect', '--format', '{{.Id}}', image) != image:
@@ -104,7 +152,7 @@ def preflight(settings, agent_image):
             raise ValueError('Gateway/Agent images must not declare volumes')
     control = json.loads(checked('network', 'inspect', settings.control_network))[0]
     if not isolated_network(control):
-        raise ValueError('Mock gateway control network must be internal and isolated')
+        raise ValueError('Gateway control network must be internal and isolated')
 
 
 def attempt_directory(run_id, token):
@@ -178,7 +226,9 @@ def cleanup_owned_attempt(run_id, token):
         errors.append('revocation_unconfirmed')
     resources = names(run_id, token)
     for kind, name in (('container', resources['agent']), ('container', resources['gateway']),
-                       ('network', resources['network'])):
+                       ('container', resources['proxy']), ('container', resources['supplier']),
+                       ('network', resources['network']), ('network', resources['proxy-network']),
+                       ('network', resources['supplier-network']), ('network', resources['egress-network'])):
         try:
             if inspect_owned(kind, name, run_id, token) is not None:
                 checked(kind, 'rm', *(['--force', '--volumes'] if kind == 'container' else []), name)
@@ -217,7 +267,7 @@ with urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=1) as respon
 
 
 def run_process(request, config, directory, token):
-    """One complete mock attempt, with cleanup on every exit (including partial setup)."""
+    """One explicitly configured attempt, cleanup on every exit including partial setup."""
     settings = load_settings()
     run_id = request.run_id
     resources = names(run_id, token)
@@ -231,7 +281,7 @@ def run_process(request, config, directory, token):
         credential_dir = attempt_directory(run_id, token)
         private_directory(credential_dir)
         from .gateway_credentials import issue_credential
-        issued = issue_credential(run_id, token, mode='mock')
+        issued = issue_credential(run_id, token, mode=settings.mode)
         credential = credential_dir / 'credential'
         with credential.open('x', encoding='ascii') as stream:
             stream.write(issued.secret.get_secret_value())
@@ -248,30 +298,79 @@ def run_process(request, config, directory, token):
         network = inspect_owned('network', resources['network'], run_id, token)
         if not network or not isolated_network(network):
             raise ContainerUnconfirmed('Gateway Agent network differs')
+        extra_mounts = []
+        if settings.live_provider:
+            for kind, key in (('network', 'proxy-network'), ('network', 'egress-network'), ('container', 'proxy')):
+                if inspect_owned(kind, resources[key], run_id, token) is not None:
+                    raise ContainerUnconfirmed('Live resources exist; recover first')
+            checked(*args, resources['proxy-network'])
+            if not isolated_network(inspect_owned('network', resources['proxy-network'], run_id, token)):
+                raise ContainerUnconfirmed('Proxy network must be isolated')
+            checked('network', 'create', '--driver', 'bridge', '--label', f'{LABEL}={token}',
+                    '--label', f'repopilot.run_id={run_id}', resources['egress-network'])
+            outbound = inspect_owned('network', resources['egress-network'], run_id, token)
+            if not outbound or outbound.get('Driver') != 'bridge' or outbound.get('Internal') or outbound.get('EnableIPv6'):
+                raise ContainerUnconfirmed('Egress network differs')
+            checked(*create_args(resources['proxy'], run_id, token, resources['egress-network'],
+                settings.live_provider.egress_image,
+                ['python', '-I', '-B', '/app/gateway_egress_entrypoint.py'], mounts=[]))
+            checked('network', 'connect', '--alias', 'provider-egress', resources['proxy-network'], resources['proxy'])
+            checked('container', 'start', resources['proxy'])
+            extra_mounts = [(settings.live_provider.provider_key, '/run/repopilot/provider-key', True)]
+        if settings.tls_fixture:
+            for key in ('proxy-network', 'supplier-network'):
+                if inspect_owned('network', resources[key], run_id, token) is not None:
+                    raise ContainerUnconfirmed('TLS network exists; recover first')
+                checked(*args, resources[key])
+                if not isolated_network(inspect_owned('network', resources[key], run_id, token)):
+                    raise ContainerUnconfirmed('TLS network must be internal and isolated')
+            fixture = settings.tls_fixture
+            for key in ('supplier', 'proxy'):
+                if inspect_owned('container', resources[key], run_id, token) is not None:
+                    raise ContainerUnconfirmed('TLS fixture exists; recover first')
+            checked(*create_args(resources['supplier'], run_id, token, resources['supplier-network'],
+                settings.image, ['python', '-I', '-B', '/app/gateway_tls_fixture.py', 'supplier'],
+                mounts=[(fixture.certificate, '/run/fixture/server.pem', True),
+                        (fixture.server_key, '/run/fixture/server.key', True)]))
+            # The supplier alias is set by reconnecting before the container starts.
+            checked('network', 'disconnect', resources['supplier-network'], resources['supplier'])
+            checked('network', 'connect', '--alias', 'tls-fixture', resources['supplier-network'], resources['supplier'])
+            checked(*create_args(resources['proxy'], run_id, token, resources['supplier-network'],
+                settings.image, ['python', '-I', '-B', '/app/gateway_tls_fixture.py', 'proxy'], mounts=[]))
+            checked('network', 'connect', '--alias', 'provider-egress', resources['proxy-network'], resources['proxy'])
+            for key in ('supplier', 'proxy'):
+                checked('container', 'start', resources[key])
+            extra_mounts = [(fixture.ca, '/run/repopilot/fixture-ca.pem', True),
+                            (fixture.provider_key, '/run/repopilot/provider-key', True)]
         checked(*create_args(resources['gateway'], run_id, token, settings.control_network,
             settings.image, ['python', '-I', '-B', '/app/gateway_entrypoint.py'],
             mounts=[(settings.database_file, '/run/repopilot/database.json', True),
-                    (gateway_dir, f'/evidence/{run_id}/gateway', False)],
+                    (gateway_dir, f'/evidence/{run_id}/gateway', False), *extra_mounts],
             env=[('REPOPILOT_GATEWAY_RUN_ID', str(run_id)),
-                 ('REPOPILOT_GATEWAY_ATTEMPT_ID', str(token))]))
+                 ('REPOPILOT_GATEWAY_ATTEMPT_ID', str(token)), ('REPOPILOT_GATEWAY_MODE', settings.mode)]))
+        if settings.tls_fixture or settings.live_provider:
+            checked('network', 'connect', resources['proxy-network'], resources['gateway'])
         checked('network', 'connect', '--alias', 'model-gateway', resources['network'], resources['gateway'])
         checked('container', 'start', resources['gateway'])
         ready = False
         for _ in range(15):
             ensure_active(run_id, token)
-            if docker('exec', resources['gateway'], 'python', '-I', '-c', HEALTH_CHECK).returncode == 0:
+            health_check = HEALTH_CHECK.replace("'transport':'mock'", "'transport':" + repr(settings.mode))
+            if settings.live_provider:
+                health_check = health_check.replace("'model_access':False", "'model_access':True")
+            if docker('exec', resources['gateway'], 'python', '-I', '-c', health_check).returncode == 0:
                 ready = True
                 break
             time.sleep(0.2)
         if not ready:
-            raise RuntimeError('Mock gateway readiness failed')
+            raise RuntimeError('Gateway readiness failed')
         ensure_active(run_id, token)
         checked(*create_args(resources['agent'], run_id, token, resources['network'],
             config.image, config.argv, mounts=[(directory / 'input', '/input', True),
                 (directory / 'workspace', '/workspace', False), (directory / 'output', '/output', False),
                 (credential, CREDENTIAL_TARGET, True)], workdir='/workspace',
             env=[('REPOPILOT_MODEL_GATEWAY_URL', URL), ('REPOPILOT_MODEL_CREDENTIAL_FILE', CREDENTIAL_TARGET),
-                 ('REPOPILOT_MODEL_TRANSPORT', 'mock')]))
+                 ('REPOPILOT_MODEL_TRANSPORT', settings.mode)]))
         info = inspect_owned('container', resources['agent'], run_id, token)
         if (not info or set(info['NetworkSettings']['Networks']) != {resources['network']}
                 or info['HostConfig'].get('PortBindings') or info['HostConfig'].get('Privileged')):
@@ -295,8 +394,9 @@ def run_process(request, config, directory, token):
         # add reviewed gateway evidence; do not ingest arbitrary online trace yet.
         return dict(exit_code=exit_code, timed_out=timed_out, writers_stopped=True,
                     stdout='', stderr='', stdout_truncated=False, stderr_truncated=False,
-                    output_policy='suppressed_for_gateway_credentials', gateway_mode='mock',
-                    gateway_image=settings.image, model_access=False,
+                    output_policy='suppressed_for_gateway_credentials', gateway_mode=settings.mode,
+                    gateway_image=settings.image, model_access=settings.live_provider is not None,
+                    gateway_egress_image=settings.live_provider.egress_image if settings.live_provider else None,
                     gateway_runtime_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest())
     finally:
         cleanup_owned_attempt(run_id, token)

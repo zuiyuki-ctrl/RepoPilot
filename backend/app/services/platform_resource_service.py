@@ -5,7 +5,7 @@ from .request_observation_service import collect_request_observations
 from .evaluation_metrics_service import resource_metrics
 
 
-def run_resources(run, events):
+def run_resources(run, events, *, gateway=None):
     native, external, refs = [], [], []
     invalid = False
     for event in events:
@@ -62,12 +62,31 @@ def run_resources(run, events):
         and set(capability.get('evidence_sequences', [])) == set(refs)
         and [e.sequence for e in events] == list(range(1, run.event_sequence+1)))
     metrics = resource_metrics(rows, complete_scope=scope_complete)
+    gateway_authoritative = gateway is not None and (gateway['grant_present'] or gateway['call_count'] > 0)
+    excluded_reported_calls = 0
+    if gateway_authoritative:
+        # A grant establishes this Run's model route. Do not add self-reported
+        # usage even when its call_id differs (or no ledger call was dispatched).
+        excluded_reported_calls = len(rows)
+        rows = []
+        for call in gateway['items']:
+            if not call['real_usage_eligible']:
+                continue
+            usage = call['usage'] or {}
+            rows.append(dict(call_id=call['id'], kind='chat', phase='gateway', completeness='recorded',
+                started_sequences=[], finished_sequences=[], observation=dict(
+                    request_attempted=True if call['dispatched_at'] is not None else None,
+                    usage_status='complete' if call['usage_status'] == 'recorded' else 'missing',
+                    duration_ms=call['duration_ms'], usage=dict(input_tokens=usage.get('prompt_tokens'),
+                        output_tokens=usage.get('completion_tokens'), total_tokens=usage.get('total_tokens')))))
+        metrics = resource_metrics(rows, complete_scope=gateway['real_scope_complete'] and run.lifecycle == 'finished')
     wall = None
     if run.started_at and run.completed_at:
         elapsed = (run.completed_at-run.started_at).total_seconds()*1000
         if elapsed >= 0:
             wall = int(elapsed)
-    return dict(tokens=metrics, source='agent_reported' if external else 'adapter' if native else 'not_recorded',
+    return dict(tokens=metrics, source='platform_gateway_ledger' if gateway_authoritative else 'agent_reported' if external else 'adapter' if native else 'not_recorded',
+        gateway=gateway, excluded_reported_calls=excluded_reported_calls,
         event_sequences=refs, invalid_observations=invalid,
         calls=[dict(call_id=r['call_id'], kind=r['kind'], phase=r['phase'], completeness=r['completeness'],
             started_sequences=r['started_sequences'], finished_sequences=r['finished_sequences']) for r in rows],

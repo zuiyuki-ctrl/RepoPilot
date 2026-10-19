@@ -159,8 +159,8 @@ def test_unapproved_model_rejected_before_reservation(fake_gateway):
     assert not g.l.calls and g.l.grant.calls_reserved == 0
 
 
-def test_live_and_fake_modes_cannot_be_issued(ledger):
-    for mode in ('dashscope', 'dashscope_fake'):
+def test_live_modes_cannot_be_issued(ledger):
+    for mode in ('dashscope', 'live'):
         with pytest.raises(ValueError): credentials.issue_credential(ledger.run.id, ledger.token, mode=mode)
     with pytest.raises(TypeError): DashScopeProtocolTransport()
     with pytest.raises(ValueError): GatewayExchange(transport=NS(mode='dashscope'))

@@ -2,16 +2,18 @@
 
 这里只接通 **Mock**，不会连接模型供应商。现有入口 `allow_model` 与 worker `--allow-model` 双授权仍然需要；不能把 Mock 的执行成功称作模型修复成功或真实 Token/费用实验结果。
 
-2026-10-19 B3a 补充：已新增固定 DashScope 协议的 `dashscope_fake` 测试路径，但下面的运行配置/凭证仍**只接受 mock**。假上游路径不是可部署的 live 模式；不要修改 mode 绕过保护。依赖新增 HTTPX，本轮尚未重建镜像，B2 历史镜像报告只证明当时源码。下一步为供应商级出站部署及新镜像假上游验收，见 [计划第 11 节](v2-model-gateway-plan.md#11-b3a固定协议与假上游结算2026-10-19)。
+2026-10-19 B3b 更新：下文保留 B2 Mock 配置说明。运行器现另支持显式 `dashscope_fake + tls_fixture`，使用固定假 Key、独立证书文件和隔离 TLS 假供应商。一次性脚本增加 `--tls-fixture`，不可与旧 Mock `--faults` 混用；不接受 live 模式或真实 Key。新镜像、18 项真实容器/数据库验收及边界见 [模型网关计划第 13 节](v2-model-gateway-plan.md#13-b3b-第二部分tls-与-run-部署链路2026-10-19)。B2 历史镜像仍只证明当时源码。
 
 ## 1. 数据流与隔离
+
+2026-10-19 C 更新：运行详情可查看平台调用账本、冻结预算和请求预览。正文仅在 Run 结束且凭据撤销后开放，校验原始 hash，再进行有界脱敏展示；模拟 usage 不计入真实用量。真实数据库/页面的集中验收留给后续持久化演示 Run，已有一次性探针不会留下可浏览的业务记录。参见[计划第 15 节](v2-model-gateway-plan.md#15-c2保存的模型请求内容预览2026-10-19)。
 
 `已授权 process_run → 绑定 worker token → 签发短期 bearer → 单文件只读挂载 → Agent → 专属网关 → PostgreSQL 账本 + 私有证据 → 撤销 → 清理`
 
 - Agent 仅连本次尝试独占的 internal/isolated 网络，没有端口发布；网关同时接可信控制网络。当前 Mock 控制网络也必须是 internal/isolated，不能直接替换成普通外网 bridge。
 - Agent 得到 `/input`（只读）、`/workspace`、`/output` 和 `/run/repopilot/credential`（只读）。它得不到数据库文件、平台私有证据目录、Docker socket、供应商 Key。
 - 网关只挂载数据库配置单文件和本 Run 的 `gateway/` 证据子目录；应用绑定 Run 和 worker token，即使拿到其他 Run 的有效 bearer，也不能在这个实例使用。
-- bearer 不写入 request、argv、环境变量、事件或普通日志；环境变量仅包含固定 URL、凭证**路径**与 `mock` 标记。在线 stdout/stderr 不采集，自报 trace 暂不导入，可信观测接入留到 C。Agent 自己能读取 bearer，因此它生成的工作区/输出文件仍应视为不可信、不得直接公开。
+- 平台不主动把 bearer 写入 request、argv、环境变量、事件或普通日志；环境变量仅包含固定 URL、凭证**路径**与 `mock` 标记。在线 stdout/stderr 不采集，自报 trace 暂不导入。Agent 自己能读取 bearer，也可能将其放进消息，所以 C2 请求预览在撤销后才开放并过滤可识别凭据；这不等于可以直接公开 Agent 的其他工作区/输出文件。
 - Windows 凭证父目录写入前设置当前用户和 SYSTEM 的 DACL；POSIX 父目录为 0700。容器通过只读单文件绑定读取。运行结束先撤销摘要，再停止容器/删除网络，最后删除凭证文件。
 - 子进程、父监督器和显式恢复都可按 Run/attempt 标签清理。失败保留 `active_token` 栅栏，不自动重放、不删除其他所有者的资源。
 - `platform_container.py` 与其测试 runner 指纹未改；旧离线 Process、基线/最终测试仍为 `--network none`。

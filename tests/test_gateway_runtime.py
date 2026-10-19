@@ -43,7 +43,7 @@ class FakeDocker:
         elif args[1] == 'create':
             name = args[-1] if args[0] == 'network' else args[args.index('--name')+1]
             labels = {runtime.LABEL:str(self.token),'repopilot.run_id':str(self.run_id)}
-            info = ({'Labels':labels, 'Driver':'bridge','Internal':True,'EnableIPv6':False,'Options':runtime.ISOLATED}
+            info = ({'Labels':labels, 'Driver':'bridge','Internal':'--internal' in args,'EnableIPv6':False,'Options':runtime.ISOLATED}
                     if args[0] == 'network' else {'Config':{'Labels':labels},'State':{'Status':'created'},
                         'HostConfig':{},'NetworkSettings':{'Networks':{args[args.index('--network')+1]:{}}}})
             self.objects[(args[0],name)] = info
@@ -85,6 +85,53 @@ def deployment(ledger, monkeypatch, tmp_path):
 
 def run(d):
     return runtime.run_process(d.request, d.l.config, d.root, d.l.token)
+
+
+def enable_tls_fixture(d):
+    paths={}
+    for key in ('ca','certificate','server_key','provider_key'):
+        path=d.root/('fixture-'+key)
+        path.write_text('repopilot-fake-upstream-only' if key=='provider_key' else 'fixture')
+        path.chmod(0o444);paths[key]=path
+    d.settings.mode='dashscope_fake'
+    d.settings.tls_fixture=runtime.TLSFixtureFiles(**paths)
+
+
+def test_tls_runtime_mounts_and_owned_resources(deployment):
+    d=deployment;enable_tls_fixture(d)
+    result=run(d)
+    assert result['gateway_mode']=='dashscope_fake' and result['model_access'] is False
+    commands=d.docker.commands
+    creates=[c for c in commands if c[:2]==('container','create')]
+    gateway=next(c for c in creates if c[c.index('--name')+1].endswith('-gateway'))
+    agent=next(c for c in creates if c[c.index('--name')+1].endswith('-agent'))
+    supplier=next(c for c in creates if c[c.index('--name')+1].endswith('-supplier'))
+    proxy=next(c for c in creates if c[c.index('--name')+1].endswith('-proxy'))
+    assert any('target=/run/repopilot/provider-key,readonly' in a for a in gateway)
+    assert not any('provider-key' in a or 'server.key' in a or 'database.json' in a for a in agent)
+    assert any('target=/run/fixture/server.key,readonly' in a for a in supplier)
+    assert '--mount' not in proxy
+    assert len([c for c in commands if c[:2]==('network','create')])==3
+    assert not d.docker.objects and d.l.grant.credential_sha256 is None
+
+
+@pytest.mark.parametrize('suffix',['-supplier','-proxy','-gateway'])
+def test_tls_partial_start_failure_revokes_and_cleans(deployment,suffix):
+    d=deployment;enable_tls_fixture(d)
+    d.docker.fail=lambda c:c[:2]==('container','start') and c[-1].endswith(suffix)
+    with pytest.raises(runtime.ContainerUnconfirmed):run(d)
+    assert not d.docker.objects and d.l.grant.revoked_at and d.l.grant.credential_sha256 is None
+
+
+def test_tls_proxy_cleanup_failure_keeps_credential(deployment):
+    d=deployment;enable_tls_fixture(d)
+    d.docker.fail=lambda c:c[:2]==('container','rm') and c[-1].endswith('-proxy')
+    with pytest.raises(runtime.ContainerUnconfirmed):run(d)
+    directory=runtime.attempt_directory(d.l.run.id,d.l.token)
+    assert (directory/'credential').exists() and d.l.grant.revoked_at
+    d.docker.fail=None
+    runtime.cleanup_owned_attempt(d.l.run.id,d.l.token)
+    assert not directory.exists() and not d.docker.objects
 
 
 def test_complete_mock_deployment_mounts_scope_revokes_and_removes(deployment):

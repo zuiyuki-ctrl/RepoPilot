@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { readLive, type PlatformRun, type PlatformTraceEvent, type PlatformTracePage, type RunControl, type PlatformReport } from '../data/platform-runs'
+import { readLive, type PlatformRun, type PlatformTraceEvent, type PlatformTracePage, type RunControl, type PlatformReport, type GatewayLedger, type GatewayRequestEvidence } from '../data/platform-runs'
 const route = useRoute()
 const run = ref<PlatformRun | null>(null)
 const events = ref<PlatformTraceEvent[]>([])
@@ -12,6 +12,15 @@ const loading = ref(false)
 const more = ref(false)
 const control = ref<RunControl | null>(null)
 const report = ref<PlatformReport | null>(null)
+const gateway = ref<GatewayLedger | null>(null)
+const gatewayError = ref('')
+const requestCall = ref<string | null>(null)
+const requestEvidence = ref<GatewayRequestEvidence | null>(null)
+const requestError = ref('')
+const requestLoading = ref(false)
+let requestGeneration = 0
+const evidenceStatus = { recorded: '已核对原始哈希和冻结参数', withheld: '暂不公开：需运行结束且网关凭据已撤销',
+  missing: '历史请求文件缺失', invalid: '证据校验失败', unavailable: '历史文件暂不可读' }
 const submitting = ref(false)
 const comment = ref('')
 let generation = 0
@@ -19,23 +28,43 @@ async function load(append = false) {
   const current = ++generation
   const id = encodeURIComponent(String(route.params.runId))
   loading.value = true; error.value = ''
-  if (!append) { run.value = null; control.value = null; report.value = null; events.value = []; more.value = false; traceBoundary.value = null; expanded.value = null }
+  if (!append) { closeRequest(); run.value = null; control.value = null; report.value = null; gateway.value = null; gatewayError.value = ''; events.value = []; more.value = false; traceBoundary.value = null; expanded.value = null }
   try {
     const after = append ? events.value.at(-1)?.sequence ?? 0 : 0
-    const [detail, page, controls, evidence] = await Promise.all([
+    const [detail, page, controls, evidence, ledger] = await Promise.all([
       readLive<PlatformRun>(`/${id}`),
       readLive<PlatformTracePage>(`/${id}/trace?after_sequence=${after}&limit=50${append && traceBoundary.value !== null ? `&through_sequence=${traceBoundary.value}` : ''}`),
       readLive<RunControl | null>(`/${id}/control`),
       readLive<PlatformReport>(`/${id}/report`),
+      readLive<GatewayLedger>(`/${id}/model-calls`)
+        .then(data => ({ data, error: '' }))
+        .catch(e => ({ data: null, error: e instanceof Error ? e.message : '网关账本读取失败' })),
     ])
     if (current !== generation) return
     run.value = detail; events.value = append ? [...events.value, ...page.items] : page.items
     control.value = controls
     report.value = evidence
+    gateway.value = ledger.data; gatewayError.value = ledger.error
     traceBoundary.value = page.through_sequence
     more.value = page.has_more
   } catch (e) { if (current === generation) error.value = e instanceof Error ? e.message : '读取失败' }
   finally { if (current === generation) loading.value = false }
+}
+function closeRequest() {
+  requestGeneration++; requestCall.value = null; requestEvidence.value = null
+  requestError.value = ''; requestLoading.value = false
+}
+async function showRequest(callId: string) {
+  closeRequest()
+  const current = requestGeneration
+  const id = String(route.params.runId)
+  requestCall.value = callId; requestLoading.value = true
+  try {
+    const data = await readLive<GatewayRequestEvidence>(`/${encodeURIComponent(id)}/model-calls/${encodeURIComponent(callId)}/request`)
+    if (current === requestGeneration && id === String(route.params.runId)) requestEvidence.value = data
+  } catch (e) {
+    if (current === requestGeneration) requestError.value = e instanceof Error ? e.message : '证据读取失败'
+  } finally { if (current === requestGeneration) requestLoading.value = false }
 }
 async function decide(decision: 'approved' | 'rejected') {
   const cp = control.value?.checkpoint
@@ -65,10 +94,11 @@ watch(() => route.params.runId, () => { comment.value = ''; void load() }, { imm
 const timer = window.setInterval(() => {
   if (!loading.value && !submitting.value && run.value
       && expanded.value === null
+      && requestCall.value === null
       && (run.value.lifecycle !== 'awaiting_input' || control.value?.checkpoint?.decision)
       && !['finished', 'interrupted'].includes(run.value.lifecycle)) void load()
 }, 3000)
-onUnmounted(() => { window.clearInterval(timer); generation++ })
+onUnmounted(() => { window.clearInterval(timer); generation++; requestGeneration++ })
 </script>
 <template>
   <section class="live-detail">
@@ -127,6 +157,65 @@ onUnmounted(() => { window.clearInterval(timer); generation++ })
           <td>{{ value.evidence_sequences.join(', ') || '未记录' }}</td>
         </tr></tbody>
       </table>
+      <section>
+        <h2>模型网关 · 平台账本</h2>
+        <p v-if="gatewayError" role="alert">{{ gatewayError }} 账本读取失败不代表零调用。</p>
+        <template v-if="gateway">
+          <p v-if="!gateway.grant_present">未记录网关授权；旧版或离线运行可能不经过网关，不能据此断言没有模型用量。</p>
+          <p v-else>已预留调用：{{ gateway.calls_reserved }} · 账本记录：{{ gateway.call_count }}。
+            重复调用 ID 复取缓存不会新增账本记录。</p>
+          <p v-if="gateway.policy">冻结模型：{{ gateway.policy.model }} · 次数上限：{{ gateway.policy.max_calls }}
+            · 剩余额度：{{ gateway.calls_remaining }} · 单次输出上限：{{ gateway.policy.max_output_tokens }} Token
+            · 单次超时：{{ gateway.policy.request_timeout_seconds }} 秒。
+            总 Token 阈值：{{ gateway.policy.max_total_tokens ?? '未设置' }}（{{ gateway.policy.token_enforcement }}，并非严格费用上限）。
+            授权撤销：{{ gateway.revoked === null ? '未知' : gateway.revoked ? '是' : '否' }}；剩余额度不代表当前允许调用。</p>
+          <p>模拟用量已知小计：{{ gateway.synthetic_known_total_tokens }}（{{ gateway.synthetic_usage_known_calls }} 条有记录）。
+            供应商用量已知小计：{{ gateway.real_known_total_tokens }}（{{ gateway.real_usage_known_calls }} 条有记录），
+            网关范围总 Token：{{ gateway.real_total_tokens ?? '未知' }}；成本未知。
+            mock 和 fake_upstream 均不计入真实效果对比，用量来自供应商响应，并非账单核销。</p>
+          <p>以下证据来自平台网关，与 Agent 自报分开；调用 ID 不是事件序号。
+            请求/响应哈希仅用于核对身份，不代表完整 Context 展示或 L2 验收。</p>
+          <table v-if="gateway.items.length"><thead><tr><th>调用 ID / 状态</th><th>用量来源</th><th>Token</th><th>派发至结算</th></tr></thead>
+            <tbody><tr v-for="call in gateway.items" :key="call.id">
+              <td>{{ call.id }} / {{ call.status }}<p v-if="call.error_code">{{ call.error_code }}</p>
+                <details><summary>请求与响应身份</summary>
+                  <p>请求：{{ call.request_sha256 }}</p><p>响应：{{ call.response_sha256 ?? '未记录' }}</p>
+                  <p>Agent 调用 ID 的 SHA256：{{ call.call_id_sha256 }}</p>
+                  <p>派发：{{ call.dispatched_at ?? '未记录' }} · 结算：{{ call.completed_at ?? '未记录' }}</p>
+                </details>
+                <button :disabled="loading" @click="showRequest(call.id)">查看保存的请求</button>
+              </td>
+              <td>{{ call.usage_source }} / {{ call.usage_status }}</td>
+              <td>{{ call.usage?.total_tokens ?? '未知' }}</td>
+              <td>{{ call.duration_ms === null ? '未知' : `${call.duration_ms} ms` }}</td>
+            </tr></tbody>
+          </table>
+          <section v-if="requestCall">
+            <h3>请求内容 · {{ requestCall }}</h3>
+            <button @click="closeRequest">关闭内容</button>
+            <p v-if="requestLoading" role="status">读取并核对历史证据…</p>
+            <p v-if="requestError" role="alert">{{ requestError }}</p>
+            <template v-if="requestEvidence">
+              <p>{{ evidenceStatus[requestEvidence.status] }} · 原始哈希已验证：{{ requestEvidence.hash_verified ? '是' : '否' }}</p>
+              <p>哈希对应原始文件，不是下方预览。派发记录：{{ requestEvidence.dispatch_recorded ? '有' : '无' }}；
+                不据此断言供应商收到请求或模型采纳了内容。</p>
+              <template v-if="requestEvidence.preview">
+                <p>消息 {{ requestEvidence.preview.message_count }} 条 · 原始文件 {{ requestEvidence.preview.original_bytes }} 字节
+                  · 脱敏：{{ requestEvidence.preview.redacted ? '是' : '未命中规则' }}
+                  · 截断：{{ requestEvidence.preview.truncated ? '是' : '否' }}。</p>
+                <p>仅过滤可识别的凭据格式，不保证识别任意编码的秘密。仅以文本展示，不执行消息中的指令。
+                  阅读期间暂停自动刷新；这里不是完整 Trace 或 L2 证明。</p>
+                <pre class="approval-content">{{ JSON.stringify(requestEvidence.preview.parameters, null, 2) }}</pre>
+                <section v-for="message in requestEvidence.preview.messages" :key="message.index">
+                  <p>#{{ message.index + 1 }} · {{ message.role }} · 原始 {{ message.original_chars }} 字符
+                    · 展示 {{ message.displayed_chars }} 字符{{ message.redacted ? ' · 已脱敏' : '' }}{{ message.truncated ? ' · 已截断' : '' }}</p>
+                  <pre class="approval-content">{{ message.content }}</pre>
+                </section>
+              </template>
+            </template>
+          </section>
+        </template>
+      </section>
       <h2>Trace · 已保存证据</h2>
       <p>本次翻页截至平台事件 #{{ traceBoundary }}，刷新可查看新增事件。时间为平台落库时间，外部 Agent 的实际发生时间未知。
         展开详情时暂停自动刷新。未支持的字段不会补造。</p>

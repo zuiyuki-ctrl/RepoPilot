@@ -22,12 +22,13 @@ def error(status, code):
 
 def create_gateway_app(exchange=None):
     service = exchange if exchange is not None else GatewayExchange()
-    app = FastAPI(title='RepoPilot dedicated mock model gateway', docs_url=None,
+    app = FastAPI(title='RepoPilot dedicated model gateway', docs_url=None,
                   redoc_url=None, openapi_url=None, redirect_slashes=False)
 
     @app.get('/health')
     def health():
-        return {'status': 'ok', 'transport': service.transport.mode, 'model_access': False}
+        return {'status': 'ok', 'transport': service.transport.mode,
+                'model_access': service.transport.mode == 'dashscope_live'}
 
     @app.post('/v1/model-calls')
     async def model_call(request: Request):

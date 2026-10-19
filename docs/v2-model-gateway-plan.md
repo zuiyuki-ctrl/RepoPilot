@@ -1,6 +1,6 @@
 # 真实外部 Agent 模型网关实施计划
 
-日期：2026-10-19。状态：A、B1 与 B2 限定范围检查点已通过；B3a 固定供应商协议、假上游响应/usage 与账本结算完成，最新集中回归 277 passed、63 子测试通过。生产入口仍为 mock-only。下一步 B3b：供应商级出站隔离、可信密钥挂载及假上游容器验收；尚未进入 C。此前 Docker 16 项基础 + 62 项故障检查对应 B2 镜像，不代表本轮新代码已通过容器验收。未迁移现有业务库、未调用真实模型。延续 v2 平台，非重建 Agent 框架。
+日期：2026-10-19。状态：A/B、C1/C2、D1 代码接线完成；D2 已重建镜像，实际 Docker/临时 PostgreSQL 的 live 无调用检查 22 项、TLS 假供应商与请求预览 20 项、代理网络检查 17 项通过，资源清理已确认。最新集中回归 384 passed、63 子测试通过。没有读取真实 Key、修改业务数据库或调用真实供应商；下一步为持久化 MiniFix Agent 演示及用户少量真实调用。详见第 17 节，仍不能宣称真实账号/公网 TLS/付费端到端通过。
 
 ## 1. 目标与范围
 
@@ -256,3 +256,119 @@ python -m pytest -q tests/test_gateway_network_probe.py
 1. 为可信网关落实固定供应商出站边界：Agent 仍只能访问专属内网网关；网关不能凭普通外网 bridge 任意访问互联网/宿主/业务网。实际选定出站代理/网络约束后，以假上游验证允许与禁止目标，不能仅用 ENDPOINT 常量宣称完成。
 2. 在此边界上增加真实 TLS transport、显式零连接重试和可信供应商密钥单文件挂载；不得读取业务 `.env`，不得向 Agent、日志、证据、命令行或普通环境变量泄露 Key。用户在 D 确认区域/账号/少量付费调用之前，保持 live 关闭。
 3. 构建新镜像，用一次性资源集中做假上游跨容器成功/超时/取消/清理验收，记录新镜像与源码 hash。补齐此部署检查点后再进入 C 的 Trace/资源去重与页面展示，不再次重做无新增覆盖的 Mock 单次 smoke。
+
+## 12. B3b 第一部分：固定出站代理与网络检查点（2026-10-19）
+
+### B3a 复核及本轮实现
+
+读取最新协议、Exchange、凭证签发、生产入口和运行器后，未发现阻塞本次推进的问题；定向复跑上游/HTTP/账本 **101 项通过**。确认 B3a 没有把 fake 入口误开放给生产，旧 B2 镜像也没有被当作 B3a 验收证据。
+
+新增 `gateway_egress.py`、独立入口和 `Dockerfile.gateway-egress`。选择 **固定目标 CONNECT 代理**：Agent 网络不含代理；可信网关只加入 Agent 内网、私有控制网及代理内网，不直接加入出站 bridge；代理才加入出站网络。网关至数据库的原控制通道后续仍需一起核验，当前探针没有数据库。
+
+代理仅接受 `dashscope.aliyuncs.com:443` 的精确 CONNECT/Host，拒绝其他域名、端口、IP 字面量、普通 HTTP 转发和额外头。生产拨号函数只解析固定域名一次，所有 IPv4 答案必须为可用公网地址，再向选定的数字 IP 连接，不再次解析、不自动重试。并发上限 16、头部 4 KiB、单向隧道 1 MiB、总期限 120 秒。它不读取凭据、不记录内容；**只限制目的地址，不检查 TLS 内的路径或 SNI**，供应商证书/主机名和固定 HTTP 路径必须由下一步可信网关 TLS 客户端校验。没有给 Agent 提供任意 CONNECT 接口。
+
+### 验证和产物
+
+- 新增 **32 项离线/真实 localhost 测试**：目标和头拒绝、私网/混合 DNS 拒绝、数字 IP 固定拨号、真实回环转发、总期限关闭连接、并发槽回收。生产 DNS 拨号在测试中模拟，不连接供应商。
+- 全部网关与 v2 集中回归 **309 passed、63 subtests passed**，3 个既有警告。禁用 dotenv、真实 SQL 与外网，只放行测试回环。
+- 独立探针 `scripts.probe_gateway_egress` 复用 B1 所有权清理机制，部署 5 个临时容器、3 张网络，**17 项真实 Docker 检查通过**：假供应商 443/8000/5432 正向可达、网关与 Agent 不能直接越网访问、固定隧道可用、错误目标拒绝、Agent 不能直连代理、测试容器断网。假拨号器仅存在于脚本 fixture，生产代理不提供配置覆盖；隧道载荷为固定 TCP echo，**不是 TLS**。
+- 本机报告：`.platform-artifacts/gateway-egress/17442696b6084309833789c3c3450e06.json`，`status=passed`、`cleanup_confirmed=true`。新代理镜像 ID：`sha256:7d0e9ca35ebe2bf87ac42e114f2b85ccd374c46545c3bca32596fc4369153542`；报告核对镜像内代理源码 hash 与本机一致。临时容器/网络清理确认，保留本地镜像及报告。
+- 镜像仅复制标准库代码，未安装依赖。首次以裸 image ID 传给 FROM 时 BuildKit 错误尝试解析 Docker Hub 的 sha256 仓库并失败；随后改用已核对 ID 的本地标签成功构建。未联系模型供应商、读取 Key 或业务 `.env`、迁移/修改业务库。
+
+### 下一接续点：继续 B3b，不进入 C
+
+这个检查点证明固定代理的代码策略和代表性 TCP 拓扑，不证明真实 DNS/TLS、宿主所有端口、DNS 隧道或任意受侵进程的完整安全性，也没有改变当前 mock-only 生产部署。
+
+接下来将现有 DashScope transport 接到固定代理：端到端证书/主机名验证、零连接重试、假证书拒绝、固定端点与可信密钥单文件加载（先用假 Key）。再把代理资源加入实际 Run/attempt 的启动、所有权、撤销和清理链路，重建主网关镜像，用一次性库及 TLS 假供应商验证实际账本结算/取消/未知结果。缺少任一环节时 live 仍关闭；真实 Key 和付费请求留到 D 由用户明确开启。新的代理运行方式暂未提供给普通用户配置，不能手动接普通出站 bridge 绕过这一检查点。
+
+## 13. B3b 第二部分：TLS 与 Run 部署链路（2026-10-19）
+
+### 新增功能及目的
+
+- `gateway_tls.py`：固定 CONNECT 代理、固定供应商 HTTPS URL，开启证书和主机名校验、最低 TLS 1.2、零连接重试，禁用环境代理/CA 覆盖。复用 B3a 的整次截止时间和有界响应解析。代理只搬运加密字节，TLS 认证由可信网关完成。
+- 密钥读取要求绝对路径、只读普通非链接单文件、长度和字符校验，拒绝硬链接和特殊文件；返回 SecretStr，受控错误不含值。验收工厂只接受固定假 Key，真实 Key 会被拒绝。没有读取用户真实 Key。
+- RuntimeSettings 显式支持 `dashscope_fake + tls_fixture`。fake 必须提供 CA、证书、测试私钥及假供应商 Key 的独立文件；其他模式不能夹带这些字段。可信 worker 可签发 fake 凭证，模式仍绑定 Run/attempt；live 继续拒绝。
+- 本次尝试独占的代理/假供应商容器和两张内网加入统一所有权及清理流程。Agent 不加入代理网络；网关不加入假供应商网络；只有代理跨这两张内网。所有新网络 internal/isolated，无外网回退。服务端私钥仅挂给假供应商，假供应商 Key/CA 仅挂给网关，Agent 仍只得到自己的短期凭证。
+- 先撤销授权，再清理 Agent/网关/代理/假供应商和网络；清理未确认时保留原栅栏和凭证文件，显式恢复可重复执行。操作者提供的 TLS 文件不会被生产清理器删除；一次性探针负责删除自己生成的测试文件。
+
+### 分层验收
+
+- 新增 **14 项 TLS/文件检查**：使用 Git 自带 OpenSSL 临时生成测试证书，真实 localhost HTTPS 经真实 CONNECT relay 调用，验证正确 SNI/请求字节、可信证书、错误主机名/不可信 CA 拒绝且不重试、缓存复取、两次调用、超时及取消后迟到证据。账本 SQL 为模拟；不冒充真实供应商 TLS。
+- 新增 **5 项运行器检查**：最小挂载、三张尝试内网、供应商/代理/网关启动失败撤销清理，以及代理清理失败保留凭证再恢复。Docker/数据库为模拟，不能将这些故障分支称作真实容器故障验收。
+- 集中回归 **328 passed、63 subtests passed**，3 个既有警告。最后补特殊文件防阻塞检查后，14 项 TLS 测试复跑通过。禁用 dotenv、真实 SQL 和外网，只放行 localhost。
+- 重建主网关镜像，真实执行 `probe_gateway_runtime --tls-fixture`：**18 项通过**。Agent → 网关 → CONNECT 代理 → TLS 假供应商 → 受限角色 PostgreSQL 账本完整运行；两条 succeeded、每条假 usage=15，重复调用 ID 不新增记录/占额；未泄露 Key、服务器私钥、DB 配置或私有证据给 Agent。fake 来源明确标记，绝不计入真实用量效果。
+- 最终镜像：`sha256:0361afe6e2df272612576c6a4486e90ccd48284a24bb02b12f18150a40979074`。最终报告：`.platform-artifacts/gateway-runtime-smoke/41cf974a-4d5c-4cac-9fc8-1a5ef53f7848/report.json`，status=passed、cleanup_confirmed=true。首轮通过报告 `1b3e43b3-a7c7-46f7-ba43-f71c505f2c5c` 保留；最终镜像包含特殊文件读取补充检查。
+- 本轮创建的一次性库、容器、网络、短期凭证及生成的测试私钥均清理；本地保留镜像和脱敏报告。镜像安装锁定的主要依赖，传递依赖未全部锁版本，以镜像 ID 标识本次环境。尝试改变构建网络参数时依赖缓存未命中、构建失败；恢复原参数后复用缓存成功。无新增迁移、无业务数据库修改，无真实模型调用。
+
+### 下一步与未覆盖边界
+
+进入 C，把网关可信账本接到 Trace、资源和页面，明确区分 mock、fake_upstream 与未来真实来源，并去重 Agent 自报。现在的在线 Process 自报 Trace 仍不导入，不能称完整 L2。
+
+B3b 通过的是**假供应商部署检查点**。真实供应商模式的生产凭据启用、真实公网 DNS/证书与出站部署仍未验收，D 前须专门接线并由用户授权少量调用；不能仅修改 mode 绕过保护。已有 B2 故障记录不等于新 TLS 拓扑的所有并发/强杀分支已真实重跑。实际地域/账号/模型可用性也未验证。
+
+实现参考：[HTTPX SSL](https://www.python-httpx.org/advanced/ssl/)、[HTTPX CONNECT 代理机制](https://www.python-httpx.org/advanced/proxies/)。普通 HTTPS 通过 HTTP CONNECT 建立隧道后，由客户端与目标完成 TLS 握手；本轮以本地实际 TLS 测试核查这个行为。
+
+## 14. C1：账本元数据、预算与资源来源（2026-10-19）
+
+新增 `gateway_observation_service` 与 `GET /api/v2/runs/{run_id}/model-calls`。使用只读 Repeatable Read 快照查询已有授权和调用，不请求模型、不重新读取工作区、不新增 RunEvent。调用上限为冻结策略的最多 20 次，因此返回该 Run 的完整账本；账本 UUID 和事件 sequence 是不同身份。
+
+运行详情增加“模型网关 · 平台账本”，展示冻结模型、次数/输出/超时限制、剩余额度、撤销情况、调用状态、派发至结算耗时、用量来源和请求/响应 hash。剩余额度不是调用授权；总 Token 阈值仍为 advisory。网关读取失败单独提示，不拖垮原有 Run/Trace 页面；旧 Run 无授权时展示“未记录”，不假装零调用。需要已有 A/B 迁移（至 d719a02b0001）；缺表返回 503，不自动修改业务库。本轮没有新增迁移。
+
+公开数据采用字段白名单，不返回授权摘要、worker token、原始消息或文件路径。Agent 自选的 call_id 也可能塞入 bearer，因此仅公开其 SHA256 与平台生成的 UUID。冻结策略通过 ModelPolicy 重新校验，异常历史值不使用当前配置补造。时间转为 ISO 字符串，兼容比较摘要计算与 JSON/Markdown 导出。
+
+资源对比在原有同一事务快照中批量读取账本。存在网关授权/记录时，停止叠加 Agent 自报用量，附上被排除的调用数。mock/fake_upstream 的合法 usage 只保存为模拟已知小计；未知来源也不升级为真实来源。真实总 Token 和成本保持 null，不参与真实 Token 成对均值。晚到/unknown 但有 usage 的记录仍保留模拟小计，不把调用失败等同于没有消耗。原生与无网关历史运行沿用原有口径；旧人工决策快照不重写，新比较 hash 可随新增证据字段变化。
+
+验证：首次集中回归 **342 passed、63 subtests passed**（3 个既有警告）；最后增加冻结策略用例后，网关观测与资源模块 **25 passed**（包含本轮新增 15 项）。一次复验误将 Windows 事件循环所需的 localhost 连接也禁止，导致 TestClient 启动失败；恢复仅允许回环后全部通过。测试禁用 dotenv、真实 SQL 和外网。前端 build 通过，最后预算文案补充后 typecheck 再次通过；diff --check 通过。未做本轮真实数据库联调或浏览器目视验收，未调用真实模型。
+
+**C2 尚待完成**：按 Run 和平台调用 UUID 绑定、校验 hash 的有界请求证据查看，明确原始/脱敏/截断/缺失状态，并处理 Agent 可能把短期凭据写入消息的边界。当前 API 不检查私有产物是否仍存在，hash 仅表示账本保存了引用；不是完整 Context/L2。完成 C2 后再做 C 的集中页面验收，随后进入真实供应商接线及 D。live 仍关闭。
+
+## 15. C2：保存的模型请求内容预览（2026-10-19）
+
+本节接续并完成上一节的 C2 实现项。新增 `gateway_request_evidence.py` 和 `GET /api/v2/runs/{run_id}/model-calls/{call_id}/request`，其中 call_id 为平台账本 UUID。数据库查询同时匹配 Run 与调用 UUID；跨 Run 和不存在的调用统一 404。接口不接受磁盘路径或外部提供的内容 hash。
+
+运行必须为 finished/interrupted，且授权已撤销、credential_sha256 已清空，才读取正文；否则返回 withheld 且不打开文件。只从账本指定的 Run/gateway/requests/hash.json 读取，不创建目录、不重新检索、不读取工作区。拒绝父目录链接/reparse point、文件链接/硬链接/特殊文件，最多读 300,000 字节。核对完整文件 SHA256，再用冻结 ModelPolicy 重建允许的请求结构与规范字节并比对；不会拿今天的模型配置补历史字段。保存/派发不等于上游已收到，响应另有账本状态。
+
+预览保留消息顺序、角色、冻结模型参数和原始长度。先过滤可识别的 rpgw 短期凭据、Bearer 及 sk- 格式文本，再按单条 4,000 字符、总计 16,000 字符限制显示；逐条标记 redacted/truncated，并标明 unchanged/redacted/truncated/redacted_and_truncated。hash 始终对应原始文件，不对应过滤后的预览。规则版本为 credential-patterns-v1，不能保证识别任意编码的秘密；这仍是本地可信操作者工具，没有新增多租户用户鉴权或通用 DLP。真实供应商 Key 不读取、不挂给 Agent，也不用于脱敏匹配。
+
+文件缺失返回 missing，路径/hash/结构/策略不符返回 invalid，权限或其他读取故障返回 unavailable，均不输出原始异常或磁盘路径。hash_verified 与预览可用性分开：文件 hash 正确但策略校验失败时仍是 invalid，且不公开内容。成功响应 Cache-Control 为 no-store；自动比较/导出仍保留元数据，不自动附带请求正文。
+
+页面新增“查看保存的请求”，按需加载而非随轮询读取。Vue 文本插值转义展示，不执行 HTML/消息指令；展开期间暂停自动刷新，关闭、切换 Run 或手动刷新会废弃旧请求结果，避免把上一条调用的内容放到新 Run。
+
+验证：本轮新增 **20 项测试**，使用真实临时文件和模拟 SQL，覆盖有界预览、脱敏早于截断、冻结参数不匹配、文件篡改/超限、缺失不创建目录、硬链接/reparse 拒绝、未撤销不读取、跨 Run 查询条件和 API 404/503。网关及平台集中回归 **363 passed、63 subtests passed**，3 个既有警告；前端 build（含 typecheck）与 diff --check 通过。未做本轮真实数据库、Docker 或浏览器目视验收；localhost TLS 属已有模拟供应商回归，没有真实模型请求。
+
+集中页面验收只需：①打开一个已结束且授权已撤销的网关 Run，点击调用的“查看保存的请求”；②核对消息/参数及 fake_upstream 标记，确认真实用量仍未知；③关闭预览、切换 Run，确认不会串入旧内容。旧的临时探针数据库已清理，不能用其 Run ID 当业务库页面样例；下一阶段的持久化演示 Run 可一并完成此验收。无需为本轮单独付费重跑。
+
+下一步：真实供应商模式的固定出站部署、凭据接线与明确启用条件，再由用户执行 D 的少量真实调用和独立 Agent 示例验收。不得把 C 完成解释成已经支持 live、完整 L2 或自动判断根因。
+
+## 16. D1：真实供应商模式代码接线（2026-10-19）
+
+新增 `LiveDashScopeTransport`，复用既有有界协议解析、整次超时、零重试、固定 URL 和模型允许列表；只替换认证头和 usage_source。网关进程从只读单文件读取 Key，以 SecretStr 持有，使用镜像 certifi 信任根，不接受 fake CA 或环境代理。既有 fake 工厂仍拒绝真实 Key，默认 transport 仍是 mock。
+
+`RuntimeSettings` 增加互斥的 live_provider 配置（显式 enabled=true、cn-beijing、provider_key 路径、egress_image 不可变 ID）。worker 对 Key 仅做元数据检查，内容仅网关读取。实际运行仍要求已有 API/worker 双授权和所有权检查。代理专属出站 bridge、代理内网、Agent 内网均按 Run/attempt 标签创建和清理；只有固定代理接出站网络，Agent 不挂 Key 或 DB 文件。health 的 model_access 表示模式允许访问，不代表已经成功请求模型。运行证据额外保存代理镜像 ID。
+
+账本、鉴权和响应记录接受 dashscope_live；C 的观测将此类记录标为 provider。重复 call_id 不重复转发或计数，合法迟到/unknown usage 仍保留已知小计；全部调用已结算且已知、额度数量一致并撤销后才计算网关范围完整量，成对资源总量还要求 Run finished。模拟 usage 不计真实指标，成本仍未知。没有改变历史人工决策快照。
+
+验证：本轮新增 **11 项离线测试**，覆盖假 Key 的真实模式 HTTP 构造、CA/环境隔离、只读文件、显式配置、最小挂载/三网络拓扑、代理/网关/Agent 启动失败清理、用量口径，以及签发→鉴权→调用→缓存复取→私有证据。SQL/Docker/上游全部为模拟；第一次新增鉴权测试因旧模拟账本不支持凭据摘要查询失败，补全模拟后通过。首次集中回归 **373 passed、63 subtests passed**；最后补充链路后相关 **34 passed**。前端 build 和 diff --check 通过。未构建新镜像、未修改业务库、未创建实际 live 部署文件、未进行真实供应商请求或浏览器验收。
+
+部署说明与下一次三步集中验收见 [model-gateway-live-runtime.md](model-gateway-live-runtime.md)。本阶段完成的是代码接线，不是生产公网隔离或账号付费验收。需要重建镜像后先做无付费部署检查，再准备持久化的小 Agent 演示，最后由用户明确执行少量请求。旧 B3b 镜像不能承载新 live 模式。
+
+## 17. D2：新镜像与无付费部署验收（2026-10-19）
+
+已使用核对过的本地 `repopilot-protocol-demo:v1` 基础镜像重建网关和代理。网关复用已有依赖安装缓存，代理构建关闭网络；没有读取 `.env` 或真实 Key。Docker 关于 BASE_IMAGE 没有默认值的警告是要求显式指定基础镜像的现有设计，本次已传入并核对基础镜像 ID。
+
+| 镜像 | 本轮不可变 ID |
+| --- | --- |
+| repopilot-gateway:d2 | sha256:03a1fef4236facc636cef038c041f4c5b732b8e8e70e557b43ec535a7447dd2b |
+| repopilot-gateway-egress:d2 | sha256:b5a9b652926f3ef5d861eb7f7761fc1a742e15df5e8084b9ca806c849a8e7fdb |
+
+扩展现有 `probe_gateway_runtime`，新增互斥的 `--live-no-call --egress-image <ID>`，不新增生产测试后门。仅在全新临时数据库中写入 `stop_reason=acceptance_no_dispatch`，再用固定假 Key 启动真正 live runtime。Agent 的有效请求必须在现有 reserve_call 检查被 409 拦住，不能走到 provider transport；最终核对零账本记录、零预留额度和撤销。部署仍实际验证网关 TLS 工厂/Key 文件挂载/受限 DB 角色/health。代理仅接受拒绝目标 CONNECT 检查，不连接真实供应商。
+
+实际结果：
+
+- **live 无调用部署 22 项通过**：三服务实际网络成员、Key 仅网关只读挂载、代理无挂载、无端口发布/特权、生产代理拒绝非法目标、Agent 鉴权/预算拒绝、零调用账本、撤销和清理。报告：`.platform-artifacts/gateway-runtime-smoke/df1ee9e3-bc12-46b9-bcd2-239cd48aef7d/report.json`。报告中的 persisted_successes 在此模式期望数量为 0，不是模型成功调用。
+- **TLS 假上游与 C 观测 20 项通过**：两次实际容器 TLS 假供应商调用、去重/用量、真实临时 PostgreSQL 的账本投影，并在运行结束后通过 C2 服务核对私有请求文件 hash、冻结参数及原始消息。报告：`.platform-artifacts/gateway-runtime-smoke/9420a373-d9d9-400d-9970-ac96e2e2da12/report.json`。只含固定 smoke 文本及假 usage，不是实际业务源码或供应商用量。
+- **固定代理网络 17 项通过**：新代理镜像源码 hash 核对，真实 Docker TCP 正向 canary、代表性直连拒绝、允许固定 CONNECT 与非法目标拒绝。允许路径使用假 dialer，不证明真实公网 TLS。报告：`.platform-artifacts/gateway-egress/a009b548eec14450affae072372f4b5e.json`。
+- 三份报告均 passed、cleanup_confirmed=true。额外只读查询标签确认没有遗留验收容器和网络；临时库、假 Key/私钥及短期凭证均清理，镜像与脱敏报告保留。这些报告被 Git 忽略，不会自动同步其他电脑。
+- 新增 10 项探针模拟测试，集中回归 **384 passed、63 subtests passed**（3 个既有警告），diff --check 通过。本轮没有前端代码变化，不重复构建。C 的真实文件/数据库服务已验证，但浏览器目视验收仍待持久化演示 Run。
+
+下一步集中做 MiniFix 演示：独立 Process Agent 通过目录协议接入，缺陷版与改进版保持模型/任务/测试/预算相同，只改变上下文选择；用请求预览展示送入模型的差异，平台独立测试和成对比较衡量结果。不能预设改进一定成功或凭一次 Trace 自动认定根因。先准备无付费协议验收和持久化记录，再由用户配置账号与 Key、执行少量真实调用及页面验收。无需继续扩展网关测试框架。

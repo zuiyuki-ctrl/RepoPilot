@@ -21,6 +21,36 @@ export interface PlatformTracePage {
   items: PlatformTraceEvent[]; next_after_sequence: number; through_sequence: number; has_more: boolean
 }
 
+export interface GatewayCall {
+  id: string; call_id_sha256: string; status: string; usage_source: string
+  evidence_source: string; usage_status: string; real_usage_eligible: boolean
+  usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | null
+  request_sha256: string; response_sha256: string | null; error_code: string | null
+  created_at: string; dispatched_at: string | null; completed_at: string | null
+  duration_ms: number | null
+}
+export interface GatewayLedger {
+  run_id: string; grant_present: boolean; calls_reserved: number | null
+  call_count: number; items: GatewayCall[]; synthetic_usage_known_calls: number
+  synthetic_known_total_tokens: number; real_total_tokens: number | null
+  real_known_total_tokens: number; real_usage_known_calls: number
+  policy: { model: string; max_calls: number; max_output_tokens: number; request_timeout_seconds: number;
+    max_total_tokens: number | null; token_enforcement: string } | null
+  calls_remaining: number | null; revoked: boolean | null
+}
+
+export interface GatewayRequestEvidence {
+  run_id: string; call_id: string; request_sha256: string
+  status: 'recorded' | 'withheld' | 'missing' | 'invalid' | 'unavailable'
+  hash_verified: boolean; dispatch_recorded: boolean
+  preview: null | {
+    parameters: Record<string, unknown>; message_count: number; original_bytes: number
+    redacted: boolean; truncated: boolean; display_status: string; redaction_version: string
+    messages: { index: number; role: string; content: string; original_chars: number;
+      displayed_chars: number; redacted: boolean; truncated: boolean }[]
+  }
+}
+
 export interface PlatformReport {
   evaluation_outcome: string; reason: string | null; final_snapshot_hash: string | null
   baseline_test: unknown; final_test: unknown; diff: string | null; diff_truncated: boolean

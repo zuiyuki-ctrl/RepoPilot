@@ -42,9 +42,9 @@ def credential_digest(secret):
 
 
 def issue_credential(run_id, worker_token, *, mode):
-    # Live providers are deliberately unavailable until deployment/network integration.
-    if mode != 'mock':
-        raise ValueError('Only explicit mock gateway mode is implemented')
+    # Called only by trusted worker after explicit runtime preflight, never public API.
+    if mode not in ('mock', 'dashscope_fake', 'dashscope_live'):
+        raise ValueError('Live gateway mode is not implemented')
     with SessionLocal.begin() as session:
         run, grant, work = ledger._locked(session, run_id)
         ledger._active(run, grant, work, worker_token, datetime.now(timezone.utc))
@@ -66,7 +66,7 @@ def authenticate(secret):
             if not grant.credential_sha256 or not hmac.compare_digest(grant.credential_sha256, hashed):
                 raise GatewayUnauthorized()
             ledger._active(run, grant, work, grant.worker_token, datetime.now(timezone.utc))
-            if grant.gateway_mode != 'mock':
+            if grant.gateway_mode not in ('mock', 'dashscope_fake', 'dashscope_live'):
                 raise GatewayUnauthorized()
             return GatewayIdentity(run.id, grant.worker_token, grant.config_sha256, grant.expires_at,
                                    ModelPolicy.model_validate(grant.policy), grant.gateway_mode)

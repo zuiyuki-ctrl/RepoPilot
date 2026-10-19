@@ -1,0 +1,9 @@
+# Standard library only; explicit reviewed local Python base, no dependency download.
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+WORKDIR /app
+COPY app/services/gateway_egress.py /app/backend/app/services/gateway_egress.py
+COPY gateway_egress_entrypoint.py /app/gateway_egress_entrypoint.py
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+USER 10001:10001
+ENTRYPOINT ["python", "-I", "-B", "/app/gateway_egress_entrypoint.py"]

@@ -249,7 +249,9 @@ def get_comparison(experiment_id, *, session=None):
         for event in session.scalars(select(PlatformRunEvent).where(PlatformRunEvent.run_id.in_(ids))
                                      .order_by(PlatformRunEvent.run_id, PlatformRunEvent.sequence)):
             events[event.run_id].append(event)
-        resources = {str(run.id): run_resources(run, events[run.id]) for run in runs.values()}
+        from .gateway_observation_service import load_ledgers
+        ledgers = load_ledgers(session, runs.keys())
+        resources = {str(run.id): run_resources(run, events[run.id], gateway=ledgers[run.id]) for run in runs.values()}
         result['resource_comparison'] = compare_resources(result, resources)
         result.pop('comparison_sha256')
         result['comparison_sha256'] = digest(result)

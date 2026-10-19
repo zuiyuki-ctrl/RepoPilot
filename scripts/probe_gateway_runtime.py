@@ -1,6 +1,7 @@
-"""Explicit disposable PostgreSQL + real gateway/Agent Docker smoke, mock only.
+"""Disposable PostgreSQL + Docker: mock, TLS-fake, or live topology with a closed grant.
 
 Never loads .env, migrates an existing DB, pulls/builds an image or calls a model.
+Live no-call uses a generated dummy key and closes quota before Agent startup.
 Uses a fresh UUID-labelled PostgreSQL container with tmpfs data, loopback-only
 ephemeral port, and a least-privilege gateway role. Keeps a non-secret report.
 """
@@ -21,7 +22,28 @@ ROOT = Path(__file__).resolve().parents[1]
 LABEL = 'repopilot.gateway_smoke'
 
 
-def run_probe(gateway_image, agent_image, postgres_image, *, faults=False):
+def inspect_live_topology(runtime, run_id, token, control, checks):
+    names=runtime.names(run_id,token)
+    nodes={key:runtime.inspect_owned('container',names[key],run_id,token) for key in ('agent','gateway','proxy')}
+    expected={'agent':{names['network']},'gateway':{control,names['network'],names['proxy-network']},
+              'proxy':{names['proxy-network'],names['egress-network']}}
+    checks['live_network_membership']=all(set(nodes[key]['NetworkSettings']['Networks'])==value for key,value in expected.items())
+    checks['no_published_ports_or_privilege']=all(not n['HostConfig'].get('PortBindings') and not n['HostConfig'].get('Privileged') for n in nodes.values())
+    checks['live_secret_mount_only_gateway']=all(not any(m['Destination']=='/run/repopilot/provider-key' for m in nodes[k]['Mounts']) for k in ('agent','proxy')) \
+        and any(m['Destination']=='/run/repopilot/provider-key' and m['RW'] is False for m in nodes['gateway']['Mounts'])
+    checks['proxy_has_no_mounts']=not nodes['proxy']['Mounts']
+    # Disallowed CONNECT is rejected before resolving/dialling any provider.
+    command="import socket; s=socket.create_connection(('provider-egress',8081),2); s.sendall(b'CONNECT example.invalid:443 HTTP/1.1\\r\\nHost: example.invalid:443\\r\\n\\r\\n'); data=s.recv(256); s.close(); assert data.startswith(b'HTTP/1.1 403')"
+    checks['production_proxy_rejects_non_provider']=runtime.docker('exec',names['gateway'],'python','-I','-c',command).returncode==0
+    if not all(checks.values()):
+        raise RuntimeError('Live topology inspection failed')
+
+
+def run_probe(gateway_image, agent_image, postgres_image, *, faults=False, tls_fixture=False, live_no_call=False, egress_image=None):
+    if sum((faults, tls_fixture, live_no_call)) > 1:
+        raise ValueError('Runtime checkpoints must be run separately')
+    if live_no_call != (egress_image is not None):
+        raise ValueError('Live no-call checkpoint requires explicit egress image')
     # Must happen before importing any database/config module in this process.
     if 'backend.app.db.session' in sys.modules or 'backend.app.core.config' in sys.modules:
         raise RuntimeError('Run the disposable probe in a fresh interpreter; existing DB binding forbidden')
@@ -32,7 +54,7 @@ def run_probe(gateway_image, agent_image, postgres_image, *, faults=False):
     from backend.app.schemas.platform_run import AgentRunRequest
     from backend.app.schemas.process_agent import ProcessConfiguration
     from backend.app.schemas.model_gateway import ModelPolicy
-    for image in (gateway_image, agent_image, postgres_image):
+    for image in (gateway_image, agent_image, postgres_image, *([egress_image] if egress_image else [])):
         if not re.fullmatch(r'sha256:[0-9a-f]{64}', image):
             raise ValueError('Use existing immutable local image IDs')
         if runtime.checked('image','inspect','--format','{{.Id}}',image) != image:
@@ -48,7 +70,9 @@ def run_probe(gateway_image, agent_image, postgres_image, *, faults=False):
     attempt_clean=False
     fault_suite=None
     report=dict(schema_version=1, probe_id=str(owner), run_id=str(run_id), gateway_image=gateway_image,
-                agent_image=agent_image, postgres_image=postgres_image, transport='mock', model_access=False,
+                agent_image=agent_image, postgres_image=postgres_image,
+                transport='dashscope_live' if live_no_call else 'dashscope_fake' if tls_fixture else 'mock', model_access=False,
+                acceptance_scope='live_topology_closed_grant_no_provider_dispatch' if live_no_call else 'fake_exchange',
                 started_at=datetime.now(timezone.utc).isoformat(), checks={}, cleanup_confirmed=False)
     if faults:
         report['fault_sources']={name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest() for name in (
@@ -126,10 +150,28 @@ def run_probe(gateway_image, agent_image, postgres_image, *, faults=False):
                                            DB_USER='gateway_smoke',DB_PASSWORD=gateway_password))
         database.chmod(0o444)
         settings=root/'runtime.json'
-        artifacts.write_json(settings,dict(mode='mock',image=gateway_image,control_network=control,
-                                            database_file=str(database)))
+        mode='dashscope_live' if live_no_call else 'dashscope_fake' if tls_fixture else 'mock'
+        fixture_files=None
+        live_files=None
+        if live_no_call:
+            (root/'fixture-provider-key').write_text('sk-local-probe-never-a-real-key',encoding='ascii')
+            (root/'fixture-provider-key').chmod(0o444)
+            live_files=dict(enabled=True,region='cn-beijing',provider_key=str(root/'fixture-provider-key'),egress_image=egress_image)
+        if tls_fixture:
+            import shutil, subprocess
+            openssl=shutil.which('openssl') or 'C:/Program Files/Git/usr/bin/openssl.exe'
+            subprocess.run([openssl,'req','-x509','-newkey','rsa:2048','-nodes','-days','1',
+                '-subj','/CN=dashscope.aliyuncs.com','-addext','subjectAltName=DNS:dashscope.aliyuncs.com',
+                '-keyout',str(root/'fixture-server.key'),'-out',str(root/'fixture-ca.pem')],
+                check=True,capture_output=True,timeout=20)
+            (root/'fixture-provider-key').write_text('repopilot-fake-upstream-only',encoding='ascii')
+            for name in ('fixture-server.key','fixture-ca.pem','fixture-provider-key'):(root/name).chmod(0o444)
+            fixture_files=dict(ca=str(root/'fixture-ca.pem'),certificate=str(root/'fixture-ca.pem'),
+                server_key=str(root/'fixture-server.key'),provider_key=str(root/'fixture-provider-key'))
+        artifacts.write_json(settings,dict(mode=mode,image=gateway_image,control_network=control,
+                                            database_file=str(database),tls_fixture=fixture_files,live_provider=live_files))
         os.environ['REPOPILOT_GATEWAY_RUNTIME_CONFIG']=str(settings)
-        config=ProcessConfiguration(image=agent_image,argv=['python','-I','/input/client.py'],
+        config=ProcessConfiguration(image=agent_image,argv=['python','-I','/input/client.py', *(['--live-no-call'] if live_no_call else [])],
                                     model_policy=ModelPolicy(model='qwen-plus'))
         request=AgentRunRequest(run_id=run_id,case_id='gateway-smoke',case_version='v1',task_description='mock only',
             repository_commit='a'*40,agent=dict(name='smoke',version='v1',adapter='process',
@@ -152,8 +194,20 @@ def run_probe(gateway_image, agent_image, postgres_image, *, faults=False):
             session.add(work);session.flush()
             ledger.authorize_process(session,run,config,allow_model=True);session.flush()
             ledger.bind_attempt(session,run,work,allow_model=True)
+            if live_no_call:
+                session.get(RunModelGrant,run_id).stop_reason='acceptance_no_dispatch'
+                session.flush()
         attempt_created=True
-        result=runtime.run_process(request,config,directory,token)
+        original_checked=runtime.checked
+        def observed_checked(*args):
+            if live_no_call and args==('container','start',runtime.names(run_id,token)['agent']):
+                inspect_live_topology(runtime,run_id,token,control,checks)
+            return original_checked(*args)
+        runtime.checked=observed_checked
+        try:
+            result=runtime.run_process(request,config,directory,token)
+        finally:
+            runtime.checked=original_checked
         attempt_clean=True
         report['execution']=result
         checks['agent_exit_zero']=result['exit_code']==0 and not result['timed_out']
@@ -161,14 +215,32 @@ def run_probe(gateway_image, agent_image, postgres_image, *, faults=False):
         with SessionLocal() as session:
             calls=list(session.scalars(select(ModelCall).where(ModelCall.run_id==run_id)))
             grant=session.get(RunModelGrant,run_id)
-            checks['one_persisted_success']=len(calls)==1 and calls[0].status=='succeeded' and calls[0].transport=='mock'
-            checks['no_fabricated_usage']=len(calls)==1 and calls[0].usage is None and grant.known_total_tokens==0
+            expected_calls=0 if live_no_call else 2 if tls_fixture else 1
+            checks['persisted_successes']=len(calls)==expected_calls and all(c.status=='succeeded' and c.transport==mode for c in calls)
+            checks['fake_usage_labelled' if tls_fixture else 'no_fabricated_usage']=(grant.known_total_tokens==30
+                and all(c.usage==dict(prompt_tokens=10,completion_tokens=5,total_tokens=15) for c in calls)) if tls_fixture else (
+                grant.known_total_tokens==0 and (not calls if live_no_call else len(calls)==1 and calls[0].usage is None))
             checks['credential_revoked']=grant.revoked_at is not None and grant.credential_sha256 is None
-            checks['conservative_quota']=grant.calls_reserved==1 and grant.stop_reason=='usage_missing'
+            checks['conservative_quota']=grant.calls_reserved==expected_calls and (tls_fixture or grant.stop_reason==('acceptance_no_dispatch' if live_no_call else 'usage_missing'))
             if calls:
                 report['call']=dict(call_id=calls[0].call_id,status=calls[0].status,request_sha256=calls[0].request_sha256,
                                     result_sha256=calls[0].result_sha256,transport=calls[0].transport,usage=calls[0].usage)
         checks['credential_file_removed']=not runtime.attempt_directory(run_id,token).exists()
+        # Read actual temporary DB + artifacts through the new C projection, not
+        # reconstructed fixture values. This DB is still deleted at probe end.
+        with SessionLocal.begin() as session:
+            finished=session.get(PlatformRun,run_id)
+            finished.lifecycle='finished';finished.completed_at=datetime.now(timezone.utc)
+        from backend.app.services.gateway_observation_service import get_ledger
+        from backend.app.services.gateway_request_evidence import get_request_evidence
+        observed=get_ledger(run_id)
+        checks['public_ledger_source']=observed['call_count']==expected_calls and observed['real_total_tokens'] is None
+        report['public_ledger']=observed
+        if tls_fixture:
+            previews=[get_request_evidence(run_id,item['id']) for item in observed['items']]
+            checks['historical_request_previews']=all(p['status']=='recorded' and p['hash_verified']
+                and p['preview']['messages'][0]['content']=='fixed smoke message; no repository data' for p in previews)
+            report['request_previews']=previews
         if faults:
             from .gateway_fault_checks import FaultSuite
             fault_suite=FaultSuite(root,request,config,resources,owner)
@@ -202,7 +274,8 @@ def run_probe(gateway_image, agent_image, postgres_image, *, faults=False):
                         if inspect(kind,name) is not None: raise RuntimeError('Removal unconfirmed')
                     except Exception: cleanup_errors.append('smoke_resource_cleanup_unconfirmed')
             if not cleanup_errors:
-                for name in ('postgres-password','database.json','runtime.json'):
+                for name in ('postgres-password','database.json','runtime.json','fixture-server.key',
+                             'fixture-ca.pem','fixture-provider-key'):
                     path=root/name
                     try:
                         if path.exists():
@@ -231,9 +304,13 @@ def main():
     parser.add_argument('--postgres-image',required=True)
     parser.add_argument('--execute',action='store_true')
     parser.add_argument('--faults',action='store_true',help='Also exercise concurrency and faults in disposable resources')
+    parser.add_argument('--tls-fixture',action='store_true',help='Isolated fake TLS supplier, never a real model')
+    parser.add_argument('--live-no-call',action='store_true',help='Live topology, dummy key and pre-closed disposable grant; no provider requests')
+    parser.add_argument('--egress-image')
     args=parser.parse_args()
     if not args.execute: parser.error('Temporary Docker resources require explicit --execute')
-    return run_probe(args.gateway_image,args.agent_image,args.postgres_image,faults=args.faults)
+    return run_probe(args.gateway_image,args.agent_image,args.postgres_image,faults=args.faults,tls_fixture=args.tls_fixture,
+                     live_no_call=args.live_no_call,egress_image=args.egress_image)
 
 
 if __name__=='__main__':

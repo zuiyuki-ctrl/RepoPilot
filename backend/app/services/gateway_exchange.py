@@ -1,4 +1,4 @@
-"""Trusted ledger exchange. Production stays mock-only; fake protocol acceptance is injectable."""
+"""Trusted ledger exchange with explicit mock, fake or live transport identity."""
 from datetime import datetime, timezone
 import hashlib
 from ..schemas.model_gateway import ModelCallRequest, body_bytes, forwarded_body
@@ -94,7 +94,7 @@ class GatewayExchange:
         self.store = store if store is not None else DatabaseGatewayStore()
         self.artifacts = artifact_store if artifact_store is not None else GatewayArtifactStore()
         self.transport = transport if transport is not None else MockTransport()
-        if self.transport.mode not in ('mock', 'dashscope_fake'):
+        if self.transport.mode not in ('mock', 'dashscope_fake', 'dashscope_live'):
             raise ValueError('Live upstream is not enabled')
         if (run_id is None) != (worker_token is None):
             raise ValueError('Gateway scope requires both Run and attempt')
@@ -145,7 +145,7 @@ class GatewayExchange:
             # No open database transaction here. Only these exact bounded bytes
             # may be supplied to a future fixed upstream transport.
             reply = self.transport.invoke(body_bytes(body), deadline=record['deadline'])
-            if self.transport.mode == 'dashscope_fake':
+            if self.transport.mode in ('dashscope_fake', 'dashscope_live'):
                 known_usage = reply.get('usage')
             if datetime.now(timezone.utc) >= record['deadline']:
                 raise GatewayUpstreamUnknown()

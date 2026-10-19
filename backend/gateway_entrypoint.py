@@ -1,4 +1,4 @@
-"""Container-only bootstrap. No dotenv, provider keys or business HTTP routes."""
+"""Container-only bootstrap. No dotenv or business HTTP routes; key is a RO mount."""
 import os
 from pathlib import Path
 import sys
@@ -45,7 +45,18 @@ def main():
             raise ValueError('Gateway database role can mutate business lifecycle')
     ensure_active(run_id, token)  # Readiness includes current ledger schema and ownership.
     from backend.app.gateway_app import create_gateway_app
-    app = create_gateway_app(GatewayExchange(run_id=run_id, worker_token=token))
+    mode = os.environ.get('REPOPILOT_GATEWAY_MODE', 'mock')
+    transport = None
+    if mode == 'dashscope_fake':
+        from backend.app.services.gateway_tls import fake_tls_transport
+        transport = fake_tls_transport(ca_file=Path('/run/repopilot/fixture-ca.pem'),
+                                       credential_file=Path('/run/repopilot/provider-key'))
+    elif mode == 'dashscope_live':
+        from backend.app.services.gateway_tls import live_tls_transport
+        transport = live_tls_transport(credential_file=Path('/run/repopilot/provider-key'))
+    elif mode != 'mock':
+        raise ValueError('Live gateway mode not enabled')
+    app = create_gateway_app(GatewayExchange(run_id=run_id, worker_token=token, transport=transport))
     import uvicorn
     uvicorn.run(app, host='0.0.0.0', port=8080, access_log=False, log_level='critical',
                 proxy_headers=False, server_header=False, limit_concurrency=16,

@@ -7,6 +7,7 @@ COPY requirements.gateway.txt /app/requirements.gateway.txt
 RUN python -m pip install --no-cache-dir -r /app/requirements.gateway.txt
 COPY app /app/backend/app
 COPY gateway_entrypoint.py /app/gateway_entrypoint.py
+COPY gateway_tls_fixture.py /app/gateway_tls_fixture.py
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 USER 10001:10001
 ENTRYPOINT ["python", "-I", "-B", "/app/gateway_entrypoint.py"]
