@@ -101,7 +101,7 @@ def prepare(claim):
         member.run_id=run.id
     bundle=create_bundle(request,workspace=root,case=binding.case,rule=binding.acceptance,image=binding.test_image,
                          process_config=config if agent['adapter']=='process' else None)
-    if agent['adapter']=='process': enqueue_process(run.id,bundle_sha256=bundle)
+    if agent['adapter']=='process': enqueue_process(run.id,bundle_sha256=bundle,allow_model=manifest.get('allow_model') is True)
     else: enqueue_native(run.id,bundle_sha256=bundle)
 
 

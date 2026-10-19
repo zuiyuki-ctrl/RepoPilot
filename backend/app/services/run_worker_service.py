@@ -57,6 +57,9 @@ def claim_next(*, allow_model: bool):
             PlatformRun.lifecycle.in_(['queued', 'preparing', 'running', 'awaiting_input', 'evaluating']))
         if not allow_model:
             statement = statement.where((RunWork.stage.not_in(['plan', 'generate'])) | RunWork.cancel_requested)
+            statement = statement.where(
+                RunWork.cancel_requested | RunWork.stage.in_(['baseline', 'evaluate'])
+                | RunWork.state['model_required'].as_boolean().is_distinct_from(True))
         run = session.scalar(statement.order_by(PlatformRun.created_at, PlatformRun.id)
                              .with_for_update(of=PlatformRun, skip_locked=True).limit(1))
         if run is None:
@@ -70,6 +73,25 @@ def claim_next(*, allow_model: bool):
                 work.stage, work.ready = 'evaluate', True
             repo.append_event(session, run, event_type='EXECUTION_CANCELLED', payload={'writers_stopped': True})
             return {'settled': True}
+        request = AgentRunRequest.model_validate(run.request)
+        model_required = False
+        if request.agent.adapter == 'process' and work.stage in ('prepare', 'process_run'):
+            # Do not trust the scheduling hint alone: check frozen authority/config.
+            from .platform_test_collector import checked_bundle
+            from ..schemas.process_agent import ProcessConfiguration
+            from ..db.models import RunModelGrant
+            _, manifest, _ = checked_bundle(request, work.state)
+            config = ProcessConfiguration.model_validate(manifest['process_config'])
+            if digest(config.model_dump(mode='json')) != request.config_sha256:
+                raise RunConflictError('Frozen Process configuration differs')
+            model_required = config.model_policy is not None
+            if model_required:
+                grant = session.get(RunModelGrant, run.id)
+                if (allow_model is not True or grant is None or grant.revoked_at
+                        or grant.config_sha256 != request.config_sha256
+                        or grant.policy != config.model_policy.model_dump(mode='json')):
+                    raise RunConflictError('Process requires both entry and worker model authorization')
+                work.state = {**work.state, 'model_required': True}
         if run.lifecycle == 'queued':
             transition(run, expected_version=run.version, target='preparing')
         elif run.lifecycle == 'preparing' and work.stage == 'prepare':
@@ -82,6 +104,9 @@ def claim_next(*, allow_model: bool):
         token = uuid4()
         work.active_token, work.active_since, work.ready = token, datetime.now(timezone.utc), False
         work.result = None
+        if model_required and work.stage == 'process_run':
+            from .model_gateway_service import bind_attempt
+            bind_attempt(session, run, work, allow_model=allow_model)
         repo.append_event(session, run, event_type='STEP_STARTED', payload={'stage': work.stage, 'token': str(token)})
         request = AgentRunRequest.model_validate(run.request)
         # Evaluation has its own 120s container limit; do not consume the Agent budget.
@@ -119,6 +144,11 @@ def settle_step(run_id, token, *, elapsed, forced_reason=None):
         if run is None or work is None or work.active_token != token:
             raise RunConflictError('Worker no longer owns this step')
         completed_stage = work.stage
+        if work.state.get('model_required') and (completed_stage == 'process_run' or forced_reason
+                or work.result is None or work.result.get('error_code')
+                or work.result.get('cleanup', {}).get('status') == 'failed'):
+            from .model_gateway_service import revoke_attempt
+            revoke_attempt(session, run)
         work.ready = False
         if completed_stage not in ('baseline', 'evaluate'):
             work.active_seconds += max(0, elapsed)
@@ -166,8 +196,15 @@ def settle_step(run_id, token, *, elapsed, forced_reason=None):
             finish_evaluation(evidence, expected_version=run.version, _session=session)
             return
         if result.get('error_code'):
-            transition(run, expected_version=run.version, target='evaluating', execution_status='failed')
-            repo.append_event(session, run, event_type='EXECUTION_FAILED', payload={'error_code': work.error_code})
+            # Revocation can make the child raise before the supervisor observes
+            # cancellation. Once cleanup is confirmed, that error must not turn
+            # an accepted cancellation into an Agent failure. Unknown writers
+            # still take the interrupted/fence-retained branches above.
+            cancelled = work.cancel_requested
+            transition(run, expected_version=run.version, target='evaluating',
+                       execution_status='cancelled' if cancelled else 'failed')
+            repo.append_event(session, run, event_type='EXECUTION_CANCELLED' if cancelled else 'EXECUTION_FAILED',
+                payload={'error_code': work.error_code, **({'writers_stopped': True} if cancelled else {})})
             if work.state.get('bundle_sha256'):
                 work.stage, work.ready = 'evaluate', True
             return
@@ -218,11 +255,28 @@ def settle_step(run_id, token, *, elapsed, forced_reason=None):
 
 def recover_interrupted(run_id, token):
     """操作者已确认旧 worker/子进程停止后调用；只停止、不重放、不清空历史结果。"""
+    # Revoke in a short transaction, then clean Docker/files without holding DB
+    # locks. A failed cleanup leaves the original durable active_token untouched.
     with SessionLocal.begin() as session:
         run = repo.get_run(session, run_id, for_update=True)
         work = session.get(RunWork, run_id)
         if run is None or work is None or work.active_token != token:
             raise RunConflictError('Recovery token differs from unresolved step')
+        gateway_attempt = work.state.get('model_required') and work.stage == 'process_run'
+        if work.state.get('model_required'):
+            from .model_gateway_service import revoke_attempt
+            revoke_attempt(session, run)
+    if gateway_attempt:
+        from .gateway_runtime import cleanup_owned_attempt
+        cleanup_owned_attempt(run_id, token)
+    with SessionLocal.begin() as session:
+        run = repo.get_run(session, run_id, for_update=True)
+        work = session.get(RunWork, run_id)
+        if run is None or work is None or work.active_token != token:
+            raise RunConflictError('Recovery token differs from unresolved step')
+        if work.state.get('model_required'):
+            from .model_gateway_service import revoke_attempt
+            revoke_attempt(session, run)
         import_native_events(session, run, work)
         if run.lifecycle != 'interrupted':
             transition(run, expected_version=run.version, target='interrupted')

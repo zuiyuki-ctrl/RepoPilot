@@ -45,7 +45,8 @@ def freeze(session, draft):
             raise RunConflictError('Controlled mode requires exact nonempty changed_fields matching preview')
         if any(p in ('implementation_sha256','process.image','declared_capabilities') for p in changed):
             raise RunConflictError('Different implementations/capabilities require benchmark mode')
-    needs_model = any(c['adapter']=='native' for c in configs)
+    needs_native_index = any(c['adapter']=='native' for c in configs)
+    needs_model = needs_native_index or any((c.get('process') or {}).get('model_policy') is not None for c in configs)
     for config in configs:
         native = config.get('native') or {}
         if any(native.get(k) is not None for k in ('index_fingerprint','experiment_contract_sha256','test_image_id')):
@@ -58,7 +59,7 @@ def freeze(session, draft):
     from .platform_test_collector import runner_fingerprint
     from .experiment_preparation import index_content
     index_hashes={str(item['repository_id']):digest(index_content(session,UUID(item['repository_id'])))
-                  for item in suite.descriptor['cases']} if needs_model else {}
+                  for item in suite.descriptor['cases']} if needs_native_index else {}
     return dict(schema_version=1, draft=draft.model_dump(mode='json'),
         runner_sha256=runner_fingerprint(), native_index_hashes=index_hashes,
         suite=dict(id=str(suite.id), content_sha256=suite.content_sha256, descriptor=suite.descriptor,
@@ -92,7 +93,7 @@ def start(data):
         if digest(manifest) != data.preview_sha256:
             raise RunConflictError('Preview changed; inspect a fresh preview before starting')
         if manifest['needs_model'] and not data.allow_model:
-            raise RunConflictError('Native requires explicit model authorization and worker --allow-model')
+            raise RunConflictError('Model execution requires explicit authorization and worker --allow-model')
         manifest['allow_model'] = data.allow_model
         experiment=PlatformExperiment(request_key=data.request_key, request_sha256=request_hash,
             manifest=manifest,manifest_sha256=digest(manifest),cancel_requested=False)
@@ -153,6 +154,9 @@ def stop_run(session,run_id):
     work=session.get(RunWork,run_id)
     if run and work and run.lifecycle not in ('finished','interrupted','evaluating') and not work.cancel_requested:
         work.cancel_requested,work.ready=True,True
+        if work.state.get('model_required'):
+            from .model_gateway_service import revoke_attempt
+            revoke_attempt(session, run)
         run.version+=1
         append_event(session,run,event_type='CANCEL_REQUESTED',payload={'source':'experiment'})
 

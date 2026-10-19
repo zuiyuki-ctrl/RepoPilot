@@ -1,4 +1,4 @@
-"""Offline external executable adapter; neither plans nor scores the task."""
+"""External executable adapter; offline by default, opt-in isolated mock gateway."""
 from .base import StepResult
 from ...schemas.platform_run import AgentRunResult
 from ...schemas.process_agent import ProcessConfiguration, ProcessTraceEvent
@@ -49,6 +49,12 @@ def read_trace(path, request, declared):
 class ProcessAdapter:
     def __init__(self):
         self.run_id = None
+        self.worker_token = None
+        self.gateway_attempt = False
+
+    def bind_worker_attempt(self, token):
+        # Trusted execute_step context, never read from Agent files or Run state.
+        self.worker_token = token
 
     def metadata(self):
         return {'name': 'Offline Process Adapter', 'protocol_version': 1, 'adapter': 'process'}
@@ -57,6 +63,9 @@ class ProcessAdapter:
         self.run_id = request.run_id
         directory, manifest, before = checked_bundle(request, state)
         config = ProcessConfiguration.model_validate(manifest['process_config'])
+        if config.model_policy is not None:
+            from ...services.gateway_runtime import load_settings
+            load_settings()  # Explicit operator configuration, no offline/host fallback.
         if (digest(config.model_dump(mode='json')) != request.config_sha256
                 or request.agent.implementation_sha256 != config.image.removeprefix('sha256:')):
             raise ValueError('Frozen process identity differs')
@@ -76,10 +85,17 @@ class ProcessAdapter:
             raise ValueError('Unknown process stage')
         directory, manifest, _ = checked_bundle(request, state)
         config = ProcessConfiguration.model_validate(manifest['process_config'])
-        execution = run_container(request.run_id, 'agent', image=config.image, argv=config.argv,
-            mounts=[(directory / 'input', '/input', True), (directory / 'workspace', '/workspace', False),
-                    (directory / 'output', '/output', False)], workdir='/workspace',
-            timeout_seconds=request.budget.timeout_seconds)
+        if config.model_policy is not None:
+            from ...services.gateway_runtime import run_process
+            if self.worker_token is None:
+                raise ValueError('model_gateway_worker_ownership_required')
+            self.gateway_attempt = True
+            execution = run_process(request, config, directory, self.worker_token)
+        else:
+            execution = run_container(request.run_id, 'agent', image=config.image, argv=config.argv,
+                mounts=[(directory / 'input', '/input', True), (directory / 'workspace', '/workspace', False),
+                        (directory / 'output', '/output', False)], workdir='/workspace',
+                timeout_seconds=request.budget.timeout_seconds)
         artifacts.write_json(directory / 'process-log.json', execution)
         info = {**execution, 'protocol_error': None}
         status = 'timed_out' if execution['timed_out'] else 'failed'
@@ -89,10 +105,15 @@ class ProcessAdapter:
                 info['reported_status'] = reported.execution_status
             except (ValueError, OSError, RecursionError):
                 info['protocol_error'] = 'invalid_or_missing_result'
-        info['trace'] = read_trace(directory / 'output' / 'trace.jsonl', request, config.trace)
+        info['trace'] = ({'status': 'unsupported', 'events': [], 'reason': 'gateway_evidence_pending'}
+                         if config.model_policy is not None else
+                         read_trace(directory / 'output' / 'trace.jsonl', request, config.trace))
         return StepResult(state={**state, 'process_execution': info}, execution_status=status)
 
     def cleanup(self):
-        if self.run_id is not None:
+        if self.gateway_attempt:
+            from ...services.gateway_runtime import cleanup_owned_attempt
+            cleanup_owned_attempt(self.run_id, self.worker_token)
+        elif self.run_id is not None:
             remove_owned(self.run_id, 'agent')
         return {'status': 'confirmed'}

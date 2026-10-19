@@ -16,6 +16,8 @@ def execute_step(claim):
     result = {}
     try:
         request = AgentRunRequest.model_validate(claim['request'])
+        if request.agent.adapter == 'process':
+            adapter.bind_worker_attempt(claim['token'])
         if claim['stage'] == 'evaluate':
             from .platform_test_collector import collect_final
             evidence = collect_final(request, claim['state'], claim['execution_status'])
@@ -30,7 +32,8 @@ def execute_step(claim):
             result['step'] = step.model_dump(mode='json')
     except Exception as exc:
         # 顶层 worker 边界保存错误类别；网络/模型错误不变成用户 422。
-        logger.exception('Run step failed; run_id=%s stage=%s', claim['run_id'], claim['stage'])
+        logger.error('Run step failed; run_id=%s stage=%s error=%s',
+                     claim['run_id'], claim['stage'], type(exc).__name__)
         result['error_code'] = type(exc).__name__
     finally:
         try:
@@ -39,7 +42,7 @@ def execute_step(claim):
                 from .platform_container import remove_owned
                 remove_owned(claim['run_id'], 'baseline' if claim['stage'] == 'baseline' else 'final')
         except Exception as exc:
-            logger.exception('Adapter cleanup failed; run_id=%s', claim['run_id'])
+            logger.error('Adapter cleanup failed; run_id=%s error=%s', claim['run_id'], type(exc).__name__)
             result['cleanup'] = {'status': 'failed', 'error_code': type(exc).__name__}
     store.save_step_result(claim['run_id'], claim['token'], result)
 
@@ -69,6 +72,17 @@ def supervise(claim, *, process_factory=None):
                     forced = 'active_time_budget_exceeded'
                     break
     finally:
+        gateway_attempt = (claim.get('stage') == 'process_run'
+                           and claim.get('state', {}).get('model_required') is True)
+        if gateway_attempt:
+            from .gateway_runtime import revoke_owned_attempt, cleanup_owned_attempt
+            try:
+                # Commit revocation before killing child/container writers. A late
+                # response can still settle evidence, but cannot reopen authority.
+                revoke_owned_attempt(claim['run_id'], claim['token'])
+            except Exception:
+                forced = forced or 'gateway_revocation_unconfirmed'
+                logger.error('Gateway revocation unconfirmed; durable fence retained')
         if child.pid is not None:
             if child.is_alive():
                 child.terminate()
@@ -80,6 +94,12 @@ def supervise(claim, *, process_factory=None):
                 raise RuntimeError('Child stop unconfirmed; durable ownership fence retained')
         if child.pid is not None:
             child.close()
+        if gateway_attempt:
+            try:
+                cleanup_owned_attempt(claim['run_id'], claim['token'])
+            except Exception:
+                forced = forced or 'gateway_cleanup_unconfirmed'
+                logger.error('Gateway cleanup unconfirmed; durable fence retained')
         uses_container = (claim.get('request', {}).get('agent', {}).get('adapter') == 'process'
                           or claim.get('stage') in ('baseline', 'evaluate'))
         if uses_container and claim.get('state', {}).get('bundle_sha256'):

@@ -1,6 +1,7 @@
 """Day 3 offline container protocol. No host mounts, environment or shell configuration."""
 from typing import Literal
-from pydantic import Field, model_validator
+from pydantic import Field, model_validator, model_serializer
+from .model_gateway import ModelPolicy
 from .platform_run import ProtocolModel, Hash
 
 
@@ -9,6 +10,15 @@ class ProcessConfiguration(ProtocolModel):
     image: str = Field(pattern=r'^sha256:[0-9a-f]{64}$')
     argv: list[str] = Field(min_length=1, max_length=32)
     trace: bool = False
+    model_policy: ModelPolicy | None = None
+
+    @model_serializer(mode='wrap')
+    def stable_offline_configuration(self, handler):
+        value = handler(self)
+        # Do not add a null field to old registered descriptors/config hashes.
+        if self.model_policy is None:
+            value.pop('model_policy', None)
+        return value
 
     @model_validator(mode='after')
     def bounded_arguments(self):

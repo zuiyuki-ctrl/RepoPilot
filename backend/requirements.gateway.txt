@@ -1,0 +1,10 @@
+# Match the versions used by this checkpoint's offline acceptance.
+fastapi==0.141.1
+starlette==1.6.0
+uvicorn==0.53.0
+python-dotenv==1.2.3
+SQLAlchemy==2.0.54
+psycopg[binary]==3.3.6
+pydantic==2.13.5
+pgvector==0.5.0
+httpx==0.28.1

@@ -7,6 +7,7 @@ from ..db.repositories import platform_run_repo as repo
 from ..schemas.platform_run import AgentRunRequest
 from ..schemas.run_control import ControlRead, CheckpointRead
 from .run_lifecycle import RunConflictError
+from .experiment_contract_service import digest
 
 
 def enqueue_native(run_id, *, bundle_sha256=None):
@@ -38,22 +39,32 @@ def enqueue_native(run_id, *, bundle_sha256=None):
         repo.append_event(session, run, event_type='WORK_ENQUEUED', payload={})
 
 
-def enqueue_process(run_id, *, bundle_sha256):
+def enqueue_process(run_id, *, bundle_sha256, allow_model=False):
     from .platform_test_collector import checked_bundle
+    from ..schemas.process_agent import ProcessConfiguration
+    from .model_gateway_service import authorize_process
     with SessionLocal.begin() as session:
         run = repo.get_run(session, run_id, for_update=True)
         if run is None:
             raise RunConflictError('Run not found')
+        request = AgentRunRequest.model_validate(run.request)
+        state = {'bundle_sha256': bundle_sha256, 'repository_id': str(run.repository_id)}
+        _, manifest, _ = checked_bundle(request, state)
+        config = ProcessConfiguration.model_validate(manifest['process_config'])
+        if digest(config.model_dump(mode='json')) != request.config_sha256:
+            raise RunConflictError('Frozen Process configuration differs')
         existing = session.get(RunWork, run_id)
         if existing:
             if existing.state.get('bundle_sha256') != bundle_sha256:
                 raise RunConflictError('Run already bound to another bundle')
+            if config.model_policy is not None and allow_model is not True:
+                raise RunConflictError('Process model authorization required')
             return
-        request = AgentRunRequest.model_validate(run.request)
         if run.lifecycle != 'queued' or request.agent.adapter != 'process' or run.legacy_task_id is not None:
             raise RunConflictError('Expected fresh independent Process Run')
-        state = {'bundle_sha256': bundle_sha256, 'repository_id': str(run.repository_id)}
-        checked_bundle(request, state)
+        authorize_process(session, run, config, allow_model=allow_model)
+        if config.model_policy is not None:
+            state['model_required'] = True
         session.add(RunWork(run_id=run.id, stage='baseline', state=state, ready=True,
             cancel_requested=False, active_seconds=0, cleanup_status='not_needed', legacy_cursor=0))
         repo.append_event(session, run, event_type='WORK_ENQUEUED', payload={'adapter': 'process'})
@@ -119,6 +130,9 @@ def request_cancel(run_id, data):
         if run.version != data.expected_version or run.lifecycle in ('finished', 'interrupted', 'evaluating'):
             raise RunConflictError('Run cannot be cancelled at this version/state')
         work.cancel_requested = True
+        if work.state.get('model_required'):
+            from .model_gateway_service import revoke_attempt
+            revoke_attempt(session, run)
         work.ready = True
         run.version += 1
         repo.append_event(session, run, event_type='CANCEL_REQUESTED', payload={})

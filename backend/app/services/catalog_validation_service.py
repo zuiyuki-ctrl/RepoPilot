@@ -72,7 +72,8 @@ def validate_agent(claim):
         raise ValueError('declared_trace_missing_or_invalid')
     return dict(passed=True, scope='process_protocol_probe', reason='protocol_and_scope_checked',
                 validated_capabilities=['execution'], declared_capabilities=registration.declared_capabilities,
-                trace_status=trace['status'], task_success_evaluated=False)
+                trace_status=trace['status'], task_success_evaluated=False,
+                model_access_validated=False)
 
 
 def validate_benchmark(claim):

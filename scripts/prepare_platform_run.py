@@ -16,6 +16,8 @@ def main():
     parser.add_argument('--agent-name', default='Protocol Demo (fixture)')
     parser.add_argument('--agent-version', default='v1')
     parser.add_argument('--creation-key', required=True)
+    parser.add_argument('--allow-model', action='store_true',
+                        help='Explicitly authorize a model-enabled Process Run; worker must also opt in')
     parser.add_argument('--timeout-seconds', type=int, default=600,
                         help='Agent execution budget, 1..3600; platform tests have their own budget')
     args = parser.parse_args()
@@ -63,6 +65,8 @@ def main():
     process = None
     if args.process_config:
         process = ProcessConfiguration.model_validate(artifacts.decode_json(artifacts.read_bytes(args.process_config)))
+        if process.model_policy is not None and not args.allow_model:
+            parser.error('Model-enabled Process configuration requires --allow-model (worker opt-in is separate)')
         identity = dict(name=args.agent_name, version=args.agent_version, adapter='process',
                         implementation_sha256=process.image.removeprefix('sha256:'))
         config_hash = digest(process.model_dump(mode='json'))
@@ -92,7 +96,7 @@ def main():
     bundle = create_bundle(request, workspace=workspace, case=case, rule=rule, image=args.test_image,
                            process_config=process.model_dump(mode='json') if process else None)
     if process:
-        enqueue_process(run.id, bundle_sha256=bundle)
+        enqueue_process(run.id, bundle_sha256=bundle, allow_model=args.allow_model)
     else:
         enqueue_native(run.id, bundle_sha256=bundle)
     print(f'Queued {run.id}. No model/test executed yet. Open /live/runs/{run.id}')

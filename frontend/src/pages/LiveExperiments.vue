@@ -137,10 +137,10 @@ onUnmounted(()=>{clearInterval(timer);selectionGeneration++})
     </div>
     <article v-if="preview">
       <h2>启动前核对</h2>
-      <p>预计 {{preview.manifest.run_count}} 个 Run；{{preview.manifest.needs_model?'包含可能付费的 Native 阶段':'无平台模型调用的 Process 运行'}}。</p>
+      <p>预计 {{preview.manifest.run_count}} 个 Run；{{preview.manifest.needs_model?'包含可能付费的模型阶段（Native 或已配置模型策略的 Process）':'无平台模型调用的 Process 运行'}}。</p>
       <p>实际配置差异：{{preview.manifest.changed_fields}}</p>
       <details><summary>完整冻结清单（启动使用此预览，修改表单后需重新预览）</summary><pre>{{JSON.stringify(preview.manifest,null,2)}}</pre></details>
-      <label><input v-model="paid" type="checkbox" />明确允许此批 Native 模型/检索请求可能产生费用</label>
+      <label><input v-model="paid" type="checkbox" />明确允许此批实验的模型请求（含 Native 检索请求）可能产生费用；worker 仍需单独授权</label>
       <label><input v-model="confirm" type="checkbox" />已核对本次预览，确认入队执行</label>
       <button :disabled="busy||!confirm||(!!preview.manifest.needs_model&&!paid)" @click="start">确认启动预览中的实验</button>
     </article>
