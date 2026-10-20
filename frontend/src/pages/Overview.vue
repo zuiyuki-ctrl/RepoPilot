@@ -10,6 +10,7 @@ import 'element-plus/es/components/select/style/css'
 import 'element-plus/es/components/option/style/css'
 import 'element-plus/es/components/skeleton/style/css'
 import 'element-plus/es/components/empty/style/css'
+import '../archive.css'
 import { snapshotReader, type HistorySnapshot, type HistoricalRun } from '../data/history'
 
 const snapshot = ref<HistorySnapshot | null>(null)
@@ -49,16 +50,17 @@ onMounted(load)
 </script>
 
 <template>
-  <div class="page-heading"><div><p class="eyebrow">EXPERIMENTS</p><h1>实验总览</h1><p class="subtitle">同一个代码任务，两种检索策略。先看结果，再核对过程中的证据。</p></div></div>
+  <div class="archive-page archive-overview">
+  <div class="ui-page-heading"><div><p class="ui-kicker">历史归档 · 文件快照</p><h1>历史快照</h1><p class="ui-page-description">同一个代码任务，两种检索策略。先看结果，再核对过程中的证据。</p></div></div>
   <div class="snapshot-note"><strong>历史快照</strong><span>来自已保存的 JSON 报告，不反映当前任务状态。生成、应用、测试与审批操作均不可用。</span></div>
   <ElSkeleton v-if="loading" :rows="8" animated class="loading" />
   <div v-else-if="error" role="alert" class="error-state"><h2>无法读取历史快照</h2><p>{{ error }}</p><ElButton @click="load">重新读取</ElButton></div>
   <template v-else-if="snapshot">
     <p class="snapshot-note">任务完成与独立验收是两种口径。<RouterLink to="/comparisons">查看选定批次的门槛、改善／退化与证据缺口 →</RouterLink></p>
-    <div class="table-toolbar"><div><strong>逐例运行</strong><span class="quiet">{{ runs.length }} 条任务记录 · 按用例版本分组</span></div><ElSelect v-model="filter" aria-label="筛选运行" style="width: 155px"><ElOption label="全部运行" value="all" /><ElOption label="任务已完成" value="completed" /><ElOption label="未记录终态报告" value="incomplete" /></ElSelect></div>
+    <div class="table-toolbar archive-toolbar"><div><strong>逐例运行</strong><span class="quiet">{{ runs.length }} 条任务记录 · 按用例版本分组</span></div><ElSelect v-model="filter" aria-label="筛选运行" style="width: 155px"><ElOption label="全部运行" value="all" /><ElOption label="任务已完成" value="completed" /><ElOption label="未记录终态报告" value="incomplete" /></ElSelect></div>
     <p class="mobile-table-note">横向滚动表格，可查看测试、证据与来源。</p>
     <ElEmpty v-if="!groups.length" description="没有符合条件的历史运行" />
-    <section v-for="group in groups" :key="group.name" class="case-group">
+    <section v-for="group in groups" :key="group.name" class="case-group ui-card">
       <h2 class="case-title"><span class="mono">{{ group.name }}</span><span>{{ group.items.length }} 条记录</span></h2>
       <ElTable :data="group.items" row-key="experimentId" class="run-table">
         <!-- @vue-generic {HistoricalRun} -->
@@ -87,5 +89,6 @@ onMounted(load)
       <h3>来源文件</h3><p class="drawer-note">“用于汇总”标注参与当前展示的文件；重复导出仍保留。时间取文件内导出、检查、创建或完成时间，无记录则显示“未记录”，不使用磁盘修改时间。</p><ol class="source-list"><li v-for="source in selected.sources" :key="source.path"><code>{{ source.path }}</code><p>{{ formatDate(source.timestamp) }} <span v-if="source.selected">· 用于汇总</span></p></li></ol>
     </template>
   </ElDrawer>
+  </div>
 </template>
 

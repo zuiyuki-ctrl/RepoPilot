@@ -93,3 +93,15 @@ export async function readLive<T>(path: string, body?: unknown): Promise<T> {
     throw error
   } finally { window.clearTimeout(timer) }
 }
+
+// 按原页面约束同时保护按钮与提交处理器；不推断未记录的执行控制。
+export function canDecideRun(run: PlatformRun | null, control: RunControl | null, busy: boolean): boolean {
+  const checkpoint = control?.checkpoint
+  return !busy && !!run && !!checkpoint && checkpoint.run_id === run.id
+    && checkpoint.run_version === run.version && !checkpoint.decision
+    && run.lifecycle === 'awaiting_input' && !control?.cancel_requested
+}
+export function canCancelRun(run: PlatformRun | null, control: RunControl | null, busy: boolean): boolean {
+  return !busy && !!run && !!control && !control.cancel_requested
+    && !['finished', 'interrupted', 'evaluating'].includes(run.lifecycle)
+}

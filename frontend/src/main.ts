@@ -1,17 +1,20 @@
 import { createApp } from 'vue'
 import { createRouter, createWebHashHistory } from 'vue-router'
 import App from './App.vue'
-import Overview from './pages/Overview.vue'
-import RunDetail from './pages/RunDetail.vue'
-import Comparison from './pages/Comparison.vue'
-import LiveRuns from './pages/LiveRuns.vue'
-import LiveRunDetail from './pages/LiveRunDetail.vue'
-import LiveCatalog from './pages/LiveCatalog.vue'
-import LiveExperiments from './pages/LiveExperiments.vue'
+const Overview = () => import('./pages/Overview.vue')
+const RunDetail = () => import('./pages/RunDetail.vue')
+const Comparison = () => import('./pages/Comparison.vue')
+const LiveRuns = () => import('./pages/LiveRuns.vue')
+const LiveRunDetail = () => import('./pages/LiveRunDetail.vue')
+const LiveCatalog = () => import('./pages/LiveCatalog.vue')
 import LiveDashboard from './pages/LiveDashboard.vue'
-import SavedReport from './pages/SavedReport.vue'
+const SavedReport = () => import('./pages/SavedReport.vue')
 import './style.css'
 import './detail.css'
+import './workbench.css'
+
+// 批次表单和比较组件按路由加载，避免增加工作台首屏体积。
+const LiveExperiments = () => import('./pages/LiveExperiments.vue')
 
 const router = createRouter({
   history: createWebHashHistory(),

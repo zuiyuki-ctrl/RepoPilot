@@ -11,17 +11,33 @@ npm.cmd install
 npm.cmd run dev
 ```
 
-打开终端打印的本地地址。无需 FastAPI、数据库、Embedding、模型或 Docker。服务仅监听本机；不会执行历史实验。
+打开终端打印的本地地址。历史快照展示无需 FastAPI、数据库、Embedding、模型或 Docker；实时页面读取已有 v2 API，未连接时明确显示连接问题，不使用假数据替代。前端服务仅监听本机，不会自动执行实验。
 
 ## 检查和构建
 
 ```powershell
 npm.cmd run test:snapshots
+npm.cmd run test:dashboard
+npm.cmd run test:experiments
 npm.cmd run build
 npm.cmd run preview
 ```
 
 `build` 先整理快照，再执行 `vue-tsc` 和 Vite 构建。`dist` 可以独立静态展示；使用 hash 路由，无需服务器配置路由回退。Node 需要满足 Vite 7 的版本要求（本机 Node 22.17）。
+
+## 布局优化（2026-10-20）
+
+计划与逐轮进度见 [前端布局优化计划](../docs/frontend-layout-optimization-plan.md)。第一轮完成公共外壳与实时 Dashboard；第二轮完成实时实验批次与创建、比较、人工决定、导出界面。运行详情与其余资源页面按后续轮次迁移。
+
+外壳提供分组／折叠侧栏、窄屏导航抽屉、当前位置和数据模式。Dashboard 使用 Element Plus 和共享卡片排版；不新增第三方组件库、不改变现有主题色或 logo 资产。
+
+Dashboard 数据流：`GET /api/v2/dashboard` → `data/dashboard.ts` 来源与字段校验 → `LiveDashboard.vue` 读取状态 → `DashboardView.vue` 展示。记录数量来自完整状态分组，不重新计算评测成绩。断连不填零，刷新失败保留旧响应并标记上次读取时间。所有 API 读取都保持 GET；启动、导入、审批等业务表单本轮没有改动。
+
+`test:dashboard` 用 Node 的 TypeScript 类型剥离运行数据边界检查（Node 22.17 会提示该功能处于实验阶段），不连接后端、不写业务数据。临时界面检查样例未保留在产品中。
+
+实验批次位于 `#/live/experiments`，选中批次用 `id` 查询参数保留。数据访问与前端按钮条件位于 `data/platform-experiments.ts`；页面编排读取、预览和已授权动作，两个展示组件负责比较与独立人工决定。所有分数和分类仍来自后端，前端不重新评测。
+
+新建抽屉先配置、再核对冻结预览；修改条件会使旧预览失效并清除确认／模型许可。API 字段、请求键、比较 hash 绑定、模型授权与 worker 授权不变。五秒轮询及页签切换只读。`test:experiments` 检查前端操作边界与请求构造，不调用真实 API；完整交互以临时隔离内存响应检查，未创建真实实验或提交真实人工决定。
 
 ## 数据流和事实边界
 
@@ -76,3 +92,17 @@ npm.cmd run preview
 验证范围为前端数据关联检查、类型检查、生产构建、浏览器总览／筛选／来源抽屉与 390px 窄屏排版。没有执行模型、Embedding、Docker、后端回归或实验。
 
 第二轮新增运行详情数据检查，覆盖审批与候选不生成虚构事件、缺时间的应用记录、旧事件兼容、错配与重复序号拒绝、历史 Diff 归属、凭据展示脱敏及空输出与未记录的区分。浏览器验收核对真实 Hybrid 查询／上下文／历史 Diff／指定 TestRun、旧 Vector 证据缺失与未完成 statistics / Hybrid 运行。
+
+### 第三轮布局：运行与 Trace
+
+`/live/runs` 提供当前页检索与分页；`/live/runs/:runId` 按 Trace、执行审批、独立评测和模型请求分区。数据继续通过 `data/platform-runs.ts` 访问既有接口，样式限定在 `runs.css`。Run 的执行结果、平台验收和观测证据互相独立；事件时间为平台记录时间。详情页内存选择用于阅读，刷新重置选择并重新读取固定分页边界。
+
+运行 `npm.cmd run test:runs` 可检查审批／取消状态和版本约束、请求字段及 409 不重试；该脚本使用内存 fetch，不连接后端。界面交付检查亦不启动真实 Run。
+
+### 第四轮布局：资源、报告和历史归档
+
+Agent／Benchmark 使用版本列表、登记抽屉和详情页签；`data/catalog.ts` 访问原目录接口，保留显式校验、请求键和中断限制。断连或读取中不提交，登记不会自动校验。配置文件最多 1 MB，辅助生成仅写入表单。
+
+报告页将原始文件交给既有 inspect 接口，最多 10 MB；核验结果及比较／冻结配置／人工记录／完整报告分别阅读。`data/saved-report.ts` 不重写报告、不验证作者身份、不回填数据库。历史页继续读取本地派生快照，`archive.css` 只调整布局，全部保留历史来源和解释边界。
+
+`npm.cmd run test:resources` 检查校验禁用边界、辅助配置、UTF-8 大小、原请求字段和原报告字节；测试使用内存 fetch。四轮共 42 项前端检查，生产构建还会执行类型检查并从已有文件整理历史快照，不运行实验。

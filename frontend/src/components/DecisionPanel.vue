@@ -30,9 +30,9 @@ defineProps<{ decision: Decision | null; counts: Record<string, number | null> |
   </section>
 </template>
 <style scoped>
-.decision-panel { padding: 24px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 12px; line-height: 1.7; font-size: 13px; }
+.decision-panel { padding: 24px; background: white; border: 0; border-radius: var(--ui-radius); box-shadow: var(--ui-shadow); line-height: 1.7; font-size: 13px; }
 h2 { margin: 4px 0 12px; } .count-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin: 20px 0; }
-.count-grid div { display: flex; flex-direction: column; padding: 14px; background: white; border: 1px solid #e2e7ee; border-radius: 8px; } .count-grid strong { font-size: 23px; }
+.count-grid div { display: flex; flex-direction: column; padding: 14px; background: #f7f8fa; border: 0; border-radius: 6px; } .count-grid strong { font-size: 23px; }
 .check-table { overflow-x: auto; } table { border-collapse: collapse; width: 100%; text-align: left; } td, th { padding: 10px; border-bottom: 1px solid #e2e7ee; }
 summary { cursor: pointer; font-weight: 600; } details { margin: 16px 0; } code { overflow-wrap: anywhere; } dl { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } dd { margin: 0; overflow-wrap: anywhere; }
 .quiet { color: #64748b; } @media (max-width: 700px) { .count-grid { grid-template-columns: repeat(2, 1fr); } .decision-panel { padding: 14px; } }

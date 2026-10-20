@@ -1,7 +1,22 @@
 <script setup lang="ts">
-import { ref, watch, onUnmounted } from 'vue'
+import { computed, ref, watch, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { readLive, type PlatformRun, type PlatformTraceEvent, type PlatformTracePage, type RunControl, type PlatformReport, type GatewayLedger, type GatewayRequestEvidence } from '../data/platform-runs'
+import { ElButton, ElInput, ElTabs, ElTabPane, ElEmpty } from 'element-plus'
+import 'element-plus/es/components/button/style/css'
+import 'element-plus/es/components/input/style/css'
+import 'element-plus/es/components/tabs/style/css'
+import 'element-plus/es/components/tab-pane/style/css'
+import 'element-plus/es/components/empty/style/css'
+import { eventTitle, formatDate } from '../data/display'
+import { statusLabel as baseStatusLabel } from '../data/dashboard'
+const statusLabel = (value: string) => ({ awaiting_input: '等待审批', evaluating: '独立验收中', interrupted: '已中断' } as Record<string, string>)[value] ?? baseStatusLabel(value)
+import { canDecideRun, canCancelRun } from '../data/platform-runs'
+import '../runs.css'
+const tab = ref('trace')
+const eventSearch = ref('')
+const visibleEvents = computed(() => events.value.filter(event => `${event.sequence} ${event.event_type} ${eventTitle(event.event_type)} ${event.source}`.toLowerCase().includes(eventSearch.value.trim().toLowerCase())))
+const selectedEvent = computed(() => events.value.find(event => event.sequence === expanded.value))
 const route = useRoute()
 const run = ref<PlatformRun | null>(null)
 const events = ref<PlatformTraceEvent[]>([])
@@ -68,7 +83,7 @@ async function showRequest(callId: string) {
 }
 async function decide(decision: 'approved' | 'rejected') {
   const cp = control.value?.checkpoint
-  if (!cp || submitting.value) return
+  if (!cp || !canDecideRun(run.value, control.value, loading.value || submitting.value)) return
   const id = String(route.params.runId)
   submitting.value = true; error.value = ''
   try {
@@ -80,7 +95,7 @@ async function decide(decision: 'approved' | 'rejected') {
   finally { submitting.value = false }
 }
 async function cancel() {
-  if (!run.value || submitting.value) return
+  if (!canCancelRun(run.value, control.value, loading.value || submitting.value) || !run.value) return
   const id = run.value.id
   submitting.value = true; error.value = ''
   try {
@@ -89,7 +104,7 @@ async function cancel() {
   } catch (e) { if (id === String(route.params.runId)) error.value = e instanceof Error ? e.message : '取消失败' }
   finally { submitting.value = false }
 }
-watch(() => route.params.runId, () => { comment.value = ''; void load() }, { immediate: true })
+watch(() => route.params.runId, () => { tab.value = 'trace'; eventSearch.value = ''; comment.value = ''; void load() }, { immediate: true })
 // 审批内容不自动替换，防止用户阅读途中批准另一份候选；执行阶段定时更新元数据。
 const timer = window.setInterval(() => {
   if (!loading.value && !submitting.value && run.value
@@ -102,12 +117,41 @@ onUnmounted(() => { window.clearInterval(timer); generation++; requestGeneration
 </script>
 <template>
   <section class="live-detail">
-    <RouterLink to="/live/runs">返回实时运行</RouterLink>
-    <h1>运行详情 · live</h1><button :disabled="loading" @click="load()">刷新</button>
+    <div class="ui-page-heading"><div><p class="ui-kicker"><RouterLink to="/live/runs">运行记录 /</RouterLink> 数据库记录</p><h1>{{ run ? run.case_id : '运行详情' }}</h1><p class="ui-page-description">Trace、平台验收与模型账本分别核对，执行成功不代表证据完整。</p></div>
+        <ElButton :disabled="loading || submitting" @click="load()">刷新记录</ElButton></div>
     <p v-if="loading" role="status">读取后端数据…</p><p v-if="error" role="alert">{{ error }}</p>
     <template v-if="run">
-      <p>{{ run.case_id }} / {{ run.case_version }} · {{ run.agent.name }} {{ run.agent.version }}</p>
-      <p>运行阶段：{{ run.lifecycle }}　执行结果：{{ run.execution_status }}　平台验收：{{ run.evaluation_outcome }}</p>
+      <div class="run-status-grid">
+        <section class="ui-card"><span>运行阶段</span><strong>{{ statusLabel(run.lifecycle) }}</strong></section>
+        <section class="ui-card"><span>执行结果</span><strong>{{ statusLabel(run.execution_status) }}</strong></section>
+        <section class="ui-card"><span>平台独立验收</span><strong>{{ statusLabel(run.evaluation_outcome) }}</strong></section>
+        <section class="ui-card"><span>观测证据</span><strong>{{ run.observation.level }} / {{ run.observation.completeness }}</strong></section>
+      </div>
+      <section class="ui-card run-metadata"><p>{{ run.agent.name }} · {{ run.agent.version }} · {{ run.agent.adapter }} · 用例版本 {{ run.case_version }}</p><details><summary>完整标识与记录时间</summary><dl><dt>Run ID</dt><dd>{{ run.id }}</dd><dt>Repository ID</dt><dd>{{ run.repository_id }}</dd><dt>原任务 ID</dt><dd>{{ run.legacy_task_id ?? '未记录' }}</dd><dt>记录版本</dt><dd>{{ run.version }}</dd><dt>创建 / 开始 / 完成（日本时间）</dt><dd>{{ formatDate(run.created_at) }} / {{ formatDate(run.started_at) }} / {{ formatDate(run.completed_at) }}</dd></dl></details></section>
+      <section class="ui-card run-workspace">
+        <ElTabs v-model="tab">
+      <ElTabPane label="Trace 与证据" name="trace">
+      <div class="run-trace-layout"><nav class="run-event-nav" aria-label="Trace 事件导航"><h2>已保存事件</h2>
+        <ElInput v-model="eventSearch" clearable placeholder="筛选类型、来源或序号" aria-label="筛选 Trace 事件" /><p class="run-note">已加载 {{ events.length }} 条 · 本次边界 #{{ traceBoundary ?? '未记录' }}</p><ol><li v-for="event in visibleEvents" :key="event.id">
+        <ElButton :class="{ selected: expanded === event.sequence }" :aria-pressed="expanded === event.sequence" @click="expanded = expanded === event.sequence ? null : event.sequence"><span>#{{ event.sequence }} · {{ eventTitle(event.event_type) }}</span><small>{{ event.source }} · {{ formatDate(event.created_at) }}</small></ElButton></li></ol>
+        <ElEmpty v-if="!visibleEvents.length" :description="eventSearch ? '没有符合条件的事件' : '未记录 Trace 事件'" :image-size="48" />
+        <ElButton v-if="more" :disabled="loading" @click="load(true)">加载后续事件</ElButton></nav>
+      <div class="run-event-reader"><template v-if="selectedEvent"><h2>#{{ selectedEvent.sequence }} · {{ eventTitle(selectedEvent.event_type) }}</h2><p>{{ selectedEvent.event_type }} · {{ selectedEvent.source }} · {{ formatDate(selectedEvent.created_at) }}</p><p>展示状态：{{ selectedEvent.detail_status }}。仅展示允许公开的已记录字段，不返回原始请求、认证信息或工作区文件正文。</p><p v-if="selectedEvent.legacy_sequence !== null">Native 原任务 {{ selectedEvent.legacy_task_id }} · 原事件 #{{ selectedEvent.legacy_sequence }} · 节点 {{ selectedEvent.node_name }}</p><p v-if="selectedEvent.truncated" role="status">详情已截断，仅用于浏览；不能作为完整证据导出。</p><pre class="approval-content">{{ JSON.stringify(selectedEvent.details, null, 2) }}</pre></template>
+        <ElEmpty v-else description="选择事件阅读已保存证据" :image-size="64" /></div></div>
+      <details class="run-evidence-notes"><summary>证据口径与观测能力</summary><p>时间为平台落库时间，外部 Agent 的实际发生时间未知；翻页固定本次边界，刷新可查看新增事件。选择事件时暂停自动刷新；未支持字段不会补造。</p><p>RETRIEVAL_COMPLETED 是工具返回结果；TOOL_CONTEXT_PREPARED 是预算处理后的消息摘要；MODEL_CALL_STARTED 的 tool_context 是该次请求包含的摘要清单。hash 一致可核对身份，不证明模型理解或采纳了代码。事件与平台文件快照分别展示。</p>      <p>观测摘要：{{ run.observation.level }} / {{ run.observation.completeness }}。层级不是任务能力评分。</p>
+      <p>available = 有可用证据；partial = 部分记录；missing = 缺失；unsupported = 未支持；invalid = 无效。
+        not_occurred 必须有明确证据，不能从“没有事件”推断。应有数未知时不计算覆盖率；记录数也不等于模型调用数。</p>
+      <div class="run-table-scroll"><table><thead><tr><th>能力</th><th>声明 / 校验</th><th>实际证据</th><th>阶段发生</th><th>来源</th><th>记录数 / 应有数</th><th>事件序号</th></tr></thead>
+        <tbody><tr v-for="(value, name) in run.observation.capabilities" :key="name">
+          <td>{{ name }}</td><td>{{ value.declared }} / {{ value.validated }}</td><td>{{ value.availability }}</td>
+          <td>{{ value.occurrence }}</td><td>{{ value.source }}</td><td>{{ value.recorded_records }} / {{ value.expected_records ?? '未知' }}</td>
+          <td>{{ value.evidence_sequences.join(', ') || '未记录' }}</td>
+        </tr></tbody>
+      </table></div>
+</details>
+
+      </ElTabPane>
+      <ElTabPane label="执行与审批" name="control">
       <section v-if="control">
         <p>步骤：{{ control.stage }} · {{ control.active ? 'worker 执行中' : control.ready ? '等待 worker 领取' : '暂停或结束' }}
           · 清理：{{ control.cleanup_status }} · 已结算活跃时间：{{ control.active_seconds.toFixed(1) }} 秒</p>
@@ -115,27 +159,30 @@ onUnmounted(() => { window.clearInterval(timer); generation++; requestGeneration
         <p v-if="control.cleanup_error_code" role="alert">清理问题：{{ control.cleanup_error_code }}</p>
         <p v-if="control.interruption_token">未解决执行标记：{{ control.interruption_token }}。确认旧 worker 及其子进程停止后，按操作文档解除阻塞。</p>
         <p v-if="control.cancel_requested">取消请求已登记。执行中强制停止可能留下未确认的副作用，请关注清理状态。</p>
-        <button v-else-if="!['finished', 'interrupted', 'evaluating'].includes(run.lifecycle)"
-          :disabled="loading || submitting" @click="cancel">请求取消运行</button>
+        <ElButton v-else-if="!['finished', 'interrupted', 'evaluating'].includes(run.lifecycle)"
+          :disabled="!canCancelRun(run, control, loading || submitting)" @click="cancel">请求取消运行</ElButton>
         <template v-if="control.checkpoint">
           <h2>{{ control.checkpoint.kind === 'plan' ? '计划审批' : '完整候选审批' }}</h2>
-          <p>检查点：{{ control.checkpoint.id }} · 决定：{{ control.checkpoint.decision ?? '待决定' }}</p>
+          <p>决定：{{ control.checkpoint.decision ?? '待决定' }}</p><details><summary>审批标识与冻结版本</summary><p>检查点：{{ control.checkpoint.id }} · Run 版本：{{ control.checkpoint.run_version }}</p><p>内容 SHA256：{{ control.checkpoint.payload_sha256 }}</p></details>
           <pre class="approval-content">{{ JSON.stringify(control.checkpoint.payload, null, 2) }}</pre>
           <template v-if="!control.checkpoint.decision && run.lifecycle === 'awaiting_input' && !control.cancel_requested">
-            <label>审批备注 <input v-model="comment" maxlength="1000" /></label>
-            <button :disabled="submitting || loading" @click="decide('approved')">批准这份内容</button>
-            <button :disabled="submitting || loading" @click="decide('rejected')">拒绝并终止</button>
+            <label>审批备注<ElInput v-model="comment" type="textarea" :rows="3" :maxlength="1000" show-word-limit /></label>
+            <ElButton :disabled="!canDecideRun(run, control, loading || submitting)" @click="decide('approved')">批准这份内容</ElButton>
+            <ElButton :disabled="!canDecideRun(run, control, loading || submitting)" @click="decide('rejected')">拒绝并终止</ElButton>
           </template>
         </template>
         <p v-if="run.lifecycle === 'evaluating'">Agent 执行已结束，等待平台独立验收。旧开发入口未绑定权威测试包的 Run 仍保持待验收。</p>
       </section>
+      <ElEmpty v-if="!control" description="未记录执行控制信息" />
+      </ElTabPane>
+        <ElTabPane label="修改与独立评测" name="report">
       <section v-if="report">
         <h2>平台独立评测</h2>
-        <p>结论：{{ report.evaluation_outcome }} · 原因：{{ report.reason ?? '尚未生成' }}</p>
+        <p>结论：{{ statusLabel(report.evaluation_outcome) }} · 原因：{{ report.reason ?? '尚未生成' }}</p>
         <p>最终源码快照：{{ report.final_snapshot_hash ?? '未采集' }}</p>
         <details><summary>原始基线与最终测试（平台采集）</summary>
-          <pre class="approval-content">基线：{{ JSON.stringify(report.baseline_test, null, 2) }}
-最终：{{ JSON.stringify(report.final_test, null, 2) }}</pre>
+          <pre class="approval-content">基线：{{ report.baseline_test == null ? '未记录' : JSON.stringify(report.baseline_test, null, 2) }}
+最终：{{ report.final_test == null ? '未记录' : JSON.stringify(report.final_test, null, 2) }}</pre>
         </details>
         <p>Diff 证据：{{ report.artifact_status }} · 修改文件：{{ report.changed_files.join(', ') || '无记录' }}</p>
         <pre v-if="report.diff !== null" class="approval-content">{{ report.diff || '无源码差异' }}</pre>
@@ -143,20 +190,13 @@ onUnmounted(() => { window.clearInterval(timer); generation++; requestGeneration
         <p v-if="report.process.protocol_error" role="alert">Agent 协议错误：{{ report.process.protocol_error }}</p>
         <p v-if="run.agent.adapter === 'process'">外部上报轨迹：{{ report.process.trace_status }}。未上报用量不代表 Token 为零。</p>
         <details v-if="report.process.stdout !== null"><summary>外部 Agent 日志（不是平台验收结果）</summary>
-          <pre class="approval-content">{{ report.process.stdout }}{{ report.process.stderr }}</pre>
+          <pre class="approval-content">{{ report.process.stdout }}{{ report.process.stderr ?? '' }}</pre>
           <p v-if="report.process.stdout_truncated || report.process.stderr_truncated">日志已截断，不代表完整输出。</p>
         </details>
       </section>
-      <p>观测摘要：{{ run.observation.level }} / {{ run.observation.completeness }}。层级不是任务能力评分。</p>
-      <p>available = 有可用证据；partial = 部分记录；missing = 缺失；unsupported = 未支持；invalid = 无效。
-        not_occurred 必须有明确证据，不能从“没有事件”推断。应有数未知时不计算覆盖率；记录数也不等于模型调用数。</p>
-      <table><thead><tr><th>能力</th><th>声明 / 校验</th><th>实际证据</th><th>阶段发生</th><th>来源</th><th>记录数 / 应有数</th><th>事件序号</th></tr></thead>
-        <tbody><tr v-for="(value, name) in run.observation.capabilities" :key="name">
-          <td>{{ name }}</td><td>{{ value.declared }} / {{ value.validated }}</td><td>{{ value.availability }}</td>
-          <td>{{ value.occurrence }}</td><td>{{ value.source }}</td><td>{{ value.recorded_records }} / {{ value.expected_records ?? '未知' }}</td>
-          <td>{{ value.evidence_sequences.join(', ') || '未记录' }}</td>
-        </tr></tbody>
-      </table>
+      <ElEmpty v-if="!report" description="未记录平台评测报告" />
+      </ElTabPane>
+        <ElTabPane label="模型账本与请求" name="gateway">
       <section>
         <h2>模型网关 · 平台账本</h2>
         <p v-if="gatewayError" role="alert">{{ gatewayError }} 账本读取失败不代表零调用。</p>
@@ -175,7 +215,7 @@ onUnmounted(() => { window.clearInterval(timer); generation++; requestGeneration
             mock 和 fake_upstream 均不计入真实效果对比，用量来自供应商响应，并非账单核销。</p>
           <p>以下证据来自平台网关，与 Agent 自报分开；调用 ID 不是事件序号。
             请求/响应哈希仅用于核对身份，不代表完整 Context 展示或 L2 验收。</p>
-          <table v-if="gateway.items.length"><thead><tr><th>调用 ID / 状态</th><th>用量来源</th><th>Token</th><th>派发至结算</th></tr></thead>
+          <div class="run-table-scroll"><table v-if="gateway.items.length"><thead><tr><th>调用 ID / 状态</th><th>用量来源</th><th>Token</th><th>派发至结算</th></tr></thead>
             <tbody><tr v-for="call in gateway.items" :key="call.id">
               <td>{{ call.id }} / {{ call.status }}<p v-if="call.error_code">{{ call.error_code }}</p>
                 <details><summary>请求与响应身份</summary>
@@ -183,16 +223,16 @@ onUnmounted(() => { window.clearInterval(timer); generation++; requestGeneration
                   <p>Agent 调用 ID 的 SHA256：{{ call.call_id_sha256 }}</p>
                   <p>派发：{{ call.dispatched_at ?? '未记录' }} · 结算：{{ call.completed_at ?? '未记录' }}</p>
                 </details>
-                <button :disabled="loading" @click="showRequest(call.id)">查看保存的请求</button>
+                <ElButton :disabled="loading" @click="showRequest(call.id)">查看保存的请求</ElButton>
               </td>
               <td>{{ call.usage_source }} / {{ call.usage_status }}</td>
               <td>{{ call.usage?.total_tokens ?? '未知' }}</td>
               <td>{{ call.duration_ms === null ? '未知' : `${call.duration_ms} ms` }}</td>
             </tr></tbody>
-          </table>
+          </table></div>
           <section v-if="requestCall">
             <h3>请求内容 · {{ requestCall }}</h3>
-            <button @click="closeRequest">关闭内容</button>
+            <ElButton @click="closeRequest">关闭内容</ElButton>
             <p v-if="requestLoading" role="status">读取并核对历史证据…</p>
             <p v-if="requestError" role="alert">{{ requestError }}</p>
             <template v-if="requestEvidence">
@@ -216,29 +256,8 @@ onUnmounted(() => { window.clearInterval(timer); generation++; requestGeneration
           </section>
         </template>
       </section>
-      <h2>Trace · 已保存证据</h2>
-      <p>本次翻页截至平台事件 #{{ traceBoundary }}，刷新可查看新增事件。时间为平台落库时间，外部 Agent 的实际发生时间未知。
-        展开详情时暂停自动刷新。未支持的字段不会补造。</p>
-      <p>RETRIEVAL_COMPLETED 是工具返回结果；TOOL_CONTEXT_PREPARED 是预算处理后的消息摘要；
-        MODEL_CALL_STARTED 的 tool_context 是该次请求包含的摘要清单。hash 一致可核对消息身份，但不证明模型理解或采纳了代码。</p>
-      <ol class="trace-list"><li v-for="event in events" :key="event.id">
-        <button :aria-expanded="expanded === event.sequence" @click="expanded = expanded === event.sequence ? null : event.sequence">
-          #{{ event.sequence }} · {{ event.event_type }} · {{ event.source }}
-        </button>
-        <span> · {{ event.created_at }}</span>
-        <section v-if="expanded === event.sequence">
-          <p v-if="event.legacy_sequence !== null">Native 原任务 {{ event.legacy_task_id }} · 原事件 #{{ event.legacy_sequence }} · 节点 {{ event.node_name }}</p>
-          <p>展示状态：{{ event.detail_status }}。仅展示允许公开的已记录字段，不返回原始请求、认证信息或工作区文件正文。</p>
-          <p v-if="event.truncated">详情已截断，仅用于浏览；不能作为完整证据导出。</p>
-          <pre class="approval-content">{{ JSON.stringify(event.details, null, 2) }}</pre>
-        </section>
-      </li></ol>
-      <button v-if="more" :disabled="loading" @click="load(true)">加载后续事件</button>
+      </ElTabPane></ElTabs>
+      </section>
     </template>
   </section>
 </template>
-<style scoped>
-.live-detail { padding: 24px; } table { width: 100%; border-collapse: collapse; } th, td { text-align: left; padding: 8px; border-bottom: 1px solid #ddd; } [role=alert] { color: #a52a2a; }
-.approval-content { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 540px; overflow: auto; padding: 16px; background: #f5f7fa; }
-.trace-list { padding-left: 24px; } .trace-list li { margin: 12px 0; } .trace-list button { text-align: left; }
-</style>

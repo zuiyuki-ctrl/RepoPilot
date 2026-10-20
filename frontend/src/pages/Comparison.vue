@@ -2,6 +2,9 @@
 import { onMounted, ref } from 'vue'
 import { readComparison, type ComparisonSnapshot } from '../data/comparison'
 import { label } from '../data/assessment'
+import { ElButton } from 'element-plus'
+import 'element-plus/es/components/button/style/css'
+import '../archive.css'
 import DecisionPanel from '../components/DecisionPanel.vue'
 import ResourceDelta from '../components/ResourceDelta.vue'
 import FailureEvidence from '../components/FailureEvidence.vue'
@@ -22,9 +25,11 @@ onMounted(load)
 </script>
 
 <template>
-  <div class="page-heading"><div><p class="eyebrow">RETRIEVAL COMPARISON</p><h1>策略对比</h1><p class="subtitle">按固定用例并排查看 Vector 与 Hybrid 的历史结果和检索证据。</p></div></div>
+  <div class="archive-page archive-comparison">
+  <div class="ui-page-heading"><div><p class="ui-kicker">历史归档 · 策略对比</p><h1>策略对比</h1><p class="ui-page-description">按固定用例并排查看 Vector 与 Hybrid 的历史结果和检索证据。</p></div></div>
+  <div class="snapshot-note"><strong>历史快照</strong><span>只读已保存报告；不反映实时状态，不执行审批或实验。</span></div>
   <p v-if="loading" role="status">正在读取历史快照…</p>
-  <div v-else-if="error" role="alert" class="error-state">{{ error }} <button @click="load">重新读取</button></div>
+  <div v-else-if="error" role="alert" class="error-state">{{ error }} <ElButton @click="load">重新读取</ElButton></div>
   <template v-else-if="snapshot">
     <div class="snapshot-note">{{ snapshot.pairs.length }} 组配对 · 按用例版本与预声明重复序号配对，全部保留，不择优。结果不能证明 Hybrid 整体优于 Vector。</div>
     <DecisionPanel :decision="snapshot.decision" :counts="snapshot.analysisCounts" />
@@ -83,15 +88,16 @@ onMounted(load)
     <section class="comparison-group"><h2>额外准备记录</h2><p>单独保留，未混入主运行配对。准备未完成不代表进程仍在运行。</p><ul><li v-for="run in snapshot.additional" :key="run.experimentId" class="additional-run"><strong>{{ run.caseId }} / {{ run.strategy }}</strong> · {{ run.status }}<br />阶段 {{ run.stage }} · 错误 {{ run.errorType ?? '未记录' }}<br /><code>{{ run.experimentId }}</code></li></ul><p v-if="!snapshot.additional.length">无额外记录。</p></section>
     <details class="comparison-group"><summary>数据来源与解释边界</summary><p class="artifact-hash">{{ snapshot.source }}</p><p>报告生成时间：{{ snapshot.generatedAt }}</p><ul><li v-for="limitation in snapshot.limitations" :key="limitation">{{ limitation }}</li></ul></details>
   </template>
+  </div>
 </template>
 
 <style scoped>
-.comparison-group { margin: 24px 0; padding: 24px; background: white; border: 1px solid #e2e7ee; border-radius: 12px; }
+.comparison-group { margin: 24px 0; padding: 24px; background: white; border: 0; border-radius: var(--ui-radius); box-shadow: var(--ui-shadow); }
 .comparison-columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; }
-.strategy-card { min-width: 0; border: 1px solid #e2e7ee; border-radius: 8px; padding: 20px; }
+.strategy-card { min-width: 0; border: 0; border-left: 2px solid #edf0f4; border-radius: 0; padding: 12px 20px; }
 .strategy-card h3 { margin: 0 0 16px; }
 .run-outcome { display: flex; justify-content: space-between; gap: 8px; }
-.comparison-metrics { display: grid; grid-template-columns: 90px 1fr; gap: 10px; font-size: 13px; }
+.comparison-metrics { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 10px; font-size: 13px; }
 dt, .condition-note, .run-id { color: #64748b; } dd { margin: 0; }
 .condition-note, .run-id { font-size: 12px; line-height: 1.7; }
 .comparison-details { margin-top: 18px; padding-top: 14px; border-top: 1px solid #e2e7ee; font-size: 13px; line-height: 1.7; }

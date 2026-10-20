@@ -16,6 +16,7 @@ import TestView from '../components/TestView.vue'
 import EventView from '../components/EventView.vue'
 import FailureEvidence from '../components/FailureEvidence.vue'
 import { readComparison, type ComparisonRun } from '../data/comparison'
+import '../archive.css'
 import { label, display } from '../data/assessment'
 
 const route = useRoute()
@@ -77,11 +78,12 @@ watch(() => selected.value?.id, () => { reportTab.value = 'diff' })
 </script>
 
 <template>
+  <div class="archive-page archive-detail">
   <RouterLink to="/experiments" class="back-link">← 实验总览</RouterLink>
   <ElSkeleton v-if="loading" :rows="10" class="loading" />
   <div v-else-if="error" class="error-state" role="alert"><ElEmpty :description="error" /><ElButton @click="load">重新读取</ElButton></div>
   <template v-else-if="run && detail">
-    <div class="detail-heading"><div><p class="eyebrow">运行详情 · 历史快照</p><h1>{{ run.caseId }} <span class="heading-strategy">/ {{ strategyText(run.strategy) }}</span></h1></div><span class="quiet">{{ run.caseVersion }}</span></div>
+    <div class="detail-heading ui-page-heading"><div><p class="ui-kicker">运行详情 · 历史快照</p><h1>{{ run.caseId }} <span class="heading-strategy">/ {{ strategyText(run.strategy) }}</span></h1></div><span class="quiet">{{ run.caseVersion }}</span></div>
     <p class="run-goal">{{ run.goal }}</p>
     <section class="inline-details">
       <p>{{ assessmentNote }} <RouterLink to="/comparisons">查看批次决策与门槛 →</RouterLink></p>
@@ -98,9 +100,9 @@ watch(() => selected.value?.id, () => { reportTab.value = 'diff' })
       <ul class="source-list"><li v-for="source in run.sources" :key="source.path"><code>{{ source.path }}</code><p>{{ formatDate(source.timestamp) }}（日本时间）</p></li></ul>
     </details>
     <p v-for="issue in run.issues" :key="issue" class="issue-note">{{ issue }}</p>
-    <div class="detail-workspace">
+    <div class="detail-workspace ui-card">
       <aside class="trace-pane" aria-label="运行时间线">
-        <div class="trace-heading"><h2>运行记录</h2><button class="text-control" @click="allRecords = !allRecords">{{ allRecords ? '只看关键记录' : '显示全部记录' }}</button></div>
+        <div class="trace-heading"><h2>运行记录</h2><ElButton link type="primary" size="small" @click="allRecords = !allRecords">{{ allRecords ? '只看关键记录' : '显示全部记录' }}</ElButton></div>
         <p class="trace-explanation">事件保留原始序号，快照独立标注。显示时间均为日本时间。</p>
         <div class="trace-list">
           <ol>
@@ -128,4 +130,5 @@ watch(() => selected.value?.id, () => { reportTab.value = 'diff' })
     </div>
     <div class="detail-limitations"><p v-for="warning in detail.warnings" :key="warning">{{ warning }}</p><p>正文对常见凭据格式做展示脱敏，源报告保持原样。检索块 hash 无法重建历史源码；成功响应也不能证明模型采纳了全部证据。</p></div>
   </template>
+  </div>
 </template>
