@@ -59,4 +59,4 @@
 
 本轮只完善 README、演示与进度记录，没有新增真实复跑。周计划第 7 天的“从新环境固定起点复跑”尚未由本次页面验收证明；历史回放不能替代它。真实复跑需另选时机显式调用模型，并保留新运行记录。当前先冻结功能范围，不扩充用例或为结果调参。
 
-换电脑保留 `evals/experiments/comparison-v1.json`、`frontend/comparison-source.json` 以及它们引用的历史文件。不要只搬运页面代码后把缺失证据当成零结果。恢复开发以 `docs/this-week-plan.md` 的当前接续点为准。
+换电脑保留 `evals/experiments/comparison-v1.json`、`frontend/comparison-source.json` 以及它们引用的历史文件。不要只搬运页面代码后把缺失证据当成零结果。本文是历史演示讲稿；当前使用入口见[项目 README](../README.md)，旧阶段接续记录见[历史归档](archive/README.md)，不再作为当前排期。

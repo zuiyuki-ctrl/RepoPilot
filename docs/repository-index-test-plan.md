@@ -256,7 +256,7 @@ SELECT id FROM repositories WHERE id = '<repository_id>'::uuid FOR UPDATE;
 | 相对路径 | 422，Source path must be absolute |
 | 干净的 detached HEAD | 201，git_branch=null，可正常 index |
 
-不要用 `scripts/check_repository.py` 替代注册接口准备正常数据：该脚本直接插入记录，没有创建 workspace，会触发 index 的 503 分支。
+不要直接插入 ORM 仓库记录来替代注册接口：缺少 workspace 的记录会触发 index 的 503 分支。早期用于演示这种插入方式的学习脚本已移除；正常测试数据应通过正式注册接口准备。
 
 ## 8. 执行顺序及通过标准
 

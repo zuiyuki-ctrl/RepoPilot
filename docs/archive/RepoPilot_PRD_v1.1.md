@@ -1,6 +1,8 @@
 # RepoPilot — Repository-level Coding Agent & Evaluation System  
 ## Product Requirements Document v1.1
 
+> 历史归档（2026-10-22）：保留 v1.1 需求及演进记录；当前需求入口为 [PRD v2.0](../RepoPilot_PRD_v2.0.md)，需求不等于已完成能力。
+
 **项目周期：** 2026 年 9 月  
 **项目类型：** AI Agent / AI Coding / Agent Evaluation / Backend Engineering  
 **核心技术：** Python、FastAPI、LangGraph、LangChain、PostgreSQL、pgvector、Docker  

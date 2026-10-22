@@ -40,4 +40,4 @@ RepoPilot 面向 Coding Agent 开发者、AI Infra 和评测团队，帮助回�
 
 目前交付定位是本机可信操作者使用的平台 MVP，不是任意 Agent 拖入即运行的通用 SaaS。优先扩展外部 Agent SDK 与真实模型接入、受控网络/凭据、完整调用覆盖证明；随后补价格快照与资源门槛、完整原始证据包、CI 回归、权限隔离及更多测试环境。策略方向可研究 Reranker、上下文筛选和恢复策略，但要用版本化任务集与受控重复实验验证收益和代价，不预设提升。
 
-实现与逐次验证记录见 [七天计划](v2-platform-seven-day-plan.md)。
+实现与逐次验证记录见 [七天计划](archive/v2-platform-seven-day-plan.md)。

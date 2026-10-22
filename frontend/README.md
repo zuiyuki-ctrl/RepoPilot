@@ -27,7 +27,7 @@ npm.cmd run preview
 
 ## 布局优化（2026-10-20）
 
-计划与逐轮进度见 [前端布局优化计划](../docs/frontend-layout-optimization-plan.md)。第一轮完成公共外壳与实时 Dashboard；第二轮完成实时实验批次与创建、比较、人工决定、导出界面。运行详情与其余资源页面按后续轮次迁移。
+四轮布局实施与检查记录见[已归档的前端布局计划](../docs/archive/frontend-layout-optimization-plan.md)：公共外壳与 Dashboard、实验批次、运行详情、资源/报告及历史页面均已完成本轮迁移。归档记录中的逐轮待办属于当时状态；当前使用入口见[项目 README](../README.md)。
 
 外壳提供分组／折叠侧栏、窄屏导航抽屉、当前位置和数据模式。Dashboard 使用 Element Plus 和共享卡片排版；不新增第三方组件库、不改变现有主题色或 logo 资产。
 
