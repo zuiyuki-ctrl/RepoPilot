@@ -6,7 +6,7 @@
 
 | 文件 | 用途与边界 |
 | --- | --- |
-| `platform_worker.py` | 处理已排队的准备、目录校验与执行工作；模型调用需显式授权，不是只读诊断 |
+| `platform_worker.py` | 处理已排队的准备、目录校验、执行和评测题草稿；模型调用需显式授权，不是只读诊断；草稿恢复见[操作说明](../docs/case-draft-generation.md) |
 | `check_db.py` | 连接本机配置的数据库执行 SELECT 1；不写数据，不验证表结构或迁移版本 |
 | `prepare_platform_run.py` | 可信 Process 开发入口，冻结并入队；会创建平台记录，不是普通 Agent 上报接口 |
 | `enqueue_native_run.py` | 可信 Native 开发入口，创建并入队；请求需由可信准备器产生 |

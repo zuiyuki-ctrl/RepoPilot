@@ -19,11 +19,14 @@ npm.cmd run dev
 npm.cmd run test:snapshots
 npm.cmd run test:dashboard
 npm.cmd run test:experiments
+npm.cmd run test:case-drafts
 npm.cmd run build
 npm.cmd run preview
 ```
 
 `build` 先整理快照，再执行 `vue-tsc` 和 Vite 构建。`dist` 可以独立静态展示；使用 hash 路由，无需服务器配置路由回退。Node 需要满足 Vite 7 的版本要求（本机 Node 22.17）。
+
+实时 Benchmarks 页提供“生成评测题”抽屉：预览文件并授权、查看后台失败基线与生成状态、编辑/丢弃草稿、确认后注册并校验现有 Benchmark。此入口不会启动 Agent Run；依赖已迁移后端、持久 worker 和本机测试镜像，详见[操作说明](../docs/case-draft-generation.md)。
 
 ## 布局优化（2026-10-20）
 

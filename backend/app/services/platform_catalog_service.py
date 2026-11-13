@@ -19,24 +19,29 @@ def projection(row):
 
 
 def register(kind, request):
+    with SessionLocal.begin() as session:
+        return register_in_session(session, kind, request)
+
+
+def register_in_session(session, kind, request):
+    """Also used by draft confirmation so registration and confirmation commit atomically."""
     model = MODELS[kind]
     descriptor = request.model_dump(mode='json')
     if kind == 'agents' and request.adapter == 'native':
         from ..agent.adapters.native import NativeAdapter
         descriptor['implementation_sha256'] = NativeAdapter().metadata()['implementation_sha256']
     content_hash = digest(descriptor)
-    with SessionLocal.begin() as session:
-        if kind == 'benchmarks':
-            for item in request.cases:
-                if session.get(Repository, item.repository_id) is None:
-                    raise LookupError('Registered repository not found')
-        session.execute(insert(model).values(id=uuid4(), name=request.name, version=request.version,
-            descriptor=descriptor, content_sha256=content_hash, status='registered').on_conflict_do_nothing(
-                index_elements=['name', 'version']))
-        row = session.scalar(select(model).where(model.name == request.name, model.version == request.version))
-        if row.content_sha256 != content_hash:
-            raise RunConflictError('Version already exists with different content; create a new version')
-        return projection(row)
+    if kind == 'benchmarks':
+        for item in request.cases:
+            if session.get(Repository, item.repository_id) is None:
+                raise LookupError('Registered repository not found')
+    session.execute(insert(model).values(id=uuid4(), name=request.name, version=request.version,
+        descriptor=descriptor, content_sha256=content_hash, status='registered').on_conflict_do_nothing(
+            index_elements=['name', 'version']))
+    row = session.scalar(select(model).where(model.name == request.name, model.version == request.version))
+    if row.content_sha256 != content_hash:
+        raise RunConflictError('Version already exists with different content; create a new version')
+    return projection(row)
 
 
 def list_versions(kind, limit=100, offset=0):
@@ -60,23 +65,28 @@ def queue_validation(kind, item_id, request_key):
     with SessionLocal.begin() as session:
         # Serialize cross-owner idempotency keys and duplicate requests; no I/O in this transaction.
         session.execute(text('SELECT pg_advisory_xact_lock(:key)'), {'key': LOCK})
-        owner = session.get(MODELS[kind], item_id, with_for_update=True)
-        if owner is None:
-            raise LookupError('Version not found')
-        field = 'agent_version_id' if kind == 'agents' else 'benchmark_version_id'
-        existing = session.scalar(select(CatalogValidation).where(CatalogValidation.request_key == request_key))
-        if existing:
-            if getattr(existing, field) != item_id:
-                raise RunConflictError('Request key belongs to another version')
-            return validation_projection(existing)
-        if session.scalar(select(CatalogValidation.id).where(getattr(CatalogValidation, field) == item_id,
-                CatalogValidation.status.in_(['queued', 'running', 'interrupted'])).limit(1)):
-            raise RunConflictError('Validation queued, running or awaiting explicit recovery')
-        job = CatalogValidation(request_key=request_key, **{field: item_id})
-        session.add(job)
-        owner.status = 'validating'
-        session.flush()
-        return validation_projection(job)
+        return queue_validation_in_session(session, kind, item_id, request_key)
+
+
+def queue_validation_in_session(session, kind, item_id, request_key):
+    """Caller holds LOCK; no external I/O inside the transaction."""
+    owner = session.get(MODELS[kind], item_id, with_for_update=True)
+    if owner is None:
+        raise LookupError('Version not found')
+    field = 'agent_version_id' if kind == 'agents' else 'benchmark_version_id'
+    existing = session.scalar(select(CatalogValidation).where(CatalogValidation.request_key == request_key))
+    if existing:
+        if getattr(existing, field) != item_id:
+            raise RunConflictError('Request key belongs to another version')
+        return validation_projection(existing)
+    if session.scalar(select(CatalogValidation.id).where(getattr(CatalogValidation, field) == item_id,
+            CatalogValidation.status.in_(['queued', 'running', 'interrupted'])).limit(1)):
+        raise RunConflictError('Validation queued, running or awaiting explicit recovery')
+    job = CatalogValidation(request_key=request_key, **{field: item_id})
+    session.add(job)
+    owner.status = 'validating'
+    session.flush()
+    return validation_projection(job)
 
 
 def get_validation(job_id):
@@ -86,8 +96,11 @@ def get_validation(job_id):
 
 
 def assert_no_catalog_writer(session):
-    if session.scalar(select(CatalogValidation.id).where(CatalogValidation.active_token.is_not(None)).limit(1)):
-        raise RunConflictError('Unsettled catalog validation; stop writers and explicitly recover it')
+    from ..db.models.case_draft import CaseDraft
+    active = select(CatalogValidation.id).where(CatalogValidation.active_token.is_not(None)).union_all(
+        select(CaseDraft.id).where(CaseDraft.active_token.is_not(None))).limit(1)
+    if session.scalar(active):
+        raise RunConflictError('Unsettled catalog validation or Case draft; stop writers and explicitly recover it')
 
 
 def claim_validation():
@@ -105,8 +118,16 @@ def claim_validation():
         kind = 'agents' if job.agent_version_id else 'benchmarks'
         owner = session.get(MODELS[kind], job.agent_version_id or job.benchmark_version_id)
         job.active_token, job.status, job.started_at = uuid4(), 'running', datetime.now(timezone.utc)
-        return dict(id=job.id, token=job.active_token, kind=kind, descriptor=owner.descriptor,
-                    content_sha256=owner.content_sha256)
+        claim = dict(id=job.id, token=job.active_token, kind=kind, descriptor=owner.descriptor,
+                     content_sha256=owner.content_sha256)
+        if kind == 'benchmarks':
+            from ..db.models.case_draft import CaseDraft
+            draft = session.scalar(select(CaseDraft).where(CaseDraft.confirmed_benchmark_id == owner.id)
+                                   .order_by(CaseDraft.created_at.desc()).limit(1))
+            if draft:
+                claim['draft_baseline'] = draft.baseline
+                claim['draft_preview'] = draft.preview
+        return claim
 
 
 def settle_validation(claim, report, *, cleanup_confirmed):

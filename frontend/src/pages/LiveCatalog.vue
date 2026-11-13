@@ -15,6 +15,7 @@ import 'element-plus/es/components/tabs/style/css'
 import 'element-plus/es/components/tab-pane/style/css'
 import { catalogRequest as request, catalogLabels as labels, canValidateCatalog, parseCatalogConfiguration, makeAgentConfiguration, type CatalogEntry as Entry, type CatalogRepository, type CatalogKind } from '../data/catalog'
 import '../resources.css'
+import BenchmarkDraftGenerator from '../components/BenchmarkDraftGenerator.vue'
 const message = (error: unknown) => error instanceof Error ? error.message : String(error)
 const route = useRoute()
 const kind = computed<CatalogKind>(() => route.path.endsWith('/agents') ? 'agents' : 'benchmarks')
@@ -95,7 +96,7 @@ onUnmounted(()=>{generation++})
 </script>
 <template>
   <div class="resource-page">
-    <div class="ui-page-heading"><div><p class="ui-kicker">固定版本 · 当前数据库</p><h1>{{ title }}</h1><p class="ui-page-description">登记不可变配置，显式校验后再用于实验。</p></div><div class="resource-actions"><ElButton :disabled="busy" @click="refresh">刷新状态</ElButton><ElButton type="primary" :disabled="busy" @click="creationOpen=true">{{ kind==='agents' ? '登记新版本' : '导入新版本' }}</ElButton></div></div>
+    <div class="ui-page-heading"><div><p class="ui-kicker">固定版本 · 当前数据库</p><h1>{{ title }}</h1><p class="ui-page-description">登记不可变配置，显式校验后再用于实验。</p></div><div class="resource-actions"><BenchmarkDraftGenerator v-if="kind==='benchmarks'" @confirmed="refresh" /><ElButton :disabled="busy" @click="refresh">刷新状态</ElButton><ElButton type="primary" :disabled="busy" @click="creationOpen=true">{{ kind==='agents' ? '登记新版本' : '导入新版本' }}</ElButton></div></div>
     <p v-if="error && !creationOpen" role="alert" class="resource-alert">{{ error }}{{ entries.length && !connected ? ' · 列表保留上次读取；当前不可提交。' : '' }}</p>
     <p v-if="notice" role="status" class="resource-notice">{{ notice }}</p>
     <section class="ui-card resource-list"><div class="resource-toolbar"><div><h2>已登记版本</h2><p>{{ busy ? '正在处理' : connected ? '已读取当前数据库' : '连接未确认' }} · 最近 100 个版本</p></div><ElInput v-model="search" clearable aria-label="搜索版本名称或 ID" placeholder="搜索名称、版本或 ID" /></div>
@@ -111,7 +112,7 @@ onUnmounted(()=>{generation++})
       <ElEmpty v-else :description="search ? '没有符合条件的版本' : error ? '连接后可读取版本' : '尚无版本记录'" :image-size="64" />
       <p class="resource-note">同名同版本不可覆盖；配置改变请创建新版本。中断校验需操作者确认容器停止并恢复所有权，不能直接重跑。</p>
     </section>
-    <section class="ui-card resource-guide"><h2>登记与校验的边界</h2><p v-if="kind==='agents'">Process 校验运行无网络、十秒预算的协议样例，不调用平台模型；Native 仅检查本地实现版本。校验通过不代表任务成功，声明的观测能力仍需实际运行证据。</p><p v-else>导入有序 Case、注册仓库 ID、commit、编辑范围、保护测试、验收规则和本地测试镜像。环境校验不运行基线测试，正式运行仍重新检查并执行基线。</p><p>此页面不启动正式实验，版本登记不会自动触发校验。</p>
+    <section class="ui-card resource-guide"><h2>登记与校验的边界</h2><p v-if="kind==='agents'">Process 校验运行无网络、十秒预算的协议样例，不调用平台模型；Native 仅检查本地实现版本。校验通过不代表任务成功，声明的观测能力仍需实际运行证据。</p><p v-else>导入有序 Case、注册仓库 ID、commit、编辑范围、保护测试、验收规则和本地测试镜像。生成草稿先复现声明的失败基线，再生成人工可编辑的题面；确认保存时显式排队环境校验，正式运行仍重新检查并执行基线。</p><p>此页面不启动正式实验。普通 JSON 版本导入不自动校验；草稿的“确认保存并校验”会排队校验。</p>
       <details v-if="kind==='benchmarks'"><summary>已注册仓库（最近 100 条）</summary><p v-if="repositoryError" role="alert">{{ repositoryError }}</p><p v-else-if="!repositories.length">{{ connected ? '未读取到仓库记录。' : '连接未确认。' }}</p><p v-for="repo in repositories" :key="repo.id" class="resource-id">{{ repo.name }} · {{ repo.id }} · {{ repo.commit_hash }}</p><p>完整清单可用 API 分页查询。</p></details>
     </section>
     <ElDrawer v-model="creationOpen" :title="kind==='agents' ? '登记 Agent 版本' : '导入 Benchmark 版本'" size="min(740px, 100vw)" :close-on-click-modal="!busy" :close-on-press-escape="!busy" :show-close="!busy" class="resource-drawer">

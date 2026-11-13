@@ -93,6 +93,14 @@ def validate_benchmark(claim):
                 raise ValueError('repository_commit_or_clean_state_mismatch')
         files = artifacts.inventory(root, source_repository=True)
         artifacts.check_profile(files)
+        if 'draft_preview' in claim:
+            from .platform_test_collector import runner_fingerprint
+            preview, baseline = claim['draft_preview'], claim.get('draft_baseline') or {}
+            if (baseline.get('passed') is not True
+                    or digest(artifacts.file_hashes(files)) != preview['snapshot_sha256']
+                    or runner_fingerprint() != preview['runner_sha256']
+                    or baseline.get('image') != item.test_image):
+                raise ValueError('draft_baseline_evidence_changed')
         if set(item.case.editable_files + item.case.protected_test_files) - files.keys():
             raise ValueError('declared_file_missing')
         require_image(item.test_image)
@@ -124,7 +132,8 @@ def execute_validation(claim):
                  'protocol_probe_not_completed', 'protocol_probe_scope_violated',
                  'declared_trace_missing_or_invalid', 'repository_binding_mismatch',
                  'repository_commit_or_clean_state_mismatch', 'declared_file_missing',
-                 'registered_content_hash_mismatch', 'test_image_pytest_unavailable', 'Result identity mismatch'}
+                 'registered_content_hash_mismatch', 'test_image_pytest_unavailable', 'Result identity mismatch',
+                 'draft_baseline_evidence_changed'}
         report = dict(passed=False, reason=str(exc) if str(exc) in known else 'validation_failed',
                       error_type=type(exc).__name__)
     finally:

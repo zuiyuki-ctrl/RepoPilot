@@ -13,7 +13,8 @@
     "preview": "vite preview --host 127.0.0.1",
     "test:snapshots": "node --test scripts/build-snapshots.test.mjs scripts/run-detail.test.mjs scripts/build-comparison.test.mjs",
     "test:runs": "node --experimental-strip-types --test scripts/platform-runs.test.mjs",
-    "test:resources": "node --experimental-strip-types --test scripts/resources.test.mjs"
+    "test:resources": "node --experimental-strip-types --test scripts/resources.test.mjs",
+    "test:case-drafts": "node --experimental-strip-types --test scripts/case-drafts.test.mjs"
   },
   "dependencies": {
     "element-plus": "^2.11.0",

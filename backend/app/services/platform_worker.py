@@ -141,6 +141,13 @@ def run_worker(*, once=False, allow_model=False):
                     if claim:
                         logger.info('Experiment preparation %s token=%s',claim['id'],claim['token'])
                         execute_preparation(claim)
+                if not claim:
+                    from .case_draft_service import claim_draft
+                    from .case_draft_worker import execute_draft
+                    claim = claim_draft(allow_model=allow_model)
+                    if claim:
+                        logger.info('Case draft %s token=%s', claim['id'], claim['token'])
+                        execute_draft(claim, allow_model=allow_model)
                 if once:
                     return
                 if not claim:

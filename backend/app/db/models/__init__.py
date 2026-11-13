@@ -8,3 +8,4 @@ from .platform_run import PlatformRun, PlatformRunEvent, RunEvaluation, RunWork,
 from .platform_catalog import AgentVersion, BenchmarkVersion, CatalogValidation
 from .platform_experiment import PlatformExperiment, ExperimentMember, ExperimentReview
 from .model_gateway import RunModelGrant, ModelCall
+from .case_draft import CaseDraft

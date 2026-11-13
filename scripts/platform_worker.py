@@ -11,13 +11,14 @@ def main():
     parser.add_argument('--recover-run', type=UUID)
     parser.add_argument('--recover-validation', type=UUID)
     parser.add_argument('--recover-preparation', type=UUID)
+    parser.add_argument('--recover-case-draft', type=UUID)
     parser.add_argument('--token', type=UUID)
     parser.add_argument('--confirm-writers-stopped', action='store_true')
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO)
-    if sum(bool(x) for x in (args.recover_run,args.recover_validation,args.recover_preparation)) > 1:
+    if sum(bool(x) for x in (args.recover_run,args.recover_validation,args.recover_preparation,args.recover_case_draft)) > 1:
         parser.error('Choose one recovery target')
-    if args.recover_run or args.recover_validation or args.recover_preparation:
+    if args.recover_run or args.recover_validation or args.recover_preparation or args.recover_case_draft:
         if not args.token or not args.confirm_writers_stopped:
             parser.error('Recovery requires the exact step token and --confirm-writers-stopped')
         from sqlalchemy import text
@@ -27,7 +28,10 @@ def main():
             if not connection.scalar(text('SELECT pg_try_advisory_lock(:key)'), {'key': WORKER_LOCK}):
                 raise RuntimeError('Stop the existing worker before recovery')
             try:
-                if args.recover_preparation:
+                if args.recover_case_draft:
+                    from backend.app.services.case_draft_service import recover_draft
+                    recover_draft(args.recover_case_draft, args.token)
+                elif args.recover_preparation:
                     from backend.app.services.platform_experiment_service import recover_preparation
                     recover_preparation(args.recover_preparation,args.token)
                 elif args.recover_validation:
@@ -43,7 +47,7 @@ def main():
         parser.error('Recovery options require --recover-run')
     from backend.app.services.platform_worker import run_worker
     if args.allow_model:
-        print('Native planning and candidate stages may make paid model/embedding calls.')
+        print('Native stages and explicitly authorized Case drafts may make paid model/embedding calls.')
     else:
         print('Model stages disabled; preparation, decisions and cancellation only.')
     run_worker(once=args.once, allow_model=args.allow_model)

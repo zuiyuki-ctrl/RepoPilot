@@ -128,14 +128,8 @@ def collect_test(request, state, *, phase, snapshot, snapshot_hash):
             started_at=started, snapshot_hash=snapshot_hash))
     result, error = None, None
     try:
-        result = run_container(request.run_id, phase, image=manifest['image'],
-            argv=['python', '-I', '-c', PYTEST_BOOTSTRAP, '-q', '--noconftest',
-                  '-c', '/authority/pytest.ini', '--rootdir=/authority', '--import-mode=importlib',
-                  '-p', 'no:cacheprovider', '--junitxml=/test-results/junit.xml',
-                  '-o', 'junit_family=xunit2',
-                  *['/authority/' + p for p in manifest['case']['protected_test_files']]],
-            mounts=[(snapshot, '/workspace', True), (directory / 'authority', '/authority', True),
-                    (output, '/test-results', False)], workdir='/authority', timeout_seconds=120)
+        result = run_authority(request.run_id, phase, image=manifest['image'], snapshot=snapshot,
+            authority=directory / 'authority', output=output, tests=manifest['case']['protected_test_files'])
     except Exception as exc:
         error = type(exc).__name__
         raise
@@ -161,23 +155,57 @@ def collect_test(request, state, *, phase, snapshot, snapshot_hash):
         status='finished', exit_code=result['exit_code'], timed_out=result['timed_out'], test_report=report)
 
 
+def run_authority(owner_id, phase, *, image, snapshot, authority, output, tests):
+    """One fixed, isolated test command shared by Runs and draft preflight; no model argv."""
+    return run_container(owner_id, phase, image=image,
+        argv=['python', '-I', '-c', PYTEST_BOOTSTRAP, '-q', '--noconftest',
+              '-c', '/authority/pytest.ini', '--rootdir=/authority', '--import-mode=importlib',
+              '-p', 'no:cacheprovider', '--junitxml=/test-results/junit.xml',
+              '-o', 'junit_family=xunit2', *['/authority/' + p for p in tests]],
+        mounts=[(snapshot, '/workspace', True), (authority, '/authority', True),
+                (output, '/test-results', False)], workdir='/authority', timeout_seconds=120)
+
+
+def assess_baseline(report, *, exit_code, timed_out, rule, task_type, exact_failures=False):
+    """Shared baseline gate. Drafts additionally require the exact declared failing set."""
+    outcomes = test_outcomes(report)
+    required = {(t.classname, t.name) for t in rule.required_tests}
+    expected = {(t.classname, t.name) for t in rule.baseline_failure_tests}
+    observed = {k for k, v in (outcomes or {}).items() if v == 'failed'}
+    missing = required - (outcomes or {}).keys()
+    reason = 'baseline_matches'
+    if timed_out:
+        reason = 'baseline_timed_out'
+    elif outcomes is None:
+        reason = 'test_report_missing_or_invalid'
+    elif missing:
+        reason = 'required_tests_missing'
+    elif any(v not in ('passed', 'failed') for v in outcomes.values()):
+        reason = 'tests_errored_or_skipped'
+    elif task_type == 'bug_fix' and exit_code == 0:
+        reason = 'baseline_all_passed'
+    elif exit_code not in ((1,) if task_type == 'bug_fix' else (0, 1)):
+        reason = 'test_process_failed'
+    elif task_type == 'bug_fix' and (not expected or not expected <= observed
+                                   or (exact_failures and expected != observed)):
+        reason = 'baseline_failures_mismatch'
+    def items(keys):
+        return [dict(classname=c, name=n) for c, n in sorted(keys)]
+    return dict(passed=reason == 'baseline_matches', reason=reason, expected=items(expected),
+                observed=items(observed), missing=items(missing), unexpected=items(observed - expected),
+                not_failed=items(expected - observed))
+
+
 def prepare_baseline(request, state):
     from ..agent.adapters.base import StepResult
     directory, manifest, _ = checked_bundle(request, state)
     result = collect_test(request, state, phase='baseline', snapshot=directory / 'original',
                           snapshot_hash=request.initial_snapshot_hash)
-    outcomes = test_outcomes(result.test_report)
     rule = AcceptanceRule.model_validate(manifest['rule'])
-    required = {(t.classname, t.name) for t in rule.required_tests}
-    failed = {(t.classname, t.name) for t in rule.baseline_failure_tests}
-    valid = (not result.timed_out and outcomes is not None and required <= outcomes.keys()
-             and all(v in ('passed', 'failed') for v in outcomes.values()))
-    if request.task_type == 'bug_fix':
-        valid = valid and result.exit_code == 1 and bool(failed) and all(outcomes.get(k) == 'failed' for k in failed)
-    else:
-        valid = valid and result.exit_code in (0, 1)
+    check = assess_baseline(result.test_report, exit_code=result.exit_code, timed_out=result.timed_out,
+                            rule=rule, task_type=request.task_type)
     state = {**state, 'baseline_test': result.model_dump(mode='json')}
-    if not valid:
+    if not check['passed']:
         return StepResult(state=state, execution_status='failed')
     return StepResult(state=state, next_stage='prepare')
 
