@@ -27,6 +27,12 @@ def invoke(operation):
         raise HTTPException(503, 'Catalog storage unavailable; check database migrations') from exc
 
 
+@router.get('/worker-status')
+def worker_status():
+    from ...services.worker_status_service import get_worker_status
+    return invoke(get_worker_status)
+
+
 @router.post('/agents', response_model=CatalogRead)
 def register_agent(data: AgentRegistration):
     return invoke(lambda: service.register('agents', data))

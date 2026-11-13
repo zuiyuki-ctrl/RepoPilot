@@ -16,6 +16,7 @@ import 'element-plus/es/components/tab-pane/style/css'
 import { catalogRequest as request, catalogLabels as labels, canValidateCatalog, parseCatalogConfiguration, makeAgentConfiguration, type CatalogEntry as Entry, type CatalogRepository, type CatalogKind } from '../data/catalog'
 import '../resources.css'
 import BenchmarkDraftGenerator from '../components/BenchmarkDraftGenerator.vue'
+import { parseWorkerPresence, workerNotice, pendingValidationText, type WorkerPresence } from '../data/worker-status'
 const message = (error: unknown) => error instanceof Error ? error.message : String(error)
 const route = useRoute()
 const kind = computed<CatalogKind>(() => route.path.endsWith('/agents') ? 'agents' : 'benchmarks')
@@ -30,7 +31,22 @@ const keys = new Map<string, string>()
 const filtered = computed(() => entries.value.filter(entry => `${entry.name} ${entry.version} ${entry.id}`.toLowerCase().includes(search.value.trim().toLowerCase())))
 const detailOpen = computed({get:()=>!!selected.value,set:(value:boolean)=>{if(!value)selected.value=null}})
 let generation = 0
+const workerPresence = ref<WorkerPresence>('unknown')
+let workerRequest = 0, disposed = false, workerLoading = false
+async function refreshWorker() {
+  if (workerLoading || disposed) return
+  workerLoading = true
+  const current = ++workerRequest
+  try {
+    const data = await request<unknown>('worker-status')
+    if (!disposed && current === workerRequest) workerPresence.value = parseWorkerPresence(data)
+  } catch {
+    if (!disposed && current === workerRequest) workerPresence.value = 'unknown'
+  } finally { workerLoading = false }
+}
+const workerTimer = setInterval(() => { void refreshWorker() }, 5000)
 async function refresh() {
+  void refreshWorker()
   const current = ++generation, currentKind = kind.value
   busy.value = true; error.value = ''; connected.value = false; repositoryError.value = ''
   try {
@@ -92,11 +108,12 @@ async function validate(entry: Entry) {
 }
 function openEntry(entry: Entry) { selected.value = entry; detailTab.value = 'descriptor' }
 watch(kind,()=>{ entries.value=[];selected.value=null;json.value='';notice.value='';search.value='';creationOpen.value=false;repositories.value=[];void refresh() },{immediate:true})
-onUnmounted(()=>{generation++})
+onUnmounted(()=>{generation++;disposed=true;workerRequest++;clearInterval(workerTimer)})
 </script>
 <template>
   <div class="resource-page">
     <div class="ui-page-heading"><div><p class="ui-kicker">固定版本 · 当前数据库</p><h1>{{ title }}</h1><p class="ui-page-description">登记不可变配置，显式校验后再用于实验。</p></div><div class="resource-actions"><BenchmarkDraftGenerator v-if="kind==='benchmarks'" @confirmed="refresh" /><ElButton :disabled="busy" @click="refresh">刷新状态</ElButton><ElButton type="primary" :disabled="busy" @click="creationOpen=true">{{ kind==='agents' ? '登记新版本' : '导入新版本' }}</ElButton></div></div>
+    <section class="ui-card resource-guide" role="status"><h2>执行服务</h2><p>{{ workerNotice(workerPresence) }}</p><p class="resource-note">每 5 秒读取数据库连接标记，不是任务心跳。开发环境启动一次 scripts.platform_worker 后保持运行；部署环境由管理员作为常驻服务管理。</p></section>
     <p v-if="error && !creationOpen" role="alert" class="resource-alert">{{ error }}{{ entries.length && !connected ? ' · 列表保留上次读取；当前不可提交。' : '' }}</p>
     <p v-if="notice" role="status" class="resource-notice">{{ notice }}</p>
     <section class="ui-card resource-list"><div class="resource-toolbar"><div><h2>已登记版本</h2><p>{{ busy ? '正在处理' : connected ? '已读取当前数据库' : '连接未确认' }} · 最近 100 个版本</p></div><ElInput v-model="search" clearable aria-label="搜索版本名称或 ID" placeholder="搜索名称、版本或 ID" /></div>
@@ -122,6 +139,6 @@ onUnmounted(()=>{generation++})
       <label class="resource-config">完整配置<ElInput v-model="json" type="textarea" :rows="14" spellcheck="false" :disabled="busy" placeholder="粘贴或导入版本配置 JSON" /></label>
       <template #footer><ElButton :disabled="busy" @click="creationOpen=false">关闭</ElButton><ElButton type="primary" :disabled="busy || !connected || !json.trim()" :loading="busy" @click="register">保存不可变版本</ElButton></template>
     </ElDrawer>
-    <ElDrawer v-model="detailOpen" title="版本详情 · 数据库记录" size="min(740px, 100vw)" class="resource-drawer"><template v-if="selected"><h2>{{ selected.name }} / {{ selected.version }}</h2><p>{{ labels[selected.status] ?? selected.status }}</p><details><summary>完整 ID 与内容指纹</summary><p class="resource-id">ID：{{ selected.id }}</p><p class="resource-id">SHA256：{{ selected.content_sha256 }}</p></details><ElTabs v-model="detailTab"><ElTabPane label="已保存配置" name="descriptor"><pre class="resource-json">{{ JSON.stringify(selected.descriptor,null,2) }}</pre></ElTabPane><ElTabPane label="最近校验" name="validation"><p>声明与实际校验分别记录，校验通过不代表任务成功。</p><pre class="resource-json">{{ selected.validation ? JSON.stringify(selected.validation,null,2) : '未校验' }}</pre></ElTabPane></ElTabs><ElButton :disabled="!canValidateCatalog(selected,busy,connected)" @click="validate(selected)">显式校验此版本</ElButton></template></ElDrawer>
+    <ElDrawer v-model="detailOpen" title="版本详情 · 数据库记录" size="min(740px, 100vw)" class="resource-drawer"><template v-if="selected"><h2>{{ selected.name }} / {{ selected.version }}</h2><p>{{ labels[selected.status] ?? selected.status }}</p><details><summary>完整 ID 与内容指纹</summary><p class="resource-id">ID：{{ selected.id }}</p><p class="resource-id">SHA256：{{ selected.content_sha256 }}</p></details><ElTabs v-model="detailTab"><ElTabPane label="已保存配置" name="descriptor"><pre class="resource-json">{{ JSON.stringify(selected.descriptor,null,2) }}</pre></ElTabPane><ElTabPane label="最近校验" name="validation"><p>声明与实际校验分别记录，校验通过不代表任务成功。</p><pre class="resource-json">{{ selected.validation ? JSON.stringify(selected.validation,null,2) : pendingValidationText(selected.status) }}</pre></ElTabPane></ElTabs><ElButton :disabled="!canValidateCatalog(selected,busy,connected)" @click="validate(selected)">显式校验此版本</ElButton></template></ElDrawer>
   </div>
 </template>

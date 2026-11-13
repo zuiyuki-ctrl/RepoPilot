@@ -2,6 +2,16 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { canValidateCatalog, makeAgentConfiguration, parseCatalogConfiguration, catalogRequest } from '../src/data/catalog.ts'
 import { inspectSavedReport } from '../src/data/saved-report.ts'
+import { parseWorkerPresence, workerNotice, pendingValidationText } from '../src/data/worker-status.ts'
+test('worker 连接、离线与未知分开，不用连接标记保证任务推进',()=>{
+ assert.equal(parseWorkerPresence({basis:'database_advisory_lock',connection_present:true}),'present')
+ assert.equal(parseWorkerPresence({basis:'database_advisory_lock',connection_present:false}),'absent')
+ for(const data of [null,{}, {basis:'heartbeat',connection_present:true}, {basis:'database_advisory_lock',connection_present:'false'}])assert.throws(()=>parseWorkerPresence(data))
+ assert.match(workerNotice('present'),/不保证/)
+ assert.match(workerNotice('absent'),/等待 worker/)
+ assert.match(workerNotice('unknown'),/不能判断/)
+ assert.match(pendingValidationText('validating'),/校验已提交/)
+})
 const entry={status:'registered',validation:null}
 test('断连、忙碌、校验中与中断校验不可重跑',()=>{
  assert.equal(canValidateCatalog(entry,false,true),true)
